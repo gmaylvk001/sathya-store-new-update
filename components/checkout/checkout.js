@@ -8,6 +8,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { ga4BeginCheckout, ga4Purchase } from "@/utils/nextjs-event-tracking.js";
 import { useModal } from "@/context/ModalContext";
 import { isKarnatakaPincode } from "@/lib/regionHelper";
+import { buildOrderNumber } from "@/lib/orderNumber";
 import { useRegion } from "@/context/RegionContext";
 import useDetectLocation from "@/hooks/useDetectLocation";
 
@@ -1457,7 +1458,7 @@ export default function CheckoutPage() {
         } catch {}
       }
 
-      let order_number = 'ORD' + Date.now() + (isKarnataka ? '-UL' : '');
+      let order_number = buildOrderNumber(isKarnataka);
       let paymentId = '', paymentStatus = '', paymentMode = '';
 
       if (paymentMethod === 'Cash on Delivery') {
@@ -1566,7 +1567,7 @@ export default function CheckoutPage() {
           promotion_discount_applied: appliedCoupon ? (orderSummary.discount || 0) : 0,
 
           customer_comments: comments, payment_method: paymentMethod, payment_type: paymentMode,
-          order_status: paymentMethod === 'Cash on Delivery' || paymentMethod === 'pay_at_store' ? 'pending' : 'ordered',
+          order_status: paymentMethod === 'pay_at_store' ? 'pending' : 'ordered',
           delivery_type: formData.deliveryType === 'store' ? 'store_pickup' : 'home',
           pickup_store: formData.deliveryType === 'store' ? formData.selectedStore : null,
           pickup_type: formData.deliveryType === 'store' ? formData.selectedStore : null,

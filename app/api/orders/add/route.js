@@ -10,6 +10,7 @@ import Notification from "@/models/Notification.js";
 import { sendOrderData } from "@/lib/sendOrderData";
 import { sendOrderConfirmationSms } from "@/lib/orderConfirmSms";
 import { isKarnatakaPincode } from "@/lib/regionHelper";
+import { buildOrderNumber } from "@/lib/orderNumber";
 import { getAuthUserId } from "@/lib/authRequest";
 import {
   generateUniqueOrderNumber,
@@ -65,8 +66,10 @@ function toNumber(value, fallback = null) {
 }
 
 function makeOrderNumber(base, index) {
-  const raw = stringify(base) || `ORD${Date.now()}`;
+  const raw = stringify(base) || buildOrderNumber(false);
   if (index === 0) return raw;
+  const formatted = String(raw).match(/^(\d{8})_(OL|UL)_\d{6}$/i);
+  if (formatted) return buildOrderNumber(formatted[2].toUpperCase() === "UL");
   if (raw.endsWith("-UL")) {
     const root = raw.slice(0, -3);
     const prefixMatch = root.match(/^(ORD)/i);
@@ -274,6 +277,7 @@ export async function POST(req) {
     const isKarnatakaOrder =
       hasKarnatakaPin ||
       String(order_number || "").endsWith("-UL") ||
+      /_UL_/i.test(String(order_number || "")) ||
       body.order_owner === "unilet" ||
       body.region === "karnataka" ||
       isKarnatakaPincode(body.pincode) ||
@@ -294,7 +298,9 @@ export async function POST(req) {
     if (!isOfflineCheckout && payment_status === "payment_initialized") {
       mappedStatus = "Payment Initiated";
     }
-    if (isOfflineCheckout) {
+    if (isCod) {
+      mappedStatus = "ordered";
+    } else if (isPayAtStore) {
       mappedStatus = "pending";
     }
     // If Razorpay already verified, keep ordered/paid
@@ -315,7 +321,11 @@ export async function POST(req) {
       baseOrderNumber = await generateUniqueOrderNumber({
         isKarnataka: isKarnatakaOrder,
       });
-    } else if (isKarnatakaOrder && !baseOrderNumber.endsWith("-UL")) {
+    } else if (
+      isKarnatakaOrder &&
+      !baseOrderNumber.endsWith("-UL") &&
+      !/_UL_/i.test(baseOrderNumber)
+    ) {
       baseOrderNumber = `${baseOrderNumber}-UL`;
     }
     const detailsList = Array.isArray(order_details) ? order_details : [];
@@ -494,7 +504,10 @@ export async function POST(req) {
           // verify-payment sets paid first; this path is a sync fallback
           existing.payment_status = existing.payment_status;
           existing.order_status = existing.order_status;
-        } else if (isOfflineCheckout) {
+        } else if (isCod) {
+          existing.payment_status = "pending";
+          existing.order_status = "ordered";
+        } else if (isPayAtStore) {
           existing.payment_status = "pending";
           existing.order_status = "pending";
         } else {
