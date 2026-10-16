@@ -470,7 +470,7 @@ function YouMayLike({ relatedProducts = [], loading = false, brandMap = {} }) {
   const scrollByAmount = (dir) => {
     if (!scrollRef.current) return;
     const w = scrollRef.current.clientWidth || 300;
-    scrollRef.current.scrollBy({ left: dir * (w * 0.8), behavior: "smooth" });
+    scrollRef.current.scrollBy({ left: dir * w, behavior: "smooth" });
   };
 
   const handleProductClick = (product) => {
@@ -544,7 +544,7 @@ function YouMayLike({ relatedProducts = [], loading = false, brandMap = {} }) {
       {/* Product Skeleton / Scrollable Row */}
       {isActuallyLoading ? (
         <div
-          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory touch-pan-x"
+          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory scroll-smooth touch-pan-x"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
@@ -554,7 +554,7 @@ function YouMayLike({ relatedProducts = [], loading = false, brandMap = {} }) {
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
-              className="flex-[0_0_75%] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 bg-white rounded-2xl border border-gray-100 p-4 flex flex-col h-[380px] animate-pulse shadow-2xs"
+              className="flex-[0_0_calc((100%-8px)/2)] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 min-w-0 max-w-[calc((100%-8px)/2)] sm:max-w-none bg-white rounded-2xl border border-gray-100 p-2 sm:p-4 flex flex-col h-[340px] sm:h-[380px] animate-pulse shadow-2xs"
             >
               <div className="w-full h-[180px] sm:h-[200px] bg-gray-100/80 rounded-xl mb-4" />
               <div className="h-3 w-16 bg-gray-100 rounded mb-2" />
@@ -568,7 +568,7 @@ function YouMayLike({ relatedProducts = [], loading = false, brandMap = {} }) {
       ) : (
         <div
           ref={scrollRef}
-          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory touch-pan-x"
+          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory scroll-smooth touch-pan-x"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
@@ -578,7 +578,7 @@ function YouMayLike({ relatedProducts = [], loading = false, brandMap = {} }) {
           {displayProducts.map((product) => (
             <div
               key={product._id}
-              className="flex-[0_0_75%] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 snap-start"
+              className="flex-[0_0_calc((100%-8px)/2)] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 snap-start min-w-0 max-w-[calc((100%-8px)/2)] sm:max-w-none"
             >
               <ProductCard
                 product={normalizeProduct(product, brandMap)}
@@ -640,7 +640,7 @@ function RecentlyViewed({ brandMap = {} }) {
   const scrollByAmount = (dir) => {
     if (!scrollRef.current) return;
     const w = scrollRef.current.clientWidth || 300;
-    scrollRef.current.scrollBy({ left: dir * (w * 0.8), behavior: "smooth" });
+    scrollRef.current.scrollBy({ left: dir * w, behavior: "smooth" });
   };
 
   const handleClick = (product) => {
@@ -663,7 +663,7 @@ function RecentlyViewed({ brandMap = {} }) {
           Recently Viewed
         </h2>
         <div
-          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory touch-pan-x"
+          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory scroll-smooth touch-pan-x"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
@@ -673,7 +673,7 @@ function RecentlyViewed({ brandMap = {} }) {
           {[1, 2, 3, 4, 5].map((i) => (
             <div
               key={i}
-              className="flex-[0_0_75%] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 bg-white rounded-2xl border border-gray-100 p-4 flex flex-col h-[380px] animate-pulse shadow-2xs"
+              className="flex-[0_0_calc((100%-8px)/2)] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 min-w-0 max-w-[calc((100%-8px)/2)] sm:max-w-none bg-white rounded-2xl border border-gray-100 p-2 sm:p-4 flex flex-col h-[340px] sm:h-[380px] animate-pulse shadow-2xs"
             >
               <div className="w-full h-[180px] sm:h-[200px] bg-gray-100/80 rounded-xl mb-4" />
               <div className="h-3 w-16 bg-gray-100 rounded mb-2" />
@@ -748,7 +748,7 @@ function RecentlyViewed({ brandMap = {} }) {
         {/* Horizontal Scrollable Row */}
         <div
           ref={scrollRef}
-          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory touch-pan-x"
+          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory scroll-smooth touch-pan-x"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
@@ -758,7 +758,7 @@ function RecentlyViewed({ brandMap = {} }) {
           {recentProducts.map((product) => (
             <div
               key={product._id}
-              className="flex-[0_0_75%] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 snap-start"
+              className="flex-[0_0_calc((100%-8px)/2)] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 snap-start min-w-0 max-w-[calc((100%-8px)/2)] sm:max-w-none"
             >
               <ProductCard
                 product={normalizeProduct(product, brandMap)}
@@ -1050,7 +1050,6 @@ export default function WishlistPage() {
 
   return (
     <WishlistPageShell>
-      
 
       <WishlistBanner />
 
