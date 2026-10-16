@@ -248,18 +248,18 @@ const Footer = () => {
         }
         .footer-category-scroll {
           scrollbar-width: thin;
-          scrollbar-color: #52525b #27272a;
+          scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
         }
         .footer-category-scroll::-webkit-scrollbar {
-          width: 5px;
+          width: 4px;
         }
         .footer-category-scroll::-webkit-scrollbar-track {
-          background: #27272a;
-          border-radius: 4px;
+          background: transparent;
         }
         .footer-category-scroll::-webkit-scrollbar-thumb {
-          background: #52525b;
-          border-radius: 4px;
+          background: rgba(255, 255, 255, 0.22);
+          border-radius: 9999px;
+          transition: background 0.2s ease;
         }
         .footer-category-scroll::-webkit-scrollbar-thumb:hover {
           background: #ED1C24;
@@ -398,7 +398,7 @@ const Footer = () => {
                     openSections.categories ? "block" : "hidden"
                   } md:block pb-4 md:pb-0`}
                 >
-                  <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5 md:block md:space-y-2.5 md:max-h-[28rem] md:overflow-y-auto md:pr-2 md:footer-category-scroll">
+                  <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5 md:block md:space-y-2.5 md:max-h-[28rem] md:overflow-y-auto md:pr-2 footer-category-scroll">
                     {categoryColumnLinks.length === 0 ? (
                       <li className="text-sm text-gray-500">Loading…</li>
                     ) : (
