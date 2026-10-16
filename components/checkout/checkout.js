@@ -695,8 +695,9 @@ const AddressModalForm = ({
 export default function CheckoutPage() {
   const { openLiveDemoModal } = useModal();
   const { cartCount, updateCartCount } = useCart();
-  const { pincode: headerPincode, region: headerRegion, selectedRegion, setPincode } = useRegion();
+  const { pincode: headerPincode, region: headerRegion, selectedRegion, setPincode, isInitialized } = useRegion();
   const router = useRouter();
+  const headerPinOnLoad = useRef(undefined);
   const [stores, setStores] = useState([]);
   const [nearestStores, setNearestStores] = useState([]);
   const [selectedPickupStore, setSelectedPickupStore] = useState('');
@@ -732,6 +733,20 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [touched, setTouched] = useState({});
   const [shippingMethod, setShippingMethod] = useState('standard');
+  const [ownerAvailability, setOwnerAvailability] = useState({ loading: false, missing: [], failed: false });
+  const [removingProductId, setRemovingProductId] = useState(null);
+
+  useEffect(() => {
+    if (!isInitialized) return;
+    const pin = String(headerPincode || "").replace(/\D/g, "").trim();
+    if (headerPinOnLoad.current === undefined) {
+      headerPinOnLoad.current = pin;
+      return;
+    }
+    if (headerPinOnLoad.current !== pin) {
+      window.location.reload();
+    }
+  }, [isInitialized, headerPincode]);
 
   const [isDetectingCheckoutLoc, setIsDetectingCheckoutLoc] = useState(false);
   const [locationPromptData, setLocationPromptData] = useState(null);
@@ -857,22 +872,23 @@ export default function CheckoutPage() {
   const rawDeliveryPin = currentShipping?.pincode || formData.postCode || '';
   const normDeliveryPin = String(rawDeliveryPin).replace(/\D/g, '').trim();
   const normHeaderPin = String(headerPincode || '').replace(/\D/g, '').trim();
+  const isHeaderKarnataka = isKarnatakaPincode(normHeaderPin);
   const currentSt = currentShipping?.state || formData.state || '';
 
-  const isKarnatakaHeaderLocation = isKarnatakaPincode(normHeaderPin) || headerRegion === 'karnataka';
-  const pickupStores = isKarnatakaHeaderLocation
-    ? stores.filter((s) => String(s.store_owner || '').trim().toLowerCase() === 'unilet')
-    : stores;
+  const pickupStores = stores.filter((store) => {
+    const owner = String(store.store_owner || '').trim().toLowerCase();
+    return isHeaderKarnataka ? owner === 'unilet' : owner === 'sathya';
+  });
   const matchesSelectedStore = (s) => s.branch_code === formData.selectedStore || s._id === formData.selectedStore;
 
-  const selectedStoreObj = pickupStores.find(matchesSelectedStore) || stores.find(matchesSelectedStore);
+  const selectedStoreObj = pickupStores.find(matchesSelectedStore);
 
   useEffect(() => {
     if (!formData.selectedStore || !stores.length) return;
     if (!pickupStores.some(matchesSelectedStore)) {
       setFormData((prev) => ({ ...prev, selectedStore: '' }));
     }
-  }, [isKarnatakaHeaderLocation, formData.selectedStore, stores]);
+  }, [isHeaderKarnataka, formData.selectedStore, stores]);
 
   const isKarnatakaDelivery =
     isKarnatakaPincode(normDeliveryPin) ||
@@ -901,6 +917,67 @@ export default function CheckoutPage() {
       setIsDeliverySaved(false);
     }
   }, [hasPincodeMismatch, isDeliverySaved]);
+
+  const resolveCartProductId = (item) => {
+    const raw = item?.productId || item?.id || item?._id || item?.product_id || item?.item_code || "";
+    if (raw && typeof raw === "object") return String(raw._id || raw.id || "");
+    return String(raw || "");
+  };
+
+  useEffect(() => {
+    if (!isHeaderKarnataka || cartItems.length === 0) {
+      setOwnerAvailability({ loading: false, missing: [], failed: false });
+      return;
+    }
+
+    let cancelled = false;
+    setOwnerAvailability({ loading: true, missing: [], failed: false });
+
+    (async () => {
+      try {
+        const res = await fetch("/api/owner-product/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: cartItems.map((item) => ({
+              productId: resolveCartProductId(item),
+              item_code: item.item_code || item.itemCode || "",
+              name: item.name || item.product_name || "Product",
+            })),
+          }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok || !data.success) {
+          setOwnerAvailability({ loading: false, missing: [], failed: true });
+          return;
+        }
+        const missing = (data.items || []).filter((item) => !item.exists);
+        setOwnerAvailability({ loading: false, missing, failed: false });
+      } catch {
+        if (!cancelled) setOwnerAvailability({ loading: false, missing: [], failed: true });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isHeaderKarnataka, cartItems]);
+
+  const karnatakaOrderBlocked = isHeaderKarnataka && (
+    ownerAvailability.loading ||
+    ownerAvailability.failed ||
+    ownerAvailability.missing.length > 0
+  );
+
+  const isItemUnavailableInKarnataka = (item) => {
+    if (!isHeaderKarnataka) return false;
+    const productId = resolveCartProductId(item);
+    const name = item.name || item.product_name || "";
+    return ownerAvailability.missing.some(
+      (missing) => (productId && missing.productId === productId) || (name && missing.name === name)
+    );
+  };
 
   const fetchData = async (skipCartFetch = false) => {
     const token = localStorage.getItem('token');
@@ -1202,6 +1279,62 @@ export default function CheckoutPage() {
   const uniqueCities = [...new Set(stores.map(s => s.city))];
   const finalCities = [...new Set([...uniqueCities, ...extraCities])].sort();
 
+  const handleRemoveCartItem = async (item) => {
+    const productId = resolveCartProductId(item);
+    if (!productId || removingProductId) return;
+    setRemovingProductId(productId);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch("/api/cart", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ productId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data?.error || "Could not remove this item from the cart");
+        return;
+      }
+
+      const nextItems = cartItems.filter((row) => resolveCartProductId(row) !== productId);
+      const nextSubtotal = nextItems.reduce((sum, row) => {
+        const itemPrice = row.price > 0 ? row.price : row.actual_price || 0;
+        return sum + (itemPrice * (row.quantity || 1)) + (row.warranty || 0) + (row.extendedWarranty || 0);
+      }, 0);
+      const nextDiscount = nextItems.reduce((sum, row) => sum + (Number(row.discount) || 0), 0);
+      const nextSummary = {
+        discount: nextDiscount,
+        subtotal: nextSubtotal,
+        total: Math.max(0, nextSubtotal - nextDiscount),
+      };
+
+      setCartItems(nextItems);
+      setOrderSummary(nextSummary);
+      updateCartCount(nextItems.reduce((sum, row) => sum + (row.quantity || 1), 0));
+
+      try {
+        const stored = localStorage.getItem("checkoutData");
+        const parsed = stored ? JSON.parse(stored) : {};
+        localStorage.setItem("checkoutData", JSON.stringify({
+          ...parsed,
+          cart: { ...(parsed.cart || {}), items: nextItems },
+          discount: nextSummary.discount,
+          subtotal: nextSummary.subtotal,
+          total: nextSummary.total,
+        }));
+      } catch {}
+
+      toast.success(`${item.name || "Item"} removed from cart`);
+    } catch {
+      toast.error("Could not remove this item from the cart");
+    } finally {
+      setRemovingProductId(null);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e?.preventDefault();
 
@@ -1211,6 +1344,17 @@ export default function CheckoutPage() {
     try {
       const token = localStorage.getItem('token');
       if (!token) { setShowAuthModal(true); return; }
+      if (karnatakaOrderBlocked) {
+        const names = ownerAvailability.missing.map((item) => item.name).filter(Boolean);
+        toast.error(
+          ownerAvailability.loading
+            ? "Checking Karnataka availability. Please wait."
+            : names.length
+              ? `${names.join(", ")} ${names.length === 1 ? "is" : "are"} not available for Karnataka delivery. Remove ${names.length === 1 ? "it" : "them"} to continue.`
+              : "Unable to verify Karnataka availability. Please try again."
+        );
+        return;
+      }
       const decoded = jwtDecode(token);
       const userId = decoded.userId;
       const shippingAddress = savedAddresses.find(a => a._id === shippingAddressId);
@@ -1919,12 +2063,30 @@ export default function CheckoutPage() {
                     : (item.images?.[0] ? (item.images[0].startsWith("http") ? item.images[0] : `/uploads/products/${item.images[0]}`) : "/uploads/sathyalogo.webp");
 
                   const itemPrice = (item.price > 0 ? item.price : item.actual_price) * item.quantity;
+                  const productId = resolveCartProductId(item);
+                  const unavailableInKarnataka = isItemUnavailableInKarnataka(item);
+                  const isRemoving = removingProductId === productId;
 
                   return (
                     <div
-                      key={`oi-${item.productId}`}
-                      className="flex items-center gap-3.5 p-3 rounded-xl bg-white border border-gray-200/80 shadow-2xs hover:border-red-200/80 hover:shadow-xs transition-all duration-200 group"
+                      key={`oi-${productId || item.name}`}
+                      className={`relative flex items-center gap-3.5 p-3 rounded-xl bg-white border shadow-2xs transition-all duration-200 group ${
+                        unavailableInKarnataka ? "pr-8 border-red-300" : "border-gray-200/80 hover:border-red-200/80 hover:shadow-xs"
+                      }`}
                     >
+                      {unavailableInKarnataka && (
+                      <button
+                        type="button"
+                        aria-label={`Remove ${item.name || "item"} from cart`}
+                        disabled={isRemoving}
+                        onClick={() => handleRemoveCartItem(item)}
+                        className="absolute top-2 right-2 w-5 h-5 rounded-full border border-gray-200 text-gray-400 hover:text-white hover:bg-[#d72828] hover:border-[#d72828] flex items-center justify-center disabled:opacity-50"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                      )}
                       {/* Image Frame */}
                       <div className="relative w-16 h-16 flex-shrink-0 border border-gray-200/80 rounded-lg overflow-hidden bg-white p-1.5 flex items-center justify-center">
                         <img
@@ -1943,6 +2105,11 @@ export default function CheckoutPage() {
                         <h4 className="text-xs font-bold text-gray-900 line-clamp-2 leading-snug group-hover:text-[#d72828] transition-colors">
                           {item.name}
                         </h4>
+                        {unavailableInKarnataka && (
+                          <p className="mt-1 text-[10px] font-semibold text-red-600 leading-snug">
+                            Not available for Karnataka delivery. Remove this item to continue.
+                          </p>
+                        )}
 
                         {item.warrantyData && (
                           <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
@@ -2116,11 +2283,26 @@ export default function CheckoutPage() {
 
               {/* CTA button */}
               <div className="px-5 pb-5">
+                {isHeaderKarnataka && ownerAvailability.loading && (
+                  <p className="mb-2 text-xs text-gray-500 leading-relaxed">
+                    Checking whether each product is available for Karnataka delivery.
+                  </p>
+                )}
+                {isHeaderKarnataka && ownerAvailability.missing.length > 0 && (
+                  <p className="mb-2 text-xs text-red-600 leading-relaxed">
+                    Continue to payment is off because {ownerAvailability.missing.map((item) => item.name).join(", ")} {ownerAvailability.missing.length === 1 ? "is" : "are"} not available for Karnataka. Remove {ownerAvailability.missing.length === 1 ? "that item" : "those items"} with the cancel icon to continue.
+                  </p>
+                )}
+                {isHeaderKarnataka && ownerAvailability.failed && (
+                  <p className="mb-2 text-xs text-red-600 leading-relaxed">
+                    Could not verify Karnataka availability, so Continue to payment stays off. Refresh the page and try again.
+                  </p>
+                )}
                 <button
                   onClick={handleSubmit}
-                  disabled={isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || hasPincodeMismatch}
+                  disabled={isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || hasPincodeMismatch || karnatakaOrderBlocked}
                   className={`w-full h-12 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all
-                    ${isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || hasPincodeMismatch
+                    ${isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || hasPincodeMismatch || karnatakaOrderBlocked
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]'}`}
                 >
@@ -2195,21 +2377,28 @@ export default function CheckoutPage() {
       </div>
 
       {/* Mobile sticky CTA */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-30 flex items-center gap-3">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-30">
+        {isHeaderKarnataka && ownerAvailability.missing.length > 0 && (
+          <p className="mb-2 text-[11px] text-red-600 leading-snug">
+            Not available for Karnataka: {ownerAvailability.missing.map((item) => item.name).join(", ")}. Remove {ownerAvailability.missing.length === 1 ? "it" : "them"} to continue.
+          </p>
+        )}
+        <div className="flex items-center gap-3">
         <div className="flex-1">
           <p className="text-xs text-gray-500">Total payable</p>
           <p className="text-base font-bold text-gray-900">₹{finalTotal.toLocaleString('en-IN')}</p>
         </div>
         <button
           onClick={handleSubmit}
-          disabled={isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved}
+          disabled={isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || karnatakaOrderBlocked}
           className={`px-6 h-11 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all
-            ${isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved
+            ${isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || karnatakaOrderBlocked
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
               : 'bg-red-600 text-white hover:bg-red-700'}`}
         >
           {isSubmitting ? 'Processing…' : 'Place order →'}
         </button>
+        </div>
       </div>
 
       {/* Auth modal */}
