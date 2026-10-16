@@ -1,0 +1,78 @@
+import { NextResponse } from "next/server";
+import {
+  getLastVerifiedSlot,
+  getLastVerifiedSlotDetailed,
+  getNextSyncCountdown,
+  getCompetitorDeals,
+} from "@/lib/priceTrackerService";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Live Market Price Comparison API
+ * Route: GET /api/price-tracker?sku=[code]&price=[sathyaPrice]&title=[title]
+ */
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const productCode =
+      searchParams.get("product_code") ||
+      searchParams.get("item_code") ||
+      searchParams.get("sku") ||
+      "";
+    const modelNumber = searchParams.get("model_number") || "";
+    const rawPrice = searchParams.get("price") || "0";
+    const sathyaPrice = parseFloat(rawPrice) || 0;
+
+    const now = new Date();
+    const lastVerifiedSlot = getLastVerifiedSlot(now);
+    const slotDetails = getLastVerifiedSlotDetailed(now);
+    const countdown = getNextSyncCountdown(now);
+
+    if (sathyaPrice <= 0 || (!productCode && !modelNumber)) {
+      return NextResponse.json({
+        success: true,
+        product_code: productCode,
+        model_number: modelNumber,
+        sathyaPrice: Math.max(0, sathyaPrice),
+        lastVerifiedSlot,
+        lastVerifiedSlotFormatted: slotDetails.label,
+        nextSyncInSeconds: countdown,
+        deals: [],
+      });
+    }
+
+    const deals = await getCompetitorDeals({
+      product_code: productCode,
+      model_number: modelNumber,
+      sathyaPrice,
+      currentDate: now,
+    });
+
+    const maxAge = Math.min(3600, Math.max(60, countdown));
+
+    return NextResponse.json(
+      {
+        success: true,
+        product_code: productCode,
+        sathyaPrice,
+        lastVerifiedSlot,
+        lastVerifiedSlotFormatted: slotDetails.label,
+        nextSyncInSeconds: countdown,
+        deals: Array.isArray(deals) ? deals : [],
+      },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": `public, s-maxage=${maxAge}, stale-while-revalidate=300`,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error in /api/price-tracker:", error);
+    return NextResponse.json(
+      { success: false, error: "Internal Server Error", deals: [] },
+      { status: 500 }
+    );
+  }
+}

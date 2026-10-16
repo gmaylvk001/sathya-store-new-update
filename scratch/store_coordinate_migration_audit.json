@@ -1,0 +1,425 @@
+[
+  {
+    "storeId": "68bac057ef9969a73caa3ac1",
+    "name": "Bharath Electronics & Appliances – Corporate Office",
+    "zipcode": "641012",
+    "updatedAt": "2026-08-19T07:49:07.295Z",
+    "lat": 11.020152,
+    "lng": 76.960893,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac15cef9969a73caa3fa9",
+    "name": "Bharath Electronics & Appliances, Trichy Road - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "641018",
+    "updatedAt": "2026-08-19T07:49:07.483Z",
+    "lat": 10.9959224,
+    "lng": 76.9788308,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac19fef9969a73caa449a",
+    "name": "Bharath Electronics & Appliances, Singanallur - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "641005",
+    "updatedAt": "2026-08-19T07:49:07.670Z",
+    "lat": 11.0018516,
+    "lng": 77.0371477,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac1dbef9969a73caa463d",
+    "name": "Bharath Electronics & Appliances, Gounder mills - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC",
+    "zipcode": "641029",
+    "updatedAt": "2026-08-19T07:49:07.857Z",
+    "lat": 11.0576419,
+    "lng": 76.9451472,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac224ef9969a73caa47e1",
+    "name": "Samsung SmartPlaza, Coimbatore",
+    "zipcode": "641013",
+    "updatedAt": "2026-08-19T07:49:08.043Z",
+    "lat": 11.024201,
+    "lng": 76.935509,
+    "method": "google_query_param"
+  },
+  {
+    "storeId": "68bac3d0ef9969a73caa5028",
+    "name": "Bharath Electronics & Appliances, Vadavalli, Coimbatore",
+    "zipcode": "641041",
+    "updatedAt": "2026-08-19T07:49:08.230Z",
+    "lat": 11.0267,
+    "lng": 76.9022,
+    "method": "branch_pincode_geocoding"
+  },
+  {
+    "storeId": "68bac464ef9969a73caa51cc",
+    "name": "Bharath Electronics & Appliances, Annur - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "641653",
+    "updatedAt": "2026-08-19T07:49:08.425Z",
+    "lat": 11.2321401,
+    "lng": 77.1109297,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac583ef9969a73caa59f6",
+    "name": "Bharath Electronics & Appliances, Komarapalyam - Electronics Store - Buy Latest Mobile, LED TV, Ref, Washing Machine, AC etc",
+    "zipcode": "638183",
+    "updatedAt": "2026-08-19T07:49:08.619Z",
+    "lat": 11.4426836,
+    "lng": 77.7042648,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac651ef9969a73caa6742",
+    "name": "Bharath Electronics & Appliances, Meyyanur Road, Salem - Electronics Store - Buy Latest Mobiles, LED TV, Ref, WM, AC etc.",
+    "zipcode": "636004",
+    "updatedAt": "2026-08-19T07:49:08.811Z",
+    "lat": 11.665176,
+    "lng": 78.131874,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac703ef9969a73caa6ee0",
+    "name": "Bharath Electronics & Appliances, Anna park, Salem - Electronics Store - Buy Latest LED TV, Ref, Washing Machine, AC etc",
+    "zipcode": "636009",
+    "updatedAt": "2026-08-19T07:49:09.029Z",
+    "lat": 11.6601304,
+    "lng": 78.1506798,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac754ef9969a73caa7083",
+    "name": "Bharath Electronics & Appliances, Dadagapatti, Salem - Electronics Store - Buy Latest LED TV, Ref, Washing Machine, AC etc",
+    "zipcode": "636006",
+    "updatedAt": "2026-08-19T07:49:09.232Z",
+    "lat": 11.6371236,
+    "lng": 78.1513403,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac7beef9969a73caa722d",
+    "name": "Bharath Electronics & Appliances, Pollachi - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc",
+    "zipcode": "642002",
+    "updatedAt": "2026-08-19T07:49:09.438Z",
+    "lat": 10.6661092,
+    "lng": 77.0169181,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac80eef9969a73caa7662",
+    "name": "Bharath Electronics & Appliances, Kumar Nagar, Tirupur - Electronics Store - Buy Latest Mobiles, LED TV, Ref, AC, Dryers etc",
+    "zipcode": "641603",
+    "updatedAt": "2026-08-19T07:49:09.630Z",
+    "lat": 11.1183384,
+    "lng": 77.3333002,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac873ef9969a73caa780b",
+    "name": "Bharath Electronics & Appliances, Kangeyam Road, Tirupur -Electronics Store -Buy Latest Mobiles, LED TV, Ref, AC etc",
+    "zipcode": "641604",
+    "updatedAt": "2026-08-19T07:49:09.816Z",
+    "lat": 11.1013648,
+    "lng": 77.3736316,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac8b9ef9969a73caa79b3",
+    "name": "Bharath Electronics & Appliances, Evn Road, Erode - Electronics Store - Buy Latest LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "638001",
+    "updatedAt": "2026-08-19T07:49:10.002Z",
+    "lat": 11.3361493,
+    "lng": 77.7181338,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac8fcef9969a73caa7b59",
+    "name": "Bharath Electronics & Appliances, Perundurai Road, Erode",
+    "zipcode": "638011",
+    "updatedAt": "2026-08-19T07:49:10.185Z",
+    "lat": 11.333659,
+    "lng": 77.704037,
+    "method": "google_query_param"
+  },
+  {
+    "storeId": "68bac954ef9969a73caa7cfe",
+    "name": "Bharath Electronics & Appliances, Dharmapuri - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "636701",
+    "updatedAt": "2026-08-19T07:49:10.373Z",
+    "lat": 12.1188105,
+    "lng": 78.1569664,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bac9adef9969a73caa7ea2",
+    "name": "Bharath Electronics & Appliances, Namakkal - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "637001",
+    "updatedAt": "2026-08-19T07:49:10.555Z",
+    "lat": 11.2337113,
+    "lng": 78.1654548,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68baca26ef9969a73caa8048",
+    "name": "Bharath Electronics & Appliances, Tiruchengode - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc",
+    "zipcode": "637211",
+    "updatedAt": "2026-08-19T07:49:10.738Z",
+    "lat": 11.3728503,
+    "lng": 77.8920681,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bacb98ef9969a73caa86e7",
+    "name": "Bharath Electronics & Appliances, Dharapuram - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc",
+    "zipcode": "638657",
+    "updatedAt": "2026-08-19T07:49:10.925Z",
+    "lat": 10.7300179,
+    "lng": 77.5193502,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bacbf0ef9969a73caa888b",
+    "name": "Bharath Electronics & Appliances, Attur - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "636102",
+    "updatedAt": "2026-08-19T07:49:11.114Z",
+    "lat": 11.6010757,
+    "lng": 78.5899909,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bacc39ef9969a73caa8a31",
+    "name": "Bharath Electronics & Appliances, Kallakurichi - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc",
+    "zipcode": "606202",
+    "updatedAt": "2026-08-19T07:49:11.386Z",
+    "lat": 11.7373882,
+    "lng": 78.9710671,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68baccdcef9969a73caa8bd7",
+    "name": "Bharath Electronics & Appliances, Kattur, Tiruchirappalli",
+    "zipcode": "620019",
+    "updatedAt": "2026-08-19T07:49:11.583Z",
+    "lat": 10.796977,
+    "lng": 78.75626,
+    "method": "google_query_param"
+  },
+  {
+    "storeId": "68bacdf0ef9969a73caa942b",
+    "name": "Bharath Electronics & Appliances, Mettupalayam - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc",
+    "zipcode": "641301",
+    "updatedAt": "2026-08-19T07:49:11.770Z",
+    "lat": 11.290628,
+    "lng": 76.9410502,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bacee84033b1e8868020ac",
+    "name": "Bharath Electronics & Appliances, Sathyamangalam - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC",
+    "zipcode": "638402",
+    "updatedAt": "2026-08-19T07:49:12.002Z",
+    "lat": 11.4986906,
+    "lng": 77.2442952,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bacf4d4033b1e88680274e",
+    "name": "Bharath Electronics & Appliances, Krishnagiri - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "635002",
+    "updatedAt": "2026-08-19T07:49:12.192Z",
+    "lat": 12.5303088,
+    "lng": 78.2055055,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bacfcc4033b1e8868028f5",
+    "name": "Bharath Electronics & Appliances, Udumalaipettai",
+    "zipcode": "642126",
+    "updatedAt": "2026-08-19T07:49:12.376Z",
+    "lat": 11.29726,
+    "lng": 76.93954,
+    "method": "google_query_param"
+  },
+  {
+    "storeId": "68bad0434033b1e886802a9b",
+    "name": "Bharath Electronics & Appliances, Puliampatti - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "638459",
+    "updatedAt": "2026-08-19T07:49:12.563Z",
+    "lat": 11.348876,
+    "lng": 77.1662421,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "68bad0b44033b1e886802c45",
+    "name": "Bharath Electronics & Appliances - No 1 Toll Gate, Tiruchirapalli",
+    "zipcode": "621216",
+    "updatedAt": "2026-08-19T07:49:12.749Z",
+    "lat": 10.8043714,
+    "lng": 78.7351848,
+    "method": "google_place_pin_params"
+  },
+  {
+    "storeId": "68bad1234033b1e886802deb",
+    "name": "Bharath Electronics & Appliances, Avinashi - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "641654",
+    "updatedAt": "2026-08-19T07:49:12.936Z",
+    "lat": 11.1881517,
+    "lng": 77.2748223,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "698313265b061839b3f3b11c",
+    "name": "Bharath Electronics & Appliances",
+    "zipcode": "641012",
+    "updatedAt": "2026-08-19T07:49:13.132Z",
+    "lat": 11.0195623,
+    "lng": 76.962725,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "698315645b061839b3f43ea4",
+    "name": "Bharath Electronics & Appliances, Kuniyamuthur - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc",
+    "zipcode": "641008",
+    "updatedAt": "2026-08-19T07:49:13.338Z",
+    "lat": 10.9537297,
+    "lng": 76.9534414,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "698315d25b061839b3f44c32",
+    "name": "LG Best Shop, Coimbatore",
+    "zipcode": "641035",
+    "updatedAt": "2026-08-19T07:49:13.535Z",
+    "lat": 11.0544073,
+    "lng": 76.9948026,
+    "method": "google_place_pin_params"
+  },
+  {
+    "storeId": "698316265b061839b3f44c76",
+    "name": "LG Best Shop, Dharmapuri",
+    "zipcode": "636705",
+    "updatedAt": "2026-08-19T07:49:13.739Z",
+    "lat": 12.1188105,
+    "lng": 78.1569664,
+    "method": "google_place_pin_params"
+  },
+  {
+    "storeId": "698317455b061839b3f44cd3",
+    "name": "LG Best Shop, Erode",
+    "zipcode": "638011",
+    "updatedAt": "2026-08-19T07:49:13.927Z",
+    "lat": 11.3330801,
+    "lng": 77.704091,
+    "method": "google_place_pin_params"
+  },
+  {
+    "storeId": "6983178f5b061839b3f45173",
+    "name": "LG Best Shop, Salem",
+    "zipcode": "636004",
+    "updatedAt": "2026-08-19T07:49:14.115Z",
+    "lat": 11.6371236,
+    "lng": 78.1513403,
+    "method": "google_place_pin_params"
+  },
+  {
+    "storeId": "6983181d5b061839b3f451b3",
+    "name": "LG Best Shop, Gugai, Salem",
+    "zipcode": "636006",
+    "updatedAt": "2026-08-19T07:49:14.316Z",
+    "lat": 11.6445023,
+    "lng": 78.1546833,
+    "method": "google_dir_destination_params"
+  },
+  {
+    "storeId": "698319b55b061839b3f47a58",
+    "name": "Bharath Electronics & Appliances, Saravanampatti, Coimbatore",
+    "zipcode": "641035",
+    "updatedAt": "2026-08-19T07:49:14.504Z",
+    "lat": 11.054384,
+    "lng": 76.9950198,
+    "method": "google_dir_destination_params"
+  },
+  {
+    "storeId": "69831d6a5b061839b3f5236d",
+    "name": "Bharath Electronics & Appliances, Gobichettipalayam - Electronics Store - Buy Latest Mobile, LED TV, Ref, Washing Mac, AC etc",
+    "zipcode": "638476",
+    "updatedAt": "2026-08-19T07:49:14.688Z",
+    "lat": 11.453897,
+    "lng": 77.4477585,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "69831e425b061839b3f6dd78",
+    "name": "ELICA Whirlpool Studio - Sundarapuram, Coimbatore",
+    "zipcode": "641021",
+    "updatedAt": "2026-08-19T07:49:14.875Z",
+    "lat": 9.9221504,
+    "lng": 78.1254656,
+    "method": "google_viewport_center"
+  },
+  {
+    "storeId": "69831ea05b061839b3f8a2da",
+    "name": "Bharath Electronics & Appliances, Anthiyur - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "638501",
+    "updatedAt": "2026-08-19T07:49:15.173Z",
+    "lat": 11.5660619,
+    "lng": 77.5927111,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "69831fa25b061839b3f8e45c",
+    "name": "BOSCH Brand Store - Dharmapuri",
+    "zipcode": "636701",
+    "updatedAt": "2026-08-19T07:49:15.367Z",
+    "lat": 12.1319464,
+    "lng": 78.1593035,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "69831fa45b061839b3f8e469",
+    "name": "BOSCH Brand Store - Erode",
+    "zipcode": "638011",
+    "updatedAt": "2026-08-19T07:49:15.555Z",
+    "lat": 9.9221504,
+    "lng": 78.1254656,
+    "method": "google_viewport_center"
+  },
+  {
+    "storeId": "6983202d5b061839b3f8e6e7",
+    "name": "BOSCH Brand Store - Namakkal",
+    "zipcode": "637001",
+    "updatedAt": "2026-08-19T07:49:15.741Z",
+    "lat": 9.9221504,
+    "lng": 78.1254656,
+    "method": "google_viewport_center"
+  },
+  {
+    "storeId": "6983202f5b061839b3f8e6ed",
+    "name": "BOSCH Brand Store - Salem",
+    "zipcode": "636004",
+    "updatedAt": "2026-08-19T07:49:15.951Z",
+    "lat": 9.9931787,
+    "lng": 78.1540858,
+    "method": "google_dir_destination_params"
+  },
+  {
+    "storeId": "69b26f10c40bb404b916cc00",
+    "name": "Bharath Electronics & Appliances, Palladam - Electronics Store - Buy Latest Mobiles, LED TV, Ref, Washing Machine, AC etc.",
+    "zipcode": "641664",
+    "updatedAt": "2026-08-19T07:49:16.139Z",
+    "lat": 10.9953327,
+    "lng": 77.2898427,
+    "method": "plain_coord_string"
+  },
+  {
+    "storeId": "6a1a989c9d74d379e49474b6",
+    "name": "Bharath Electronics & Appliances, Vellakoil",
+    "zipcode": "638111",
+    "updatedAt": "2026-08-19T07:49:16.341Z",
+    "lat": 11.1098,
+    "lng": 77.7214,
+    "method": "branch_pincode_geocoding"
+  }
+]
