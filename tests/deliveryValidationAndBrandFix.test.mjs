@@ -10,6 +10,7 @@ import {
   calculateHaversineDistance,
   calculateDeliveryDays,
   formatDeliveryMessage,
+  resolveStoreCoordinates,
 } from "../lib/distanceCalculator.js";
 
 // ============================================================================
@@ -137,6 +138,15 @@ test("lookupPincode: Resolves known city pincodes accurately", async () => {
   assert.equal(bangaloreResult.region, "karnataka");
 });
 
+test("lookupPincode: Resolves Madurai pincode 625012 accurately", async () => {
+  const maduraiResult = await lookupPincode("625012");
+  assert.equal(maduraiResult.status, "success");
+  assert.equal(maduraiResult.isValid, true);
+  assert.equal(maduraiResult.region, "tamilnadu");
+  assert.ok(maduraiResult.latitude > 9 && maduraiResult.latitude < 11);
+  assert.ok(maduraiResult.longitude > 77 && maduraiResult.longitude < 79);
+});
+
 test("isKarnatakaPincode: Identifies Karnataka prefixes (56-59)", () => {
   assert.equal(isKarnatakaPincode("560001"), true);
   assert.equal(isKarnatakaPincode("590001"), true);
@@ -161,4 +171,83 @@ test("calculateDeliveryDays and formatDeliveryMessage: Produces accurate deliver
   const multiDays = calculateDeliveryDays(350, 100, 1);
   assert.equal(multiDays, 4);
   assert.equal(formatDeliveryMessage(multiDays, false), "Delivery in 4 Days");
+});
+
+// ============================================================================
+// STORE COORDINATES RESOLUTION (PRODUCTION DB FORMAT RESILIENCE)
+// ============================================================================
+
+test("resolveStoreCoordinates: Handles existing location_map objects", () => {
+  const store = {
+    name: "Coimbatore Store",
+    location_map: { lat: 11.0168, lng: 76.9558 },
+  };
+  const coords = resolveStoreCoordinates(store);
+  assert.deepEqual(coords, { lat: 11.0168, lng: 76.9558 });
+});
+
+test("resolveStoreCoordinates: Parses raw Google Maps coordinate strings in store.website (Production DB format)", () => {
+  // Production mongodb 'sathyamongodb' stores raw coords like: '11.020152,76.960893,855m'
+  const store = {
+    name: "Sathya Store Peelamedu",
+    website: "11.020152,76.960893,855m",
+  };
+  const coords = resolveStoreCoordinates(store);
+  assert.ok(coords !== null, "Should parse raw coordinates");
+  assert.ok(Math.abs(coords.lat - 11.020152) < 0.0001);
+  assert.ok(Math.abs(coords.lng - 76.960893) < 0.0001);
+});
+
+test("resolveStoreCoordinates: Parses Google Maps URLs containing @lat,lng or ?q=lat,lng", () => {
+  const storeWithAt = {
+    name: "Store Trichy",
+    website: "https://www.google.com/maps/place/Sathya/@10.7905,78.7047,15z/data=...",
+  };
+  const coordsAt = resolveStoreCoordinates(storeWithAt);
+  assert.ok(coordsAt !== null);
+  assert.ok(Math.abs(coordsAt.lat - 10.7905) < 0.001);
+  assert.ok(Math.abs(coordsAt.lng - 78.7047) < 0.001);
+
+  const storeWithQ = {
+    name: "Store Madurai",
+    website: "https://maps.google.com/?q=9.9252,78.1198",
+  };
+  const coordsQ = resolveStoreCoordinates(storeWithQ);
+  assert.ok(coordsQ !== null);
+  assert.ok(Math.abs(coordsQ.lat - 9.9252) < 0.001);
+  assert.ok(Math.abs(coordsQ.lng - 78.1198) < 0.001);
+});
+
+test("resolveStoreCoordinates: Falls back to pincode or city coordinates when website coordinate is missing", () => {
+  const storeWithPin = {
+    name: "Store with zip",
+    zip_code: "625001",
+  };
+  const coordsPin = resolveStoreCoordinates(storeWithPin);
+  assert.ok(coordsPin !== null, "Should resolve from zip_code");
+  assert.ok(coordsPin.lat > 9 && coordsPin.lat < 11);
+
+  const storeWithCity = {
+    name: "Store with city",
+    city: "Tirunelveli",
+  };
+  const coordsCity = resolveStoreCoordinates(storeWithCity);
+  assert.ok(coordsCity !== null, "Should resolve from city");
+  assert.ok(coordsCity.lat > 8 && coordsCity.lat < 9);
+});
+
+test("Delivery Serviceability: Madurai pincode 625012 within 3km qualifies for 1-day delivery and store pickup", () => {
+  const userLat = 9.8929;
+  const userLng = 78.1182;
+  const storeCoord = { lat: 9.9252, lng: 78.1198 }; // ~3.5 km away
+  const distance = calculateHaversineDistance(userLat, userLng, storeCoord.lat, storeCoord.lng);
+
+  assert.ok(distance < 5, `Expected distance < 5km, got ${distance}`);
+  const deliveryDays = calculateDeliveryDays(distance, 50, 1);
+  assert.equal(deliveryDays, 1);
+  assert.equal(formatDeliveryMessage(deliveryDays, false), "Delivery in One Day");
+
+  // Store pickup radius is 35km
+  const isPickupEligible = distance <= 35;
+  assert.equal(isPickupEligible, true, "Store pickup must be eligible within 35km");
 });

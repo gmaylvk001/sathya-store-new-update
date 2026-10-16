@@ -616,7 +616,6 @@ export default function TopBannerPage() {
                               🗑
                             </button>
                           </div>
-                        </div>
 
                         {/* Schedule / Timer Row */}
                         <div className="w-full pt-2.5 mt-2 border-t border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gray-50/70 p-2.5 rounded-lg">

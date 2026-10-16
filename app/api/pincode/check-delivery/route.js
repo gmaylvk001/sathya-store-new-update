@@ -8,6 +8,7 @@ import {
   calculateHaversineDistance,
   calculateDeliveryDays,
   formatDeliveryMessage,
+  resolveStoreCoordinates,
 } from "@/lib/distanceCalculator";
 import {
   isValidPincode,
@@ -71,8 +72,9 @@ export async function GET(req) {
     const exactMatch = stores.find((s) => s.zipcode === pincode);
     if (exactMatch) {
       isPincodeVerified = true;
-      targetLat = exactMatch.location_map?.lat || null;
-      targetLng = exactMatch.location_map?.lng || null;
+      const exactCoords = resolveStoreCoordinates(exactMatch);
+      targetLat = exactCoords?.lat ?? exactMatch.location_map?.lat ?? null;
+      targetLng = exactCoords?.lng ?? exactMatch.location_map?.lng ?? null;
       region = exactMatch.region || "tamilnadu";
       stateName = exactMatch.state || "Tamil Nadu";
     }
@@ -136,14 +138,15 @@ export async function GET(req) {
     if (stores.length > 0) {
       for (const store of stores) {
         let dist = 9999;
+        const storeCoords = resolveStoreCoordinates(store);
         if (store.zipcode === pincode) {
           dist = 0;
-        } else if (targetLat && targetLng && store.location_map?.lat && store.location_map?.lng) {
+        } else if (targetLat && targetLng && storeCoords?.lat && storeCoords?.lng) {
           dist = calculateHaversineDistance(
             targetLat,
             targetLng,
-            store.location_map.lat,
-            store.location_map.lng
+            storeCoords.lat,
+            storeCoords.lng
           );
         }
 
@@ -191,8 +194,20 @@ export async function GET(req) {
     let product = null;
     if (itemCode) {
       product = await Product.findOne({ item_code: itemCode, status: "Active" }).lean();
-    } else if (productId) {
-      product = await Product.findById(productId).lean();
+      if (!product) {
+        const cleanItemCode = itemCode.trim();
+        product = await Product.findOne({
+          item_code: new RegExp(`^${cleanItemCode.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
+          status: "Active",
+        }).lean();
+      }
+    }
+    if (!product && productId) {
+      try {
+        product = await Product.findById(productId).lean();
+      } catch {
+        // Ignore invalid object ID format
+      }
     }
 
     if (product) {

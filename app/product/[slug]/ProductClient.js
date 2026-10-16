@@ -199,7 +199,20 @@ export default function ProductClient() {
 
   const handleCheckDelivery = async (pin) => {
     const pinVal = (pin || deliveryPincode || globalPincode || "600001").toString().trim();
-    if (!pinVal || pinVal.length !== 6 || !/^\d{6}$/.test(pinVal)) return;
+    if (!pinVal || pinVal.length !== 6 || !/^\d{6}$/.test(pinVal)) {
+      setDeliveryInfo({
+        status: 0,
+        available: false,
+        serviceable: false,
+        deliveryAvailable: false,
+        isInvalidPincode: true,
+        message: "Please enter a valid 6-digit pincode",
+        deliveryMessage: "Please enter a valid 6-digit pincode",
+        pickupAvailable: false,
+        pickupMessage: "Not Available",
+      });
+      return;
+    }
 
     setDeliveryPincode(pinVal);
     const reqId = ++deliveryRequestIdRef.current;
@@ -210,6 +223,27 @@ export default function ProductClient() {
       const res = await fetch(
         `/api/pincode/check-delivery?pincode=${pinVal}&item_code=${product?.item_code || ""}&productId=${product?._id || ""}`
       );
+      if (!res.ok) {
+        let errData = null;
+        try {
+          errData = await res.json();
+        } catch {}
+        if (reqId === deliveryRequestIdRef.current) {
+          setDeliveryInfo({
+            status: 0,
+            available: false,
+            serviceable: false,
+            deliveryAvailable: false,
+            isError: true,
+            message: errData?.message || "Unable to check delivery right now",
+            deliveryMessage: errData?.message || "Unable to check delivery right now",
+            pickupAvailable: false,
+            pickupMessage: "Not Available",
+          });
+        }
+        return;
+      }
+
       const data = await res.json();
       if (reqId === deliveryRequestIdRef.current) {
         setDeliveryInfo(data);
@@ -222,8 +256,9 @@ export default function ProductClient() {
           available: false,
           serviceable: false,
           deliveryAvailable: false,
-          message: "Not Available for Delivery at Your Location",
-          deliveryMessage: "Not Available for Delivery at Your Location",
+          isError: true,
+          message: "Network error. Please try again.",
+          deliveryMessage: "Network error. Please try again.",
           pickupAvailable: false,
           pickupMessage: "Not Available",
         });
@@ -1213,12 +1248,12 @@ export default function ProductClient() {
         <div className="text-center mt-10">
           <p className="text-red-600 text-lg mb-3">{errorMessage}</p>
           {showGoHome && (
-            <a
+            <Link
               href="/"
               className="inline-block px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
             >
               Go to Home Page
-            </a>
+            </Link>
           )}
         </div>
       )}
@@ -2065,9 +2100,11 @@ export default function ProductClient() {
                       >
                         {isCheckingDelivery
                           ? "Checking..."
-                          : deliveryInfo?.pickupAvailable === false || deliveryInfo?.available === false
-                            ? (deliveryInfo?.pickupMessage || "Not Available")
-                            : "Reserve & Collect at Store"}
+                          : deliveryInfo?.isError
+                            ? "Unable to check"
+                            : deliveryInfo?.pickupAvailable === false || deliveryInfo?.available === false
+                              ? (deliveryInfo?.pickupMessage || "Not Available")
+                              : (deliveryInfo?.pickupMessage || "Reserve & Collect at Store")}
                       </span>
                     </div>
                   </div>
