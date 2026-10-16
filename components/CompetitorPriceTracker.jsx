@@ -22,7 +22,7 @@ const getLogoPath = (platformName) => {
  * CompetitorPriceTracker Component
  * Modern 2026 Live Market Price Comparison widget powered by ePrice Tracker™.
  * Defensively renders with zero CLS and graceful fallback.
- * Ultra-compressed single-line header layout optimized for above-the-fold desktop viewport alignment.
+ * Strictly displays verified competitor pricing for exact product matches only.
  */
 export default function CompetitorPriceTracker({ product, className = "" }) {
   const [trackerData, setTrackerData] = useState(null);
@@ -34,6 +34,7 @@ export default function CompetitorPriceTracker({ product, className = "" }) {
   );
   const productCode = product?.item_code || product?.product_code || product?.sku || "";
   const modelNumber = product?.model_number || "";
+  const ean = product?.ean || product?.barcode || "";
 
   useEffect(() => {
     try {
@@ -45,7 +46,8 @@ export default function CompetitorPriceTracker({ product, className = "" }) {
   }, []);
 
   useEffect(() => {
-    if (!product || (!productCode && !modelNumber) || sathyaPrice <= 0) {
+    if (!product || (!productCode && !modelNumber && !ean) || sathyaPrice <= 0) {
+      setTrackerData({ success: true, deals: [], unverified: true });
       setIsLoading(false);
       return;
     }
@@ -56,6 +58,7 @@ export default function CompetitorPriceTracker({ product, className = "" }) {
     const params = new URLSearchParams({
       product_code: productCode,
       model_number: modelNumber,
+      ean: ean,
       price: String(sathyaPrice),
     });
 
@@ -66,7 +69,7 @@ export default function CompetitorPriceTracker({ product, className = "" }) {
           if (data && data.success && Array.isArray(data.deals)) {
             setTrackerData(data);
           } else {
-            setTrackerData(null);
+            setTrackerData({ success: true, deals: [], unverified: true });
           }
           setIsLoading(false);
         }
@@ -74,7 +77,7 @@ export default function CompetitorPriceTracker({ product, className = "" }) {
       .catch((err) => {
         console.error("Failed to load live price tracker:", err);
         if (isMounted) {
-          setTrackerData(null);
+          setTrackerData({ success: true, deals: [], unverified: true });
           setIsLoading(false);
         }
       });
@@ -82,24 +85,76 @@ export default function CompetitorPriceTracker({ product, className = "" }) {
     return () => {
       isMounted = false;
     };
-  }, [product?._id, productCode, sathyaPrice]);
+  }, [product?._id, productCode, modelNumber, ean, sathyaPrice]);
 
   // Loading state: return null to prevent layout shifts/flashing
   if (isLoading) {
     return null;
   }
 
-  // Filter Amazon, Flipkart, and Croma deals
+  // Filter recognized deals (Amazon, Flipkart, Croma, Reliance Digital)
   const deals = (trackerData?.deals || [])
     .filter((deal) => {
       const plat = (deal?.platform || "").toLowerCase();
-      return plat === "amazon" || plat === "flipkart" || plat === "croma";
+      return (
+        plat === "amazon" ||
+        plat === "flipkart" ||
+        plat === "croma" ||
+        plat.includes("reliance")
+      );
     })
     .slice(0, 3);
 
-  // Conditional Visibility: If deals is empty, return null immediately (no fallback banners)
+  // If no verified competitor deals exist for this exact product:
   if (!trackerData || !Array.isArray(deals) || deals.length === 0) {
-    return null;
+    return (
+      <div
+        className={`bg-slate-50/70 border border-slate-200/80 rounded-2xl p-2.5 shadow-2xs backdrop-blur-xs relative overflow-hidden transition-all ${className}`}
+      >
+        <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/60">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <svg
+              className="w-3.5 h-3.5 text-slate-400 shrink-0"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+            </svg>
+            <span className="text-[11px] font-bold text-slate-700 tracking-tight leading-none">
+              Live Market Comparison
+            </span>
+          </div>
+          <span className="text-[9px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+            ePrice Tracker™
+          </span>
+        </div>
+
+        <div className="py-2.5 px-2 flex flex-col items-center justify-center text-center">
+          <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 mb-1.5">
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+              />
+            </svg>
+          </div>
+          <p className="text-[11px] font-bold text-slate-700 leading-snug">
+            Verified price comparison unavailable
+          </p>
+          <p className="text-[9.5px] text-slate-500 mt-0.5 leading-tight max-w-[260px]">
+            No verified competitor pricing found for this exact model.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const lastVerified = trackerData.lastVerifiedSlot || "2:30 PM";
@@ -146,12 +201,10 @@ export default function CompetitorPriceTracker({ product, className = "" }) {
         </span>
       </div>
 
-      {/* 3. Exactly 2 Ultra-Micro Competitor Cards (Amazon & Flipkart) */}
+      {/* 3. Verified Competitor Cards (Real verified pricing only) */}
       <div className="mt-1 space-y-1">
         {deals.map((deal, idx) => {
           const savings = deal.savingsVsSathya || 0;
-          const isCheaper = deal.isSathyaCheaper && savings > 0;
-          const isMatched = deal.isMatched || savings === 0;
           const logoSrc = getLogoPath(deal.platform);
 
           return (
@@ -202,20 +255,31 @@ export default function CompetitorPriceTracker({ product, className = "" }) {
                 </div>
               </div>
 
-              {/* Right: Competitor Price & Advantage Pill (Strictly isolated, flex-shrink-0) */}
+              {/* Right: Competitor Price & Advantage Pill */}
               <div className="flex flex-col items-end justify-center flex-shrink-0 text-right pl-2">
                 <span className="text-xs font-bold text-slate-800 whitespace-nowrap leading-none">
                   ₹{Number(deal.price).toLocaleString("en-IN")}
                 </span>
 
-                <span className="inline-flex items-center bg-emerald-50 text-emerald-700 border border-emerald-200/90 text-[8.5px] font-bold px-1.5 py-0.5 rounded-md mt-0.5 flex-shrink-0 whitespace-nowrap tracking-tight leading-none">
-                  Save ₹{Number(savings).toLocaleString("en-IN")} on SATHYA
-                </span>
+                {deal.isMatched || savings === 0 ? (
+                  <span className="inline-flex items-center bg-blue-50 text-blue-700 border border-blue-200/90 text-[8.5px] font-bold px-1.5 py-0.5 rounded-md mt-0.5 flex-shrink-0 whitespace-nowrap tracking-tight leading-none">
+                    Best Price Matched
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center bg-emerald-50 text-emerald-700 border border-emerald-200/90 text-[8.5px] font-bold px-1.5 py-0.5 rounded-md mt-0.5 flex-shrink-0 whitespace-nowrap tracking-tight leading-none">
+                    Save ₹{Number(savings).toLocaleString("en-IN")} on SATHYA
+                  </span>
+                )}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Footer Transparency Note */}
+      <p className="text-[8.5px] text-slate-400 text-center mt-2 leading-none">
+        ePrice Tracker™ Verified • Prices refreshed 3x daily (10:30 AM, 2:30 PM, 8:30 PM)
+      </p>
 
       {/* 4. Brand Primary View All Button */}
       <Link
