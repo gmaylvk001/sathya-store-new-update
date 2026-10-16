@@ -11,6 +11,13 @@ import { HiShoppingBag } from "react-icons/hi2";
 import { FaHeart } from "react-icons/fa6";
 import { AuthModal } from '@/components/AuthModal';
 
+const ORDER_TOAST_ID = "orders-toast";
+const orderToast = {
+  containerId: ORDER_TOAST_ID,
+  autoClose: false,
+  closeOnClick: false,
+};
+
 const getImageUrl = (img) => {
   if (!img) return null;
   const str = String(img).trim();
@@ -70,7 +77,7 @@ export default function Order() {
       setAllOrders(visible);
       setCurrentPage(1);
     } catch (error) {
-      toast.error("Failed to load orders data");
+      toast.error("Failed to load orders data", orderToast);
       console.error(error);
     } finally {
       setLoading(false);
@@ -115,11 +122,11 @@ export default function Order() {
       if (!response.ok) {
         throw new Error(data.error || data.message || "Failed to fetch orders");
       }
-      toast.success(data.message || "Orders fetched successfully");
+      toast.success(data.message || "Orders fetched successfully", orderToast);
       setLoading(true);
       await loadOrders();
     } catch (error) {
-      toast.error(error.message || "Failed to fetch orders");
+      toast.error(error.message || "Failed to fetch orders", orderToast);
       console.error(error);
     } finally {
       setFetchingOrders(false);
@@ -367,7 +374,12 @@ export default function Order() {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <ToastContainer position="top-right" autoClose={5000} />
+      <ToastContainer
+        containerId={ORDER_TOAST_ID}
+        position="top-right"
+        autoClose={false}
+        closeOnClick={false}
+      />
       
       
       {/* Mobile Header */}
