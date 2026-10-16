@@ -95,7 +95,7 @@ async function attachOrderHistory(order) {
 
 export async function GET(req, { params }) {
   try {
-    const auth = await requireAdmin(req, "orders");
+    const auth = await requireAdmin(req);
     if (!auth.authorized) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
@@ -130,7 +130,7 @@ export async function GET(req, { params }) {
 
 export async function PUT(req, { params }) {
   try {
-    const auth = await requireAdmin(req, "orders");
+    const auth = await requireAdmin(req);
     if (!auth.authorized) {
       return NextResponse.json(
         { success: false, message: auth.error },
@@ -181,7 +181,7 @@ function toSalesPersonValue(value) {
 
 export async function PATCH(req, { params }) {
   try {
-    const auth = await requireAdmin(req, "orders");
+    const auth = await requireAdmin(req);
     if (!auth.authorized) {
       return NextResponse.json(
         { success: false, message: auth.error },
