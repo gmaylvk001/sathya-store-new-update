@@ -7,7 +7,7 @@
 //   - mergeCompareLists:   client-side dedup helper for optimistic UI during sync
 //   - trackCompareAdd / trackCompareRemove / trackCompareView: GA4 analytics events
 
-import { ADD_CART_ALLOWED_MOVEMENTS } from '@/lib/addCartConfig';
+import { ADD_CART_ALLOWED_MOVEMENTS, isMovementAllowed } from '../lib/addCartConfig.js';
 
 // ─── Stock & Online Purchasing Availability (PDP Aligned) ────────────────────
 
@@ -30,8 +30,8 @@ export function checkProductAvailability(product) {
   }
 
   // Check movement against allowed cart movements (PDP rule)
-  const isMovementAllowed = ADD_CART_ALLOWED_MOVEMENTS.includes(movement);
-  if (!isMovementAllowed) {
+  const movementAllowed = isMovementAllowed(movement);
+  if (!movementAllowed) {
     return { inStock: false, canAddToCart: false, label: 'Sold Out Online' };
   }
 

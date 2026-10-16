@@ -42,7 +42,7 @@ import WarrantyBadge from "@/components/WarrantyBadge";
 import BestPriceStrip from "@/components/product/BestPriceStrip";
 import { getBestPrice } from "@/lib/offers/bestPriceUtils";
 import { isExtendedWarrantyEligible } from "@/lib/productServiceEligibility";
-import { ADD_CART_ALLOWED_MOVEMENTS } from "@/lib/addCartConfig";
+import { ADD_CART_ALLOWED_MOVEMENTS, isMovementAllowed as checkMovementAllowed } from "@/lib/addCartConfig";
 import { v4 as uuidv4 } from "uuid";
 import { getDiscountInfo } from "@/lib/discountHelper";
 
@@ -281,9 +281,7 @@ export default function ProductClient() {
   const addToCartOutlineClass =
     "w-full border border-gray-300 rounded-md bg-white px-4 py-2.5 text-sm font-medium text-[#d72828] hover:border-red-400 hover:bg-red-50 transition-colors shadow-none";
 
-  const isMovementAllowed = ADD_CART_ALLOWED_MOVEMENTS.includes(
-    String(product?.movement || "").trim()
-  );
+  const isMovementAllowed = checkMovementAllowed(product?.movement);
 
   const addOnIds = Array.isArray(product?.add_ons)
     ? product.add_ons.map(id => id.toString())
@@ -434,6 +432,8 @@ export default function ProductClient() {
       e.preventDefault();
       e.stopPropagation();
     }
+
+    if (!isInStock || !isMovementAllowed) return;
 
     // Only accept genuine plain exchangeOffer objects (no DOM elements or event wrappers)
     let exchangeOffer = null;
@@ -1396,23 +1396,35 @@ export default function ProductClient() {
             {/* Stock */}
             <div className="mt-2">
               {product.stock_status === "In Stock" && product.quantity > 0 ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
-                    <span className="flex items-center justify-center w-3 h-3 rounded-full bg-green-600 flex-shrink-0">
-                      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
+                isMovementAllowed ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
+                      <span className="flex items-center justify-center w-3 h-3 rounded-full bg-green-600 flex-shrink-0">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </span>
+                      In Stock ({product.quantity} units)
                     </span>
-                    In Stock ({product.quantity} units)
-                  </span>
 
-                  {isOpenBox && (
-                    <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 border border-amber-200 text-xs px-2.5 py-1 rounded-full font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                      <span>Clearance / Open Box Item - Direct Store/Phone Purchase Only</span>
+                    {isOpenBox && (
+                      <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-800 border border-amber-200 text-xs px-2.5 py-1 rounded-full font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <span>Clearance / Open Box Item - Direct Store/Phone Purchase Only</span>
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 border border-gray-300 px-3 py-1 rounded-full text-sm font-semibold">
+                      Sold Out Online
                     </span>
-                  )}
-                </div>
+                    <span className="inline-flex items-center gap-1.5 border border-emerald-500 text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full text-sm font-semibold">
+                      <FaStore className="w-3.5 h-3.5" />
+                      Available in Store ({product.quantity} units)
+                    </span>
+                  </div>
+                )
               ) : (
                 <span className="text-red-600 font-semibold text-sm">✗ Out of Stock</span>
               )}
@@ -1461,18 +1473,20 @@ export default function ProductClient() {
                 currentProductId={product._id}
                 onSelect={handleVariantSelect}
               />
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-sm font-medium text-gray-700">Quantity:</span>
-                <div className="flex items-center border border-gray-300 rounded px-2 py-1 gap-3">
-                  <button onClick={handleDecrease} className="text-gray-600 font-bold text-base">−</button>
-                  <span className="text-sm font-semibold w-5 text-center">{quantity}</span>
-                  <button onClick={handleIncrease} className="text-gray-600 font-bold text-base">+</button>
+              {isInStock && isMovementAllowed && !isOpenBox && (
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-sm font-medium text-gray-700">Quantity:</span>
+                  <div className="flex items-center border border-gray-300 rounded px-2 py-1 gap-3">
+                    <button onClick={handleDecrease} className="text-gray-600 font-bold text-base">−</button>
+                    <span className="text-sm font-semibold w-5 text-center">{quantity}</span>
+                    <button onClick={handleIncrease} className="text-gray-600 font-bold text-base">+</button>
+                  </div>
+                  {quantityWarning && <p className="text-red-500 text-xs">Max {product.quantity} only</p>}
                 </div>
-                {quantityWarning && <p className="text-red-500 text-xs">Max {product.quantity} only</p>}
-              </div>
+              )}
 
               {/* Live Price Summary above Mobile Actions if Warranty Selected */}
-              {isExtendedWarrantyEligible(product) && selectedWarrantyAmount > 0 && (
+              {isInStock && isMovementAllowed && isExtendedWarrantyEligible(product) && selectedWarrantyAmount > 0 && (
                 <div className="py-1.5 px-3 bg-emerald-50/70 border border-emerald-200/80 rounded-md mb-2.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-700 font-semibold">Total Price:</span>
@@ -1705,16 +1719,16 @@ export default function ProductClient() {
               <h3 className="font-bold text-xs text-gray-900 border-b border-gray-200 pb-2 mb-3 uppercase tracking-wide">Frequently Bought Together:</h3>
               <div className="space-y-3">
                 {featuredProducts.slice(0, 2).map((item, index) => (
-                  <div key={item._id || index} className={`flex items-start gap-2.5 pb-2.5 border-b border-gray-100 last:border-0 ${!isInStock ? 'opacity-60' : ''}`}>
+                  <div key={item._id || index} className={`flex items-start gap-2.5 pb-2.5 border-b border-gray-100 last:border-0 ${(!isInStock || !isMovementAllowed) ? 'opacity-60' : ''}`}>
                     <input
                       type="checkbox"
                       className="mt-1 accent-[#d72828] cursor-pointer w-4 h-4 disabled:cursor-not-allowed disabled:opacity-50"
-                      checked={!isInStock ? false : selectedFrequentProducts.some(p => p._id === item._id)}
+                      checked={(!isInStock || !isMovementAllowed) ? false : selectedFrequentProducts.some(p => p._id === item._id)}
                       onChange={() => {
-                        if (isInStock) toggleFrequentProduct(item);
+                        if (isInStock && isMovementAllowed) toggleFrequentProduct(item);
                       }}
-                      disabled={!isInStock}
-                      title={!isInStock ? "Main product is out of stock" : ""}
+                      disabled={!isInStock || !isMovementAllowed}
+                      title={!isInStock ? "Main product is out of stock" : !isMovementAllowed ? "Main product is sold out online" : ""}
                     />
                     <div className="flex items-start gap-2 flex-1 min-w-0">
                       <img
@@ -1939,9 +1953,20 @@ export default function ProductClient() {
                 {/* Stock Status & Product Code / SKU */}
                 <div className="flex items-center gap-2 text-xs flex-wrap">
                   {product.stock_status === "In Stock" && product.quantity > 0 ? (
-                    <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-semibold">
-                      ✓ In Stock ({product.quantity} units)
-                    </span>
+                    isMovementAllowed ? (
+                      <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-semibold">
+                        ✓ In Stock ({product.quantity} units)
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 border border-gray-300 px-2 py-0.5 rounded-full font-semibold">
+                          Sold Out Online
+                        </span>
+                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-300 px-2 py-0.5 rounded-full font-semibold">
+                          <FaStore className="w-3 h-3 text-emerald-600" /> Available in Store ({product.quantity} units)
+                        </span>
+                      </div>
+                    )
                   ) : (
                     <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-semibold">
                       ✗ Out of Stock
@@ -2137,16 +2162,16 @@ export default function ProductClient() {
                       </h3>
                       <div className="space-y-3">
                         {featuredProducts.slice(0, 2).map((item, index) => (
-                          <div key={item._id || index} className={`flex items-start gap-2.5 pb-2.5 border-b border-gray-100 last:border-0 ${!isInStock ? 'opacity-60' : ''}`}>
+                          <div key={item._id || index} className={`flex items-start gap-2.5 pb-2.5 border-b border-gray-100 last:border-0 ${(!isInStock || !isMovementAllowed) ? 'opacity-60' : ''}`}>
                             <input
                               type="checkbox"
                               className="mt-1 accent-[#d72828] cursor-pointer w-4 h-4 disabled:cursor-not-allowed disabled:opacity-50"
-                              checked={!isInStock ? false : selectedFrequentProducts.some(p => p._id === item._id)}
+                              checked={(!isInStock || !isMovementAllowed) ? false : selectedFrequentProducts.some(p => p._id === item._id)}
                               onChange={() => {
-                                if (isInStock) toggleFrequentProduct(item);
+                                if (isInStock && isMovementAllowed) toggleFrequentProduct(item);
                               }}
-                              disabled={!isInStock}
-                              title={!isInStock ? "Main product is out of stock" : ""}
+                              disabled={!isInStock || !isMovementAllowed}
+                              title={!isInStock ? "Main product is out of stock" : !isMovementAllowed ? "Main product is sold out online" : ""}
                             />
                             <div className="flex items-start gap-2 flex-1 min-w-0">
                               <img
@@ -2242,20 +2267,20 @@ export default function ProductClient() {
                         <span className="text-gray-700 font-semibold">Total Price:</span>
                         <span className="font-extrabold text-base text-[#d72828]">
                           ₹ {Number(
-                            ((product.special_price > 0 ? product.special_price : product.price) * (isInStock ? quantity : 1)) +
-                            (isInStock && isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0)
+                            ((product.special_price > 0 ? product.special_price : product.price) * (isInStock && isMovementAllowed ? quantity : 1)) +
+                            (isInStock && isMovementAllowed && isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0)
                           ).toLocaleString("en-IN")}
                         </span>
                       </div>
-                      {isInStock && isExtendedWarrantyEligible(product) && selectedWarrantyAmount > 0 && (
+                      {isInStock && isMovementAllowed && isExtendedWarrantyEligible(product) && selectedWarrantyAmount > 0 && (
                         <span className="block text-[11px] text-gray-500 font-normal mt-0.5">
                           Includes ₹{Number((product.special_price > 0 ? product.special_price : product.price) * quantity).toLocaleString("en-IN")} product + ₹{selectedWarrantyAmount.toLocaleString("en-IN")} warranty
                         </span>
                       )}
                     </div>
 
-                    {/* Quantity selector (visible for in-stock products only) */}
-                    {isInStock && (
+                    {/* Quantity selector (visible for online purchasable in-stock products only) */}
+                    {isInStock && isMovementAllowed && !isOpenBox && (
                       <div className="flex items-center justify-between text-xs bg-gray-50 border border-gray-200 rounded p-2 mb-1">
                         <span className="font-medium text-gray-700">Quantity:</span>
                         <div className="flex items-center border border-gray-300 bg-white rounded px-2 py-0.5 gap-3">

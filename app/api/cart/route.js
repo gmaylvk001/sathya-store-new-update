@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 import { normalizeRegion, isKarnatakaPincode } from "@/lib/regionHelper";
 import { resolveProductPrice } from "@/lib/priceResolver";
 import { isExtendedWarrantyEligible } from "@/lib/productServiceEligibility";
+import { isMovementAllowed } from "@/lib/addCartConfig";
 
 /** Extract token from Authorization header **/
 const extractToken = (req) => {
@@ -99,6 +100,20 @@ export async function POST(req) {
     const product = await Product.findById(productId);
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+
+    if (product.stock_status === "Out of Stock" || Number(product.quantity || 0) <= 0) {
+      return NextResponse.json(
+        { error: "This product is currently out of stock." },
+        { status: 400 }
+      );
+    }
+
+    if (!isMovementAllowed(product.movement)) {
+      return NextResponse.json(
+        { error: "This product is sold out online and only available for in-store purchase." },
+        { status: 400 }
+      );
     }
 
     const { userId, guestId: rawGuestId } = getCartIdentifier(req, body);

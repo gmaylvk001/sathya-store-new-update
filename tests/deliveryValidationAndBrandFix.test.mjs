@@ -247,7 +247,67 @@ test("Delivery Serviceability: Madurai pincode 625012 within 3km qualifies for 1
   assert.equal(deliveryDays, 1);
   assert.equal(formatDeliveryMessage(deliveryDays, false), "Delivery in One Day");
 
-  // Store pickup radius is 35km
+// Store pickup radius is 35km
   const isPickupEligible = distance <= 35;
   assert.equal(isPickupEligible, true, "Store pickup must be eligible within 35km");
 });
+
+// ============================================================================
+// STOCK STATUS & ONLINE PURCHASE ELIGIBILITY REGRESSION TESTS
+// ============================================================================
+
+test("isMovementAllowed: Whitelisted movements allow online purchasing", async () => {
+  const { isMovementAllowed } = await import("../lib/addCartConfig.js");
+  assert.equal(isMovementAllowed("FAST"), true, "FAST movement should be allowed online");
+  assert.equal(isMovementAllowed("fast"), true, "fast (lowercase) should be allowed online");
+  assert.equal(isMovementAllowed("FOCUS"), true, "FOCUS movement should be allowed online");
+  assert.equal(isMovementAllowed("SPL FOCUS"), true, "SPL FOCUS should be allowed online");
+  assert.equal(isMovementAllowed("Fast-CE"), true, "Fast-CE should be allowed online");
+  assert.equal(isMovementAllowed("CUS-Order"), true, "CUS-Order should be allowed online");
+  assert.equal(isMovementAllowed("Open-Box"), true, "Open-Box should be allowed online");
+});
+
+test("isMovementAllowed: Offline retail showroom movements (NON ROL, EOL, empty) are restricted from online cart", async () => {
+  const { isMovementAllowed } = await import("../lib/addCartConfig.js");
+  assert.equal(isMovementAllowed("NON ROL"), false, "NON ROL is retail showroom only");
+  assert.equal(isMovementAllowed("non rol"), false, "non rol (lowercase) should be rejected");
+  assert.equal(isMovementAllowed("EOL"), false, "EOL is offline store only");
+  assert.equal(isMovementAllowed(""), false, "Empty movement should be rejected");
+  assert.equal(isMovementAllowed(null), false, "Null movement should be rejected");
+  assert.equal(isMovementAllowed(undefined), false, "Undefined movement should be rejected");
+});
+
+test("checkProductAvailability: Unifies stock label and online cart eligibility", async () => {
+  const { checkProductAvailability } = await import("../utils/compareHelpers.js");
+
+  // Case 1: Online purchasable in-stock item (FAST)
+  const onlineInStock = checkProductAvailability({
+    stock_status: "In Stock",
+    quantity: 15,
+    movement: "FAST",
+  });
+  assert.equal(onlineInStock.inStock, true);
+  assert.equal(onlineInStock.canAddToCart, true);
+  assert.equal(onlineInStock.label, "In Stock (15 units)");
+
+  // Case 2: Store-only in-stock item (NON ROL, e.g. Silambu Silambu with 200 store units)
+  const storeOnlyItem = checkProductAvailability({
+    stock_status: "In Stock",
+    quantity: 200,
+    movement: "NON ROL",
+  });
+  assert.equal(storeOnlyItem.inStock, false, "Store-only item must not report online inStock");
+  assert.equal(storeOnlyItem.canAddToCart, false, "Store-only item must not allow add to cart");
+  assert.equal(storeOnlyItem.label, "Sold Out Online", "Label must match button state");
+
+  // Case 3: Completely out of stock item
+  const outOfStockItem = checkProductAvailability({
+    stock_status: "Out of Stock",
+    quantity: 0,
+    movement: "FAST",
+  });
+  assert.equal(outOfStockItem.inStock, false);
+  assert.equal(outOfStockItem.canAddToCart, false);
+  assert.equal(outOfStockItem.label, "Out of Stock");
+});
+

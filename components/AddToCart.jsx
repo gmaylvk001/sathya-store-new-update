@@ -12,7 +12,7 @@ import { useModal } from "@/context/ModalContext";
 import { ToastContainer, toast } from "react-toastify";
 import { useHeaderdetails } from "@/context/HeaderContext";
 import { trackAddToCart, ga4AddToCart } from "@/utils/nextjs-event-tracking";
-import { ADD_CART_ALLOWED_MOVEMENTS } from "@/lib/addCartConfig";
+import { ADD_CART_ALLOWED_MOVEMENTS, isMovementAllowed } from "@/lib/addCartConfig";
 import OpenBoxPopup from "@/components/OpenBoxPopup";
 
 import { v4 as uuidv4 } from "uuid";
@@ -59,8 +59,8 @@ const AddToCartButton = ({
         const data = await res.json();
         if (data?.products?.[0]) currentMovement = data.products[0].movement;
       } catch {}
-      if (!ADD_CART_ALLOWED_MOVEMENTS.includes(String(currentMovement || "").trim())) {
-        toast.error("Out of Stock");
+      if (!isMovementAllowed(currentMovement)) {
+        toast.error("Sold Out Online - Available in Store");
         return;
       }
     }
