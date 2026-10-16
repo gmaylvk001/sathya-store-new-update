@@ -227,7 +227,6 @@ export default function HomePageBuilder() {
     }
 
     const commonProps = (type, label) => ({
-      key: configInstanceId || `${type}-list`,
       pageId: page._id,
       instanceId: configInstanceId,
       setLabel: configInstanceId ? instanceLabels[configInstanceId] : null,
@@ -488,7 +487,13 @@ export default function HomePageBuilder() {
     const entry = formMap[configType];
     if (entry) {
       const { Form, label, extra = {} } = entry;
-      return <Form {...commonProps(configType, label)} {...extra} />;
+      return (
+        <Form
+          key={configInstanceId || `${configType}-list`}
+          {...commonProps(configType, label)}
+          {...extra}
+        />
+      );
     }
 
     return (

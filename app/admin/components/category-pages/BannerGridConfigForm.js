@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { buildProductSearchQuery } from "@/lib/categoryPageComponents/productSearchQuery";
+import ProductFilterPicker from "./ProductFilterPicker";
 import {
   CATEGORY_PAGE_IMAGE_ACCEPT,
   CATEGORY_PAGE_IMAGE_ACCEPT_HINT,
@@ -93,17 +94,11 @@ export default function BannerGridConfigForm({
   const [productName, setProductName] = useState("");
   const [seeAllLink, setSeeAllLink] = useState("");
   const [selected, setSelected] = useState([]);
-  const [query, setQuery] = useState("");
-  const [suggestions, setSuggestions] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [dropOpen, setDropOpen] = useState(false);
   const [loading, setLoading] = useState(!isListMode);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
   const referenceDims = useRef(null);
-  const searchTimer = useRef(null);
-  const productSearchRef = useRef(null);
 
   useEffect(() => {
     if (!instanceId) {
@@ -167,64 +162,12 @@ export default function BannerGridConfigForm({
     load();
   }, [instanceId]);
 
-  useEffect(() => {
-    const closeProducts = (event) => {
-      if (
-        productSearchRef.current &&
-        !productSearchRef.current.contains(event.target)
-      ) {
-        setDropOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", closeProducts);
-    return () => document.removeEventListener("mousedown", closeProducts);
-  }, []);
-
-  useEffect(() => {
-    if (!categoryId || !query.trim()) {
-      setSuggestions([]);
-      return undefined;
-    }
-
-    clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await fetch(
-          `${searchApiBase}?${buildProductSearchQuery({
-            categoryId,
-            ownerType,
-            brandId,
-            q: query.trim(),
-          })}`
-        );
-        const data = await res.json();
-        if (data.success) {
-          const selectedIds = new Set(
-            selected.map((product) => String(product._id))
-          );
-          setSuggestions(
-            (data.products || []).filter(
-              (product) => !selectedIds.has(String(product._id))
-            )
-          );
-          setDropOpen(true);
-        }
-      } catch {
-        setSuggestions([]);
-      } finally {
-        setSearching(false);
-      }
-    }, 280);
-
-    return () => clearTimeout(searchTimer.current);
-  }, [query, categoryId, selected, ownerType, brandId]);
-
   const addProduct = (product) => {
     setSelected((current) => [...current, product]);
-    setQuery("");
-    setSuggestions([]);
-    setDropOpen(false);
+  };
+
+  const addMultipleProducts = (list) => {
+    setSelected((current) => [...current, ...list]);
   };
 
   const removeProduct = (productId) => {
@@ -689,47 +632,19 @@ export default function BannerGridConfigForm({
           </p>
         </div>
 
-        <div ref={productSearchRef} className="relative">
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Add products (optional; minimum {MIN_PRODUCTS} when used)
           </label>
-          <input
-            type="text"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onFocus={() => suggestions.length && setDropOpen(true)}
-            placeholder="Search product name / code…"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            autoComplete="off"
+          <ProductFilterPicker
+            selected={selected}
+            onAddProduct={addProduct}
+            onAddMultipleProducts={addMultipleProducts}
+            defaultCategoryId={categoryId}
+            ownerType={ownerType}
+            brandId={brandId}
+            searchApiBase={searchApiBase}
           />
-          {searching && (
-            <p className="text-[11px] text-gray-400 mt-1">Searching…</p>
-          )}
-          {dropOpen && suggestions.length > 0 && (
-            <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-              {suggestions.map((product) => (
-                <li key={product._id}>
-                  <button
-                    type="button"
-                    onClick={() => addProduct(product)}
-                    className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                  >
-                    {productImageSrc(product) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={productImageSrc(product)}
-                        alt=""
-                        className="h-10 w-10 object-contain bg-gray-50 border rounded"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 bg-gray-100 rounded" />
-                    )}
-                    <span className="line-clamp-2">{product.name}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
         </div>
 
         <div>

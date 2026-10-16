@@ -8,6 +8,7 @@ import {
   CATEGORY_PAGE_IMAGE_ACCEPT_HINT,
   consumeAllowedCategoryPageImage,
 } from "@/lib/categoryPageComponents/registry";
+import ProductFilterPicker from "./ProductFilterPicker";
 
 function productImageSrc(product) {
   const img = product?.images?.[0];
@@ -217,9 +218,10 @@ export default function BannerSideProductsConfigForm({
 
   const addProduct = (p) => {
     setSelected((prev) => [...prev, p]);
-    setQuery("");
-    setSuggestions([]);
-    setDropOpen(false);
+  };
+
+  const addMultipleProducts = (list) => {
+    setSelected((prev) => [...prev, ...list]);
   };
 
   const removeProduct = (id) => {
@@ -534,47 +536,19 @@ export default function BannerSideProductsConfigForm({
         <span className="text-sm font-medium">Set Active</span>
       </div>
 
-      <div ref={wrapRef} className="relative">
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
           Add products (optional)
         </label>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => suggestions.length && setDropOpen(true)}
-          placeholder="Search product name / code…"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          autoComplete="off"
+        <ProductFilterPicker
+          selected={selected}
+          onAddProduct={addProduct}
+          onAddMultipleProducts={addMultipleProducts}
+          defaultCategoryId={categoryId}
+          ownerType={ownerType}
+          brandId={brandId}
+          searchApiBase={searchApiBase}
         />
-        {searching && (
-          <p className="text-[11px] text-gray-400 mt-1">Searching…</p>
-        )}
-        {dropOpen && suggestions.length > 0 && (
-          <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-            {suggestions.map((p) => (
-              <li key={p._id}>
-                <button
-                  type="button"
-                  onClick={() => addProduct(p)}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                >
-                  {productImageSrc(p) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={productImageSrc(p)}
-                      alt=""
-                      className="h-10 w-10 object-contain bg-gray-50 border rounded"
-                    />
-                  ) : (
-                    <div className="h-10 w-10 bg-gray-100 rounded" />
-                  )}
-                  <span className="line-clamp-2">{p.name}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
 
       <div>

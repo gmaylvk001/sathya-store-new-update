@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { buildProductSearchQuery } from "@/lib/categoryPageComponents/productSearchQuery";
+import ProductFilterPicker from "./ProductFilterPicker";
 import {
   CATEGORY_PAGE_IMAGE_ACCEPT,
   CATEGORY_PAGE_IMAGE_ACCEPT_HINT,
@@ -64,16 +65,10 @@ export default function BannerFourProductsConfigForm({
     Array.from({ length: MAX_TILE_COUNT }, emptyTile)
   );
   const [selected, setSelected] = useState([]);
-  const [query, setQuery] = useState("");
-  const [suggestions, setSuggestions] = useState([]);
-  const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(!isListMode);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
-  const [dropOpen, setDropOpen] = useState(false);
-  const searchTimer = useRef(null);
-  const wrapRef = useRef(null);
 
   useEffect(() => {
     if (!instanceId) {
@@ -142,50 +137,6 @@ export default function BannerFourProductsConfigForm({
     load();
   }, [instanceId]);
 
-  useEffect(() => {
-    const onDoc = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
-        setDropOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
-
-  useEffect(() => {
-    if (!categoryId || !query.trim()) {
-      setSuggestions([]);
-      return undefined;
-    }
-    clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const res = await fetch(
-          `${searchApiBase}?${buildProductSearchQuery({
-            categoryId,
-            ownerType,
-            brandId,
-            q: query.trim(),
-          })}`
-        );
-        const data = await res.json();
-        if (data.success) {
-          const selectedIds = new Set(selected.map((p) => String(p._id)));
-          setSuggestions(
-            (data.products || []).filter((p) => !selectedIds.has(String(p._id)))
-          );
-          setDropOpen(true);
-        }
-      } catch {
-        setSuggestions([]);
-      } finally {
-        setSearching(false);
-      }
-    }, 280);
-    return () => clearTimeout(searchTimer.current);
-  }, [query, categoryId, selected, ownerType, brandId]);
-
   const updateTile = (index, patch) => {
     setTiles((prev) =>
       prev.map((t, i) => (i === index ? { ...t, ...patch } : t))
@@ -202,9 +153,10 @@ export default function BannerFourProductsConfigForm({
 
   const addProduct = (p) => {
     setSelected((prev) => [...prev, p]);
-    setQuery("");
-    setSuggestions([]);
-    setDropOpen(false);
+  };
+
+  const addMultipleProducts = (list) => {
+    setSelected((prev) => [...prev, ...list]);
   };
 
   const removeProduct = (id) => {
@@ -688,47 +640,19 @@ export default function BannerFourProductsConfigForm({
         <span className="text-sm font-medium">Set Active</span>
       </div>
 
-      <div ref={wrapRef} className="relative">
+      <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Add related products (optional)
         </label>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => suggestions.length && setDropOpen(true)}
-          placeholder="Search product name / code…"
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          autoComplete="off"
+        <ProductFilterPicker
+          selected={selected}
+          onAddProduct={addProduct}
+          onAddMultipleProducts={addMultipleProducts}
+          defaultCategoryId={categoryId}
+          ownerType={ownerType}
+          brandId={brandId}
+          searchApiBase={searchApiBase}
         />
-        {searching && (
-          <p className="text-[11px] text-gray-400 mt-1">Searching…</p>
-        )}
-        {dropOpen && suggestions.length > 0 && (
-          <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-            {suggestions.map((p) => (
-              <li key={p._id}>
-                <button
-                  type="button"
-                  onClick={() => addProduct(p)}
-                  className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-gray-50"
-                >
-                  {productImageSrc(p) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={productImageSrc(p)}
-                      alt=""
-                      className="h-10 w-10 object-contain bg-gray-50 border rounded"
-                    />
-                  ) : (
-                    <div className="h-10 w-10 bg-gray-100 rounded" />
-                  )}
-                  <span className="line-clamp-2">{p.name}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
 
       <div>
