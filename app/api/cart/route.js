@@ -9,6 +9,9 @@ import { resolveProductPrice } from "@/lib/priceResolver";
 import { isExtendedWarrantyEligible } from "@/lib/productServiceEligibility";
 import { isMovementAllowed } from "@/lib/addCartConfig";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /** Extract token from Authorization header **/
 const extractToken = (req) => {
   const authHeader = req.headers.get("authorization");
@@ -102,14 +105,16 @@ export async function POST(req) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    if (product.stock_status === "Out of Stock" || Number(product.quantity || 0) <= 0) {
+    const prodQty = Number(product.quantity ?? product.stock ?? 0);
+    const prodStatus = String(product.stock_status || (prodQty > 0 ? "In Stock" : "")).trim();
+    if (prodStatus === "Out of Stock" || prodStatus === "outofstock" || prodQty <= 0) {
       return NextResponse.json(
         { error: "This product is currently out of stock." },
         { status: 400 }
       );
     }
 
-    if (!isMovementAllowed(product.movement)) {
+    if (prodQty < 10 && !isMovementAllowed(product.movement)) {
       return NextResponse.json(
         { error: "This product is sold out online and only available for in-store purchase." },
         { status: 400 }
@@ -254,7 +259,7 @@ export async function GET(req) {
     const query = userId ? { userId } : { guestId };
     const cart = await Cart.findOne(query).populate(
       "items.productId",
-      "name price images item_code quantity key_specifications"
+      "name price special_price images item_code quantity key_specifications stock_status movement slug"
     );
 
     if (!cart || !cart.items || cart.items.length === 0) {
@@ -264,12 +269,34 @@ export async function GET(req) {
       );
     }
 
+    // Determine user region for region-specific pricing (e.g., Unilet / Karnataka)
+    const cookieLoc = req.cookies.get("sathya_location")?.value;
+    let userRegion = "tamilnadu";
+    if (cookieLoc) {
+      try {
+        const parsed = JSON.parse(cookieLoc);
+        userRegion = normalizeRegion(parsed.region || parsed.state || parsed.stateName);
+      } catch {}
+    }
+
+    let cartModified = false;
+    const priceChanges = [];
+
     const items = await Promise.all(
       cart.items.map(async (item) => {
-        const prodDoc =
+        let prodDoc =
           item.productId && typeof item.productId === "object" && item.productId._id
             ? item.productId
             : null;
+
+        if (!prodDoc) {
+          if (item.productId) {
+            prodDoc = await Product.findById(item.productId).lean();
+          }
+          if (!prodDoc && (item.item_code || item.itemCode)) {
+            prodDoc = await Product.findOne({ item_code: item.item_code || item.itemCode }).lean();
+          }
+        }
 
         const prodId = prodDoc ? prodDoc._id.toString() : item.productId?.toString();
         const itemCode = prodDoc?.item_code || item.item_code || "";
@@ -279,36 +306,108 @@ export async function GET(req) {
           ? prodDoc.images[0]
           : item.image || "";
 
+        let liveSellingPrice = Number(item.price) || 0;
+        let liveActualPrice = Number(item.actual_price) || Number(prodDoc?.price) || liveSellingPrice;
+
+        if (prodDoc) {
+          let ownerProduct = null;
+          if (userRegion === "karnataka") {
+            ownerProduct = await OwnerProduct.findOne({
+              $or: [{ product_id: prodDoc._id }, { product_item_code: prodDoc.item_code }],
+              is_active: true,
+            }).lean();
+          }
+
+          const priceInfo = resolveProductPrice(prodDoc, ownerProduct, userRegion);
+          const resolvedSellingPrice = priceInfo.effectivePrice;
+          const resolvedActualPrice = priceInfo.price;
+
+          if (resolvedSellingPrice > 0) {
+            const oldPrice = Number(item.price) || 0;
+            if (oldPrice > 0 && oldPrice !== resolvedSellingPrice) {
+              priceChanges.push({
+                productId: prodId,
+                name: prodDoc.name || item.name,
+                oldPrice,
+                newPrice: resolvedSellingPrice,
+              });
+              item.price = resolvedSellingPrice;
+              cartModified = true;
+            } else if (item.price !== resolvedSellingPrice) {
+              item.price = resolvedSellingPrice;
+              cartModified = true;
+            }
+            liveSellingPrice = resolvedSellingPrice;
+          }
+
+          if (resolvedActualPrice > 0) {
+            if (Number(item.actual_price) !== resolvedActualPrice) {
+              item.actual_price = resolvedActualPrice;
+              cartModified = true;
+            }
+            liveActualPrice = resolvedActualPrice;
+          }
+        }
+
         return {
           original_quantity,
           item_code: itemCode,
           productId: prodId,
           name: prodDoc?.name || item.name,
-          price: item.price,
+          price: liveSellingPrice,
           image: prodImg,
           quantity: item.quantity,
           warranty: item.warranty || 0,
           extendedWarranty: item.extendedWarranty || 0,
           warrantyData: item.warrantyData || null,
-          actual_price: item.actual_price || prodDoc?.price || item.price,
+          actual_price: liveActualPrice,
           specs: prodDoc?.key_specifications?.slice(0, 3) || [],
+          slug: prodDoc?.slug || "",
         };
       })
     );
 
     const totals = calculateCartTotals(cart.items);
 
-    return NextResponse.json(
+    if (cartModified) {
+      cart.totalItems = totals.totalItems;
+      cart.totalPrice = totals.totalPrice;
+      cart.markModified("items");
+      cart.markModified("totalPrice");
+      cart.markModified("totalItems");
+      await cart.save();
+    }
+
+    const response = NextResponse.json(
       {
         cart: {
           id: cart._id,
           totalItems: totals.totalItems,
           totalPrice: totals.totalPrice,
           items,
+          priceChanges,
+          hasPriceChanges: priceChanges.length > 0,
         },
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          "Pragma": "no-cache",
+          "Expires": "0",
+        },
+      }
     );
+
+    if (!userId && guestId) {
+      response.cookies.set("guestCartId", guestId, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+        sameSite: "lax",
+      });
+    }
+
+    return response;
   } catch (error) {
     console.error("GET cart error:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch cart" }, { status: 500 });
@@ -332,7 +431,10 @@ export async function PUT(req) {
     }
 
     const query = userId ? { userId } : { guestId };
-    const cart = await Cart.findOne(query);
+    const cart = await Cart.findOne(query).populate(
+      "items.productId",
+      "name price special_price images item_code quantity key_specifications stock_status movement"
+    );
 
     if (!cart) {
       return NextResponse.json({ error: "Cart not found" }, { status: 404 });
@@ -354,14 +456,63 @@ export async function PUT(req) {
       return NextResponse.json({ error: "Product not in cart" }, { status: 404 });
     }
 
+    // Determine user region
+    const cookieLoc = req.cookies.get("sathya_location")?.value;
+    let userRegion = "tamilnadu";
+    if (cookieLoc) {
+      try {
+        const parsed = JSON.parse(cookieLoc);
+        userRegion = normalizeRegion(parsed.region || parsed.state || parsed.stateName);
+      } catch {}
+    } else if (body.region) {
+      userRegion = normalizeRegion(body.region);
+    }
+
+    // Re-sync latest catalog prices for items in the cart
+    await Promise.all(
+      cart.items.map(async (item) => {
+        let prodDoc =
+          item.productId && typeof item.productId === "object" && item.productId._id
+            ? item.productId
+            : null;
+        if (!prodDoc) {
+          if (item.productId) {
+            prodDoc = await Product.findById(item.productId).lean();
+          }
+          if (!prodDoc && (item.item_code || item.itemCode)) {
+            prodDoc = await Product.findOne({ item_code: item.item_code || item.itemCode }).lean();
+          }
+        }
+        if (prodDoc) {
+          let ownerProduct = null;
+          if (userRegion === "karnataka") {
+            ownerProduct = await OwnerProduct.findOne({
+              $or: [{ product_id: prodDoc._id }, { product_item_code: prodDoc.item_code }],
+              is_active: true,
+            }).lean();
+          }
+          const priceInfo = resolveProductPrice(prodDoc, ownerProduct, userRegion);
+          if (priceInfo.effectivePrice > 0) {
+            item.price = priceInfo.effectivePrice;
+          }
+          if (priceInfo.price > 0) {
+            item.actual_price = priceInfo.price;
+          }
+        }
+      })
+    );
+
     cart.items[itemIndex].quantity = quantity;
-    const item_code = cart.items[itemIndex].item_code;
+    const item_code = cart.items[itemIndex].item_code || cart.items[itemIndex].productId?.item_code;
     const original_quantity = await getQuantity(item_code);
     const totals = calculateCartTotals(cart.items);
     cart.totalItems = totals.totalItems;
     cart.totalPrice = totals.totalPrice;
     cart.items[itemIndex].original_quantity = original_quantity;
 
+    cart.markModified("items");
+    cart.markModified("totalPrice");
+    cart.markModified("totalItems");
     await cart.save();
 
     const items = cart.items.map((item) => {
@@ -376,6 +527,7 @@ export async function PUT(req) {
         productId: prodIdStr,
         name: item.name,
         price: item.price,
+        actual_price: item.actual_price || item.price,
         image: img,
         quantity: item.quantity,
         item_code: code,
@@ -392,7 +544,12 @@ export async function PUT(req) {
           items,
         },
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        },
+      }
     );
   } catch (error) {
     console.error("PUT cart error:", error);

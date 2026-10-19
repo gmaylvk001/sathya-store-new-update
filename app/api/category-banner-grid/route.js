@@ -45,7 +45,7 @@ export async function GET(req) {
     const found = ids.length
       ? await Product.find({ _id: { $in: ids }, status: "Active" })
           .select(
-            "name slug images price special_price model_number item_code stock_status quantity brand"
+            "name slug images price special_price model_number item_code stock_status quantity brand movement"
           )
           .lean()
       : [];

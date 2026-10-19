@@ -54,6 +54,8 @@ function buildCategoryPath(category, byId) {
   return `/category/${slugs[slugs.length - 2]}/${slugs[slugs.length - 1]}`;
 }
 
+export const revalidate = 86400;
+
 export async function GET() {
   try {
     const baseUrl = getSiteUrl();
@@ -86,14 +88,32 @@ export async function GET() {
       )
       .join("");
 
-    /* ---------------- CATEGORIES (main / sub / child) ---------------- */
-    const categories = await Category.find(
-      {
-        status: "Active",
-        category_slug: { $exists: true, $ne: "" },
-      },
-      { category_slug: 1, parentid: 1, updatedAt: 1 }
-    ).lean();
+    /* ---------------- PARALLEL FETCH CATEGORIES, PRODUCTS, BRANDS ---------------- */
+    const [categories, products, brands] = await Promise.all([
+      Category.find(
+        {
+          status: "Active",
+          category_slug: { $exists: true, $ne: "" },
+        },
+        { category_slug: 1, parentid: 1, updatedAt: 1 }
+      ).lean(),
+      Product.find(
+        {
+          status: "Active",
+          slug: { $exists: true, $ne: "" },
+        },
+        { slug: 1, updatedAt: 1, _id: 0 }
+      ).lean(),
+      Brand.find(
+        {
+          status: { $in: ["Active", "active", 1, "1"] },
+          brand_slug: { $exists: true, $ne: "" },
+        },
+        { brand_slug: 1, updatedAt: 1 }
+      )
+        .lean()
+        .catch(() => []),
+    ]);
 
     const byId = new Map(categories.map((c) => [c._id.toString(), c]));
 
@@ -111,15 +131,6 @@ export async function GET() {
       })
       .join("");
 
-    /* ---------------- PRODUCTS ---------------- */
-    const products = await Product.find(
-      {
-        status: "Active",
-        slug: { $exists: true, $ne: "" },
-      },
-      { slug: 1, updatedAt: 1 }
-    ).lean();
-
     const productUrls = products
       .map((p) =>
         urlEntry(`${baseUrl}/product/${p.slug}`, {
@@ -129,17 +140,6 @@ export async function GET() {
         })
       )
       .join("");
-
-    /* ---------------- BRANDS ---------------- */
-    const brands = await Brand.find(
-      {
-        status: { $in: ["Active", "active", 1, "1"] },
-        brand_slug: { $exists: true, $ne: "" },
-      },
-      { brand_slug: 1, updatedAt: 1 }
-    )
-      .lean()
-      .catch(() => []);
 
     const brandUrls = (brands || [])
       .map((b) =>

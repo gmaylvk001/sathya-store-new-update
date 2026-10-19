@@ -16,6 +16,14 @@ const cartItemSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  actual_price: {
+    type: Number,
+    default: 0
+  },
+  item_code: {
+    type: String,
+    default: ""
+  },
   name: {
     type: String,
     required: true
@@ -30,7 +38,7 @@ const cartItemSchema = new mongoose.Schema({
     name: { type: String, default: null },
     year: { type: Number, default: null },
     price: { type: Number, default: null },
-  
+
   },
   upsells: [
     {
@@ -103,10 +111,19 @@ const cartSchema = new mongoose.Schema({
 
 // Update totals before saving
 cartSchema.pre('save', function(next) {
-  this.totalItems = this.items.reduce((sum, item) => sum + item.quantity, 0);
-  this.totalPrice = this.items.reduce(
-    (sum, item) => sum + (item.price * item.quantity), 0
-  );
+  this.totalItems = this.items.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  this.totalPrice = this.items.reduce((sum, item) => {
+    const base = (item.price || 0) * (item.quantity || 1);
+    const warranty = Number(item.warranty || 0);
+    const extended = Number(
+      item.extendedWarranty ||
+      item.warrantyData?.amount ||
+      item.warrantyData?.price ||
+      0
+    );
+    const upsells = item.upsells?.reduce((uSum, u) => uSum + (u.price || 0), 0) || 0;
+    return sum + base + warranty + extended + upsells;
+  }, 0);
   this.updatedAt = Date.now();
   next();
 });

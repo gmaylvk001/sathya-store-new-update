@@ -281,7 +281,13 @@ export default function ProductClient() {
   const addToCartOutlineClass =
     "w-full border border-gray-300 rounded-md bg-white px-4 py-2.5 text-sm font-medium text-[#d72828] hover:border-red-400 hover:bg-red-50 transition-colors shadow-none";
 
-  const isMovementAllowed = checkMovementAllowed(product?.movement);
+  const productQty = Number(product?.quantity ?? product?.stock ?? 0);
+  const rawStockStatus = String(product?.stock_status || (productQty > 0 ? "In Stock" : "")).trim();
+  const isOutOfStockStatus = productQty <= 0 || rawStockStatus === "Out of Stock" || rawStockStatus === "outofstock";
+  const isInStock = !isOutOfStockStatus && productQty > 0;
+  const isOnlineAvailable = isInStock && productQty >= 10;
+  const isStoreOnly = isInStock && productQty > 0 && productQty < 10;
+  const isMovementAllowed = isOnlineAvailable;
 
   const addOnIds = Array.isArray(product?.add_ons)
     ? product.add_ons.map(id => id.toString())
@@ -1220,7 +1226,6 @@ export default function ProductClient() {
   }
 
   const isOpenBox = isOpenBoxEligible(product);
-  const isInStock = product?.stock_status === "In Stock" && Number(product?.quantity) > 0;
 
   const handleNotifyMe = (e) => {
     if (e && typeof e.preventDefault === "function") e.preventDefault();
@@ -1395,8 +1400,8 @@ export default function ProductClient() {
 
             {/* Stock */}
             <div className="mt-2">
-              {product.stock_status === "In Stock" && product.quantity > 0 ? (
-                isMovementAllowed ? (
+              {isInStock ? (
+                isOnlineAvailable ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1 rounded-full text-sm font-semibold">
                       <span className="flex items-center justify-center w-3 h-3 rounded-full bg-green-600 flex-shrink-0">
@@ -1404,7 +1409,7 @@ export default function ProductClient() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                         </svg>
                       </span>
-                      In Stock ({product.quantity} units)
+                      In Stock ({productQty} units)
                     </span>
 
                     {isOpenBox && (
@@ -1421,7 +1426,7 @@ export default function ProductClient() {
                     </span>
                     <span className="inline-flex items-center gap-1.5 border border-emerald-500 text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full text-sm font-semibold">
                       <FaStore className="w-3.5 h-3.5" />
-                      Available in Store ({product.quantity} units)
+                      Available in Store ({productQty} units)
                     </span>
                   </div>
                 )
@@ -1510,7 +1515,7 @@ export default function ProductClient() {
                       type="button"
                       onClick={handleNotifyMe}
                       disabled={notifyMeSuccess}
-                      className={`flex-1 font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider transition-all cursor-pointer ${
+                      className={`w-full font-bold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider transition-all cursor-pointer ${
                         notifyMeSuccess
                           ? "bg-emerald-600 text-white cursor-default"
                           : "bg-[#f59e0b] hover:bg-[#d97706] text-white shadow-sm active:scale-95"
@@ -1519,10 +1524,6 @@ export default function ProductClient() {
                       <FaBell className="w-3.5 h-3.5" />
                       {notifyMeSuccess ? "Notified ✓" : "Notify Me"}
                     </button>
-                    <div className="flex-1 border-2 border-emerald-500 text-emerald-700 bg-emerald-50 font-bold py-2 rounded-lg flex items-center justify-center gap-1.5 text-xs">
-                      <FaStore className="w-3.5 h-3.5 flex-shrink-0" />
-                      In Store
-                    </div>
                   </div>
                   <button
                     type="button"
@@ -1534,7 +1535,7 @@ export default function ProductClient() {
                   </button>
                 </div>
               )}
-              {product.stock_status === "In Stock" && product.quantity > 0 && !isMovementAllowed && (
+              {isInStock && isStoreOnly && (
                 <div className="flex gap-3">
                   <div className="flex-1 bg-gray-300 text-gray-600 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm cursor-not-allowed">
                     Sold Out Online
@@ -1545,7 +1546,7 @@ export default function ProductClient() {
                   </div>
                 </div>
               )}
-              {product.stock_status === "In Stock" && product.quantity > 0 && isMovementAllowed && (
+              {isInStock && isOnlineAvailable && (
                 <div className="flex gap-3">
                   {isOpenBox ? (
                     <a
@@ -1952,10 +1953,10 @@ export default function ProductClient() {
 
                 {/* Stock Status & Product Code / SKU */}
                 <div className="flex items-center gap-2 text-xs flex-wrap">
-                  {product.stock_status === "In Stock" && product.quantity > 0 ? (
-                    isMovementAllowed ? (
+                  {isInStock ? (
+                    isOnlineAvailable ? (
                       <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-semibold">
-                        ✓ In Stock ({product.quantity} units)
+                        ✓ In Stock ({productQty} units)
                       </span>
                     ) : (
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -1963,7 +1964,7 @@ export default function ProductClient() {
                           Sold Out Online
                         </span>
                         <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-300 px-2 py-0.5 rounded-full font-semibold">
-                          <FaStore className="w-3 h-3 text-emerald-600" /> Available in Store ({product.quantity} units)
+                          <FaStore className="w-3 h-3 text-emerald-600" /> Available in Store ({productQty} units)
                         </span>
                       </div>
                     )
@@ -2292,7 +2293,7 @@ export default function ProductClient() {
                     )}
 
                     {isInStock ? (
-                      !isMovementAllowed ? (
+                      isStoreOnly ? (
                         <>
                           <div className="w-full bg-gray-300 text-gray-600 font-extrabold py-3 rounded-lg flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-not-allowed">
                             Sold Out Online
@@ -2367,12 +2368,6 @@ export default function ProductClient() {
                           <FaBell className="w-3.5 h-3.5" />
                           {notifyMeSuccess ? "Notification Registered ✓" : "Notify Me When Available"}
                         </button>
-
-                        {/* 🏪 Available in Store Button */}
-                        <div className="w-full border-2 border-emerald-500 text-emerald-700 bg-emerald-50 font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 text-xs uppercase tracking-wide">
-                          <FaStore className="w-4 h-4 flex-shrink-0" />
-                          Available in Store
-                        </div>
 
                         {/* View Similar Products Smooth Scroll Button */}
                         <button

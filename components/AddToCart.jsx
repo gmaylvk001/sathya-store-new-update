@@ -38,18 +38,18 @@ const AddToCartButton = ({
   const [isLoading, setIsLoading] = useState(false);
   // const [showAuthModal, setShowAuthModal] = useState(false);
   // const [authError, setAuthError] = useState('');
-  const [cartSuccess, setCartSuccess] = useState(false);
-  const isOutOfStock = stockQuantity <= 0;
+  const qty = Number(stockQuantity ?? 0);
+  const isOutOfStock = qty <= 0;
   const isOpenBox =
     !checkMovement &&
-    (movement === "FOCUS" || movement === "EOL") && stockQuantity < 10;
+    (movement === "FOCUS" || movement === "EOL") && qty < 10;
   const [showOpenBoxPopup, setShowOpenBoxPopup] = useState(false);
   // const isprice = special_price <= 0;
   const { cartCount, updateCartCount } = useCart();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   const handleAddToCart = async () => {
     if (isOutOfStock) return;
-    if (checkMovement) {
+    if (checkMovement && qty < 10) {
       let currentMovement = movement;
       try {
         const res = await fetch(

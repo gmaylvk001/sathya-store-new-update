@@ -13,6 +13,7 @@ import ProductCardTrustBadge from "@/components/product/ProductCardTrustBadge";
 import { getBestPriceData } from "@/lib/offers/bestPriceUtils";
 import { BankOffersModal } from "@/components/ProductOffersSection";
 import { getDiscountInfo } from "@/lib/discountHelper";
+import { isMovementAllowed as checkMovementAllowed } from "@/lib/addCartConfig";
 
 export default function StorefrontProductCard({
   product,
@@ -58,8 +59,18 @@ export default function StorefrontProductCard({
     }
   }
 
-  const inStock =
-    product.stock_status === "In Stock" && Number(product.quantity) > 0;
+  const rawQty = product?.quantity ?? product?.stock;
+  const rawStatus = String(product?.stock_status || "").trim();
+  const hasExplicitQty = rawQty !== undefined && rawQty !== null;
+  // Safe Fallback: If quantity was omitted from projection but product is flagged In Stock, treat as 10 units so it's not falsely marked Out of Stock.
+  const qty = hasExplicitQty
+    ? Number(rawQty)
+    : (rawStatus === "In Stock" || rawStatus === "instock" ? 10 : 0);
+  const isOutOfStock = qty <= 0 || rawStatus === "Out of Stock" || rawStatus === "outofstock";
+  const isInStock = !isOutOfStock && qty > 0;
+  const inStock = isInStock;
+  const isOnlineInStock = isInStock && qty >= 10;
+  const isStoreOnly = isInStock && qty > 0 && qty < 10;
 
   const ratingValue = Number(
     product.avgRating || product.rating || product.average_rating || 0
@@ -222,10 +233,31 @@ export default function StorefrontProductCard({
 
         {/* Stock Row */}
         <div className="flex items-center gap-1 mt-0.5 mb-1.5">
-          <span className={`inline-block w-1.5 h-1.5 rounded-full ${inStock ? "bg-emerald-500" : "bg-rose-500"}`} />
-          <span className={`text-[10px] sm:text-xs font-medium ${inStock ? "text-emerald-600" : "text-rose-600"}`}>
-            {inStock ? "In Stock" : "Out of Stock"}
-          </span>
+          {isStoreOnly ? (
+            <>
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0" />
+              <span className="text-[10px] sm:text-xs font-semibold text-amber-700">
+                Sold Out Online
+              </span>
+              <span className="text-[9px] sm:text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200/70 flex-shrink-0">
+                In Store
+              </span>
+            </>
+          ) : isOnlineInStock ? (
+            <>
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+              <span className="text-[10px] sm:text-xs font-medium text-emerald-600">
+                In Stock
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
+              <span className="text-[10px] sm:text-xs font-medium text-rose-600">
+                Out of Stock
+              </span>
+            </>
+          )}
         </div>
 
         <div
@@ -233,19 +265,36 @@ export default function StorefrontProductCard({
             compactMobile ? "pt-1.5 sm:pt-2 gap-1.5 sm:gap-2" : "pt-2 gap-2"
           } border-t border-gray-100 flex flex-col`}
         >
-          <ProductAddtoCart
-            productId={product._id}
-            stockQuantity={product.quantity}
-            special_price={product.special_price}
-            className={
-              compactMobile
-                ? "w-full text-xs font-bold !py-0 !mr-0 h-[32px] sm:h-auto min-h-[32px] rounded-xl transition-all shadow-2xs flex items-center justify-center whitespace-nowrap"
-                : "w-full text-xs font-bold py-1.5 rounded-xl transition-all shadow-2xs"
-            }
-            movement={product.movement}
-            productName={product.name}
-            productSlug={product.slug}
-          />
+          {isStoreOnly ? (
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              className={`w-full text-xs font-bold bg-gray-100 border border-gray-300 text-gray-500 cursor-not-allowed rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-none select-none ${
+                compactMobile
+                  ? "!py-0 !mr-0 h-[32px] sm:h-auto min-h-[32px] whitespace-nowrap"
+                  : "py-1.5 min-h-[32px]"
+              }`}
+              title="Sold Out Online - Available in Store"
+            >
+              <span>Sold Out Online</span>
+            </button>
+          ) : (
+            <ProductAddtoCart
+              productId={product._id}
+              stockQuantity={qty}
+              special_price={product.special_price}
+              className={
+                compactMobile
+                  ? "w-full text-xs font-bold !py-0 !mr-0 h-[32px] sm:h-auto min-h-[32px] rounded-xl transition-all shadow-2xs flex items-center justify-center whitespace-nowrap"
+                  : "w-full text-xs font-bold py-1.5 rounded-xl transition-all shadow-2xs"
+              }
+              movement={product.movement}
+              productName={product.name}
+              productSlug={product.slug}
+              checkMovement={true}
+            />
+          )}
 
           {bestPriceData ? (
             <BestPriceStrip 

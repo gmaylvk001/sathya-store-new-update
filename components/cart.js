@@ -211,7 +211,7 @@ function CompleteYourPurchase({ products, scrollRef, updateCartCount, isLoading 
         ref={scrollRef}
         className="flex flex-nowrap gap-4 overflow-x-auto overflow-y-hidden pb-2 pt-1 scrollbar-hide snap-x snap-mandatory"
       >
-        {products.map((product) => {
+        {products.map((product, pIdx) => {
           const price =
             product.special_price > 0 && product.special_price < product.price
               ? product.special_price
@@ -226,9 +226,13 @@ function CompleteYourPurchase({ products, scrollRef, updateCartCount, isLoading 
             product.model_number ||
             "";
 
+          const productKey = product._id
+            ? String(product._id)
+            : (product.item_code || product.slug || `addon-${pIdx}`);
+
           return (
             <div
-              key={product._id}
+              key={productKey}
               className="flex-shrink-0 w-[200px] sm:w-[220px] border border-gray-200 rounded-xs p-3.5 flex flex-col items-center gap-2.5 bg-white hover:shadow-xs transition-shadow snap-start"
             >
               {/* Image */}
@@ -340,7 +344,7 @@ export default function CartComponent() {
   const [error, setError] = useState(null);
   const { cartCount, updateCartCount } = useCart();
   const { updateWishlist } = useWishlist();
-  
+
   // Modal states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -349,7 +353,7 @@ export default function CartComponent() {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [updatingQuantityId, setUpdatingQuantityId] = useState(null);
-  
+
   // Coupon states
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -359,6 +363,7 @@ export default function CartComponent() {
 
   const [completeYourPurchase, setCompleteYourPurchase] = useState([]);
   const [addonsLoading, setAddonsLoading] = useState(false);
+  const [priceNotice, setPriceNotice] = useState(null);
   const completeScrollRef = useRef(null);
 
   // Restore initial cached cartData and completeYourPurchase safely on client mount (prevents hydration mismatch)
@@ -631,75 +636,106 @@ export default function CartComponent() {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  useEffect(() => {
-    const fetchCartData = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        let response = '';
-        
-        if(token)
-        {
-          response = await fetch('/api/cart', {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            },
-            method: "GET"
-          });
+  const fetchCartData = useCallback(async (opts = { silent: false }) => {
+    try {
+      if (!opts.silent) setLoading(true);
+      const token = typeof window !== "undefined" ? localStorage.getItem('token') : null;
+      let response = null;
+
+      if (token) {
+        response = await fetch('/api/cart', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          method: "GET",
+          cache: "no-store",
+        });
+      } else {
+        const guestCartId = typeof window !== "undefined" ? (localStorage.getItem("guestCartId") || uuidv4()) : null;
+        if (guestCartId && typeof window !== "undefined") {
+          localStorage.setItem("guestCartId", guestCartId);
         }
-        else
-        {
-          const guestCartId = localStorage.getItem("guestCartId") || uuidv4();
-          response = await fetch('/api/cart', {
-            headers: {
-              'guestCartId': guestCartId
-            },
-            method: "GET"
-          });
+        response = await fetch('/api/cart', {
+          headers: {
+            ...(guestCartId ? { 'guestCartId': guestCartId } : {})
+          },
+          method: "GET",
+          cache: "no-store",
+        });
+      }
+
+      if (!response.ok) {
+        const datares = await response.json().catch(() => ({}));
+        if (
+          datares.error === "Token has expired" ||
+          datares.error === "Invalid token" ||
+          datares.error === "Authorization token required"
+        ) {
+          localStorage.removeItem("token");
+          window.location.reload();
+          return;
         }
+      }
 
-        if (!response.ok) {
-          const datares = await response.json();
-          if (
-            datares.error === "Token has expired" ||
-            datares.error === "Invalid token" ||
-            datares.error === "Authorization token required"
-          ) {
-            localStorage.removeItem("token");
-            window.location.reload();
-            return;
-          }
-        }
+      const data = await response.json();
+      const rawItems = data?.cart?.items || [];
+      const itemsWithDiscount = rawItems.map(item => ({
+        ...item,
+        discount: 0
+      }));
 
-        const data = await response.json();
-        const itemsWithDiscount = data.cart.items.map(item => ({
-          ...item,
-          discount: 0
-        }));
+      // Persist and set state
+      const nextCart = { ...data.cart, items: itemsWithDiscount };
+      setCartData(nextCart);
+      saveCartState(nextCart);
 
-        // Persist and set state
-        const nextCart = { ...data.cart, items: itemsWithDiscount };
-        setCartData(nextCart);
-        saveCartState(nextCart);
+      // If price changes occurred, invalidate stale checkout data and notify user
+      if (data?.cart?.priceChanges && data.cart.priceChanges.length > 0) {
+        try {
+          localStorage.removeItem('checkoutData');
+        } catch {}
+        setPriceNotice(data.cart.priceChanges);
+      }
 
-        // Apply saved coupon if present and persist
-        const savedCoupon = localStorage.getItem('appliedCoupon');
-        if (savedCoupon) {
+      // Apply saved coupon if present and persist
+      const savedCoupon = typeof window !== "undefined" ? localStorage.getItem('appliedCoupon') : null;
+      if (savedCoupon) {
+        try {
           const coupon = JSON.parse(savedCoupon);
           setAppliedCoupon(coupon);
           const discountedItems = applyDiscountToItems(coupon, nextCart.items);
           const discountedCart = { ...nextCart, items: discountedItems };
           setCartData(discountedCart);
           saveCartState(discountedCart);
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
+        } catch {}
+      }
+    } catch (err) {
+      if (!opts.silent) setError(err.message);
+    } finally {
+      if (!opts.silent) setLoading(false);
+    }
+  }, []);
+
+  // Initial cart fetch on mount
+  useEffect(() => {
+    fetchCartData({ silent: false });
+  }, [fetchCartData]);
+
+  // Window focus & tab visibility change listener to auto-refresh latest prices
+  useEffect(() => {
+    const handleFocus = () => fetchCartData({ silent: true });
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        fetchCartData({ silent: true });
       }
     };
-
-    fetchCartData();
-  }, [router]);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [fetchCartData]);
 
   useEffect(() => {
     let isMounted = true;
@@ -762,7 +798,7 @@ export default function CartComponent() {
     };
   }, [cartData?.items]);
 
-  
+
   const applyDiscountToItems = (coupon, items) => {
     if (!coupon || !items) return items;
 
@@ -952,7 +988,7 @@ export default function CartComponent() {
       let response = '';
       const token = typeof window !== "undefined" ? localStorage.getItem('token') : null;
       const guestCartId = typeof window !== "undefined" ? (localStorage.getItem("guestCartId") || uuidv4()) : null;
-      
+
       const headers = {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` }),
@@ -1005,10 +1041,15 @@ let nextCartObj = { ...updatedCart.cart, items: finalItems };
       }
 
       // Re-fetch cart fresh from API to avoid stale data
-      const token3 = localStorage.getItem('token');
+      const token3 = typeof window !== "undefined" ? localStorage.getItem('token') : null;
+      const guestId3 = typeof window !== "undefined" ? localStorage.getItem("guestCartId") : null;
+      const freshHeaders = token3
+        ? { Authorization: `Bearer ${token3}` }
+        : (guestId3 ? { guestCartId: guestId3 } : {});
       const freshRes = await fetch('/api/cart', {
-        headers: { 'Authorization': `Bearer ${token3}` },
-        method: 'GET'
+        headers: freshHeaders,
+        method: 'GET',
+        cache: 'no-store',
       });
       if (freshRes.ok) {
         const freshData = await freshRes.json();
@@ -1040,25 +1081,25 @@ const validateCoupon = async () => {
     setCouponSuccess("");
     return;
   }
- 
+
   const code = couponCode.trim();
   if (!code) {
     setCouponError("Please enter a coupon code");
     setCouponSuccess("");
     return;
   }
- 
+
   setIsValidatingCoupon(true);
   setCouponError("");
   setCouponSuccess("");
- 
+
 
   let dbCouponValid = false;
- 
+
   try {
     const token = localStorage.getItem("token");
     const params = new URLSearchParams({ code });
- 
+
     const resp = await fetch(`/api/offers/offer-products?${params.toString()}`, {
       method: "GET",
       headers: {
@@ -1066,12 +1107,12 @@ const validateCoupon = async () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });
- 
+
     const data = await resp.json();
- 
+
     if (resp.ok && data?.coupon) {
       const normalized = normalizeOfferToCoupon(data.coupon);
- 
+
       // Active check
       const isActive = (normalized.status || "").toLowerCase() === "active";
       // Discount value check
@@ -1082,26 +1123,26 @@ const validateCoupon = async () => {
         !Array.isArray(normalized.offer_product) ||
         normalized.offer_product.length === 0 ||
         normalized.offer_product.some((id) => cartProductIds.includes(id));
- 
+
       if (isActive && hasDiscount && isApplicable) {
         // ✅ DB coupon valid — existing flow exactly same
         const itemsWithDiscount = applyDiscountToItems(normalized, cartData.items);
         const newCart = { ...cartData, items: itemsWithDiscount };
- 
+
         setAppliedCoupon(normalized);
         localStorage.setItem("appliedCoupon", JSON.stringify(normalized));
         setCartData(newCart);
         saveCartState(newCart);
- 
+
         setCouponSuccess(`${normalized.offer_code} is applied`);
         setCouponError("");
         dbCouponValid = true;
       }
     }
   } catch (_) {
-    
+
   }
- 
+
   if (dbCouponValid) {
     setIsValidatingCoupon(false);
     return;
@@ -1111,7 +1152,7 @@ const validateCoupon = async () => {
   setCouponSuccess("");
   setIsValidatingCoupon(false);
 };
- 
+
 
   const removeCoupon = () => {
     const newCart = {
@@ -1123,7 +1164,7 @@ const validateCoupon = async () => {
 
     setAppliedCoupon(null);
     localStorage.removeItem("appliedCoupon");
-    setCouponSuccess(""); 
+    setCouponSuccess("");
     setSuccessMessage("Coupon removed successfully");
     setCouponCode("");
     setShowSuccessModal(true);
@@ -1188,7 +1229,7 @@ updateWishlist(wishlistData.items, wishlistData.count);
     setErrorMessage('Failed to move to wishlist. Try again.');
     setShowErrorModal(true);
   }
-};   
+};
 const checkDelivery = (pincode) => {
   const pinStr = (pincode || "").toString().trim();
   const pin = parseInt(pinStr, 10);
@@ -1234,7 +1275,7 @@ const calculateSubtotal = () => {
 
   const calculateDiscount = () => {
     if (!appliedCoupon || !cartData) return 0;
-    
+
     return cartData.items.reduce((sum, item) => sum + (item.discount || 0), 0);
   };
 
@@ -1249,7 +1290,7 @@ const calculateSubtotal = () => {
   const calculateFinalTotal = () => calculateTotal();
 
   const proceedToCheckout = () => {
-  
+
   if (!cartData) return;
   console.log("DEBUG appliedCoupon at checkout click:", appliedCoupon);
 
@@ -1309,7 +1350,7 @@ const calculateSubtotal = () => {
   router.push('/checkout');
 
 };
- 
+
 
   useEffect(() => {
     // Fetch active offer codes from DB (fest_offer_status2 and fest_offer_status are "active")
@@ -1471,7 +1512,7 @@ const calculateSubtotal = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center p-6 bg-red-50 rounded-lg max-w-md mx-4">
           <p className="text-red-600 font-medium">{error}</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600"
           >
@@ -1521,7 +1562,7 @@ const calculateSubtotal = () => {
           </p>
 
           {/* Continue Shopping Button with Sathya Brand Red & Rounded-Full */}
-          <button 
+          <button
             onClick={() => router.push('/')}
             className="inline-flex items-center justify-center gap-2.5 bg-gradient-to-r from-[#d72828] to-[#ea3838] hover:from-[#c02020] hover:to-[#d72828] text-white text-sm sm:text-base font-bold px-8 py-3.5 rounded-full shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer group"
           >
@@ -1587,19 +1628,57 @@ return (
             </button>
           </div>
 
+          {/* Price Change Notification Banner */}
+          {priceNotice && priceNotice.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-xl flex items-start justify-between gap-3 shadow-2xs">
+              <div className="flex items-start gap-2.5">
+                <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-xs sm:text-sm font-semibold">
+                    Product prices in your cart have been refreshed to the latest catalog prices.
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    {priceNotice.map(p => `${p.name}: ₹${Number(p.oldPrice).toLocaleString('en-IN')} → ₹${Number(p.newPrice).toLocaleString('en-IN')}`).join(', ')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPriceNotice(null)}
+                className="text-amber-500 hover:text-amber-700 text-xs font-bold p-1 cursor-pointer"
+                aria-label="Dismiss price notice"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
           {/* Cart Item Cards List */}
           <div className="bg-white rounded-xl border border-gray-200/80 divide-y divide-gray-100 shadow-2xs overflow-hidden">
-            {cartData.items.map((item) => {
+            {cartData.items.map((item, index) => {
               const originalPrice = item.actual_price > 0 ? item.actual_price : item.price;
               const specialPrice = item.price;
               const { discountPercent, showDiscount } = getDiscountInfo(originalPrice, specialPrice);
 
+              const prodIdStr =
+                (typeof item.productId === "object" && item.productId?._id
+                  ? item.productId._id.toString()
+                  : typeof item.productId === "string" && item.productId
+                  ? item.productId
+                  : null) ||
+                item.item_code ||
+                `cart-item-${index}`;
+
+              const itemKey = item._id ? String(item._id) : `${prodIdStr}-${index}`;
+
               return (
-                <div key={item.productId} className="p-4 sm:p-6 flex flex-col gap-4 group transition-colors hover:bg-gray-50/40">
+                <div key={itemKey} className="p-4 sm:p-6 flex flex-col gap-4 group transition-colors hover:bg-gray-50/40">
                   <div className="flex gap-4 sm:gap-6 items-start">
                     {/* Left Product Image */}
                     <div className="w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0 bg-white border border-gray-200/70 rounded-lg p-2 flex items-center justify-center relative overflow-hidden group-hover:border-red-200 transition-colors">
-                      <Link href={`/product/${item.slug || item.productId}`} className="w-full h-full block relative">
+                      <Link href={`/product/${item.slug || prodIdStr}`} className="w-full h-full block relative">
                         <img
                           src={item.image ? (item.image.startsWith("http") ? item.image : `/uploads/products/${item.image}`) : "/uploads/sathyalogo.webp"}
                           alt={item.name}
@@ -1611,7 +1690,7 @@ return (
 
                     {/* Middle Info Details */}
                     <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                      <Link href={`/product/${item.slug || item.productId}`} className="group-hover/title:text-[#d72828]">
+                      <Link href={`/product/${item.slug || prodIdStr}`} className="group-hover/title:text-[#d72828]">
                         <h3 className="text-sm sm:text-base font-semibold text-gray-900 line-clamp-2 leading-snug hover:text-[#d72828] transition-colors">
                           {item.name}
                         </h3>
@@ -1636,7 +1715,9 @@ return (
                       <div className="flex items-center gap-4 mt-2 flex-wrap">
                         {/* Qty Stepper */}
                         {(() => {
-                          const isUpdating = updatingQuantityId === item.productId;
+                          const isUpdating =
+                            updatingQuantityId === prodIdStr ||
+                            updatingQuantityId === item.productId;
                           const maxStock =
                             item.original_quantity != null && Number(item.original_quantity) > 0
                               ? Number(item.original_quantity)
@@ -1653,7 +1734,7 @@ return (
                                   type="button"
                                   onClick={() =>
                                     updateQuantity(
-                                      item.productId,
+                                      prodIdStr,
                                       item.quantity - 1,
                                       item.original_quantity
                                     )
@@ -1680,7 +1761,7 @@ return (
                                   type="button"
                                   onClick={() =>
                                     updateQuantity(
-                                      item.productId,
+                                      prodIdStr,
                                       item.quantity + 1,
                                       item.original_quantity
                                     )
@@ -1729,14 +1810,14 @@ return (
                   {/* Bottom Action Bar */}
                   <div className="border-t border-gray-100 pt-3 flex items-center gap-4 sm:gap-6 text-xs font-bold text-gray-700">
                     <button
-                      onClick={() => moveToWishlist(item.productId)}
+                      onClick={() => moveToWishlist(prodIdStr)}
                       className="hover:text-[#d72828] text-gray-600 transition-colors cursor-pointer uppercase tracking-wider flex items-center gap-1.5"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
                       <span>Move to Wishlist</span>
                     </button>
                     <button
-                      onClick={() => confirmRemoveItem(item.productId)}
+                      onClick={() => confirmRemoveItem(prodIdStr)}
                       className="hover:text-red-600 text-gray-500 transition-colors cursor-pointer uppercase tracking-wider flex items-center gap-1"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>

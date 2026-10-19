@@ -1005,7 +1005,11 @@ export default function CheckoutPage() {
       }
 
       if (!skipCartFetch) {
-        const cartRes = await fetch('/api/cart', { headers: { Authorization: `Bearer ${token}` } });
+        const guestCartId = typeof window !== "undefined" ? localStorage.getItem("guestCartId") : null;
+        const headers = token
+          ? { Authorization: `Bearer ${token}` }
+          : (guestCartId ? { guestCartId } : {});
+        const cartRes = await fetch('/api/cart', { headers, cache: 'no-store' });
         if (!cartRes.ok) throw new Error('Failed to fetch cart');
         const cartData = await cartRes.json();
         const items = cartData?.cart?.items || [];
@@ -1017,6 +1021,30 @@ export default function CheckoutPage() {
           subtotal: total,
           total: total,
         });
+      } else {
+        // Even when prefilled from checkoutData, verify fresh prices from server
+        try {
+          const guestCartId = typeof window !== "undefined" ? localStorage.getItem("guestCartId") : null;
+          const headers = token
+            ? { Authorization: `Bearer ${token}` }
+            : (guestCartId ? { guestCartId } : {});
+          const cartRes = await fetch('/api/cart', { headers, cache: 'no-store' });
+          if (cartRes.ok) {
+            const cartData = await cartRes.json();
+            if (cartData?.cart?.hasPriceChanges) {
+              const freshItems = cartData?.cart?.items || [];
+              setCartItems(freshItems);
+              const sub = freshItems.reduce((s, it) => s + ((it.price || 0) * (it.quantity || 1)), 0);
+              const total = cartData?.cart?.totalPrice ?? sub;
+              setOrderSummary((prev) => ({
+                ...prev,
+                subtotal: total,
+                total: total - (prev.discount || 0),
+              }));
+              toast.info("Cart prices have been updated to the latest prices.");
+            }
+          }
+        } catch {}
       }
       const addrRes = await fetch(`/api/saved-address`, {
         headers: { 'Authorization': `Bearer ${token}` }

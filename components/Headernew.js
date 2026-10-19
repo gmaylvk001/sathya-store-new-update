@@ -189,7 +189,7 @@ const Header = () => {
         ? { Authorization: `Bearer ${token}` }
         : { guestCartId: ensureGuestCartId() };
 
-      const res = await fetch('/api/cart', { method: 'GET', headers });
+      const res = await fetch('/api/cart', { method: 'GET', headers, cache: 'no-store' });
       if (!res.ok) {
         // if token invalid, do not overwrite local cartData here
         return;
