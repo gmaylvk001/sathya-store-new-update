@@ -59,7 +59,7 @@ const AdminHeader = ({ toggleSidebar, sidebarCollapsed = true, mobileOpen = fals
       : 'session_store=; path=/; max-age=0; SameSite=Lax';
     setUniletView(next);
     alert(next ? 'Unilet Admin View' : 'Sathya Admin View');
-    window.location.href = '/admin';
+    window.location.href = next ? '/admin/unilet-dashboard' : '/admin/dashboard';
   };
 
   const toggleDropdown = () => {

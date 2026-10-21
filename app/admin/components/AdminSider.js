@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 
 const menuItems = [
   { icon: 'material-symbols:dashboard', label: 'Dashboard', link: 'dashboard' },
+  { icon: 'mdi:view-dashboard-outline', label: 'Unilet Dashboard', link: 'unilet-dashboard' },
   { icon: 'material-symbols:category', label: 'Category', link: 'category' },
   {
     icon: 'mdi:package-variant-closed',
@@ -112,8 +113,8 @@ const menuItems = [
   },
 ];
 
-const UNILET_VIEW_MENUS = ['Dashboard', 'Category', 'Product', 'Unilet Products', 'New Unilet Product', 'Sales', 'Stores'];
-const UNILET_ONLY_MENUS = ['Unilet Products', 'New Unilet Product'];
+const UNILET_VIEW_MENUS = ['Unilet Dashboard', 'Category', 'Product', 'Unilet Products', 'New Unilet Product', 'Sales', 'Stores'];
+const UNILET_ONLY_MENUS = ['Unilet Dashboard', 'Unilet Products', 'New Unilet Product'];
 
 function visibleMenuItems(uniletView) {
   return uniletView

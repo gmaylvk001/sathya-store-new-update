@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Line, Pie } from "react-chartjs-2";
 import RevenueChart from '@/components/RevenueChart';
 import AdminLoader from "@/app/admin/components/AdminLoader";
@@ -30,6 +31,7 @@ ChartJS.register(
 );
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState([]);
   const [pieData, setPieData] = useState(null);
   const [pieOptions, setPieOptions] = useState(null);
@@ -42,6 +44,11 @@ export default function DashboardPage() {
   const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
+    if (/(?:^|;\s*)session_store=unilet(?:;|$)/.test(document.cookie)) {
+      router.replace("/admin/unilet-dashboard");
+      return;
+    }
+
     // Fetch orders
     const ordersReq = fetch("/api/orders/getorder", {
       headers: {
@@ -268,7 +275,7 @@ export default function DashboardPage() {
     Promise.allSettled([ordersReq, categoryReq, usersReq]).finally(() => {
       setPageLoading(false);
     });
-  }, []);
+  }, [router]);
 
   // Prepare line chart data for orders by date
   const dates = orders.map((order) =>
