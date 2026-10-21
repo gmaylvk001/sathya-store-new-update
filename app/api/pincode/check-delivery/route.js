@@ -275,7 +275,11 @@ export async function GET(req) {
       baseDays = calculateDeliveryDays(minDistance, 100, 1);
     }
     const days = baseDays + cutoffOffset;
-    const message = formatDeliveryMessage(days, false);
+    // Karnataka (Unilet) deliveries on the product page show location availability,
+    // not a day-count SLA such as "Delivery in One Day".
+    const message = isKarnataka
+      ? "Delivery Available at Your Location"
+      : formatDeliveryMessage(days, false);
 
     // 7. Store Pickup availability
     const pickupAvailable = eligiblePickupStores.length > 0;
@@ -307,6 +311,8 @@ export async function GET(req) {
       codAvailable: isCodAvailable,
       isCodAvailable,
       region,
+      isKarnataka,
+      state: isKarnataka ? "Karnataka" : stateName,
     });
   } catch (err) {
     console.error("Check delivery pincode error:", err);
