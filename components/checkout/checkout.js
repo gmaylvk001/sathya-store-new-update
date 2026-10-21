@@ -1134,6 +1134,15 @@ export default function CheckoutPage() {
     }
   };
 
+  const resolveCustomerName = (address) => {
+    const source = address || savedAddresses.find((a) => a._id === shippingAddressId);
+    const addressName = String(source?.username || "").trim();
+    if (addressName && addressName.toUpperCase() !== "NULL") return addressName;
+    const formName = `${formData.firstName || ""} ${formData.lastName || ""}`.trim();
+    if (formName && formName.toUpperCase() !== "NULL") return formName;
+    return "Customer";
+  };
+
   const initializeRazorpay = async () => await loadRazorpay();
 
   const getAuthHeaders = () => {
@@ -1198,7 +1207,7 @@ export default function CheckoutPage() {
             } else reject(new Error(verificationData.error || 'Payment verification failed'));
           } catch (err) { reject(err); }
         },
-        prefill: { name: `${formData.firstName} ${formData.lastName}`, email: formData.email, contact: formData.phonenumber },
+        prefill: { name: resolveCustomerName(), email: formData.email, contact: formData.phonenumber },
         theme: { color: '#dc2626' },
         modal: { ondismiss: () => { setIsSubmitting(false); reject(new Error('Payment window closed')); } },
       };
@@ -1458,7 +1467,9 @@ export default function CheckoutPage() {
 
       const comments = formData.additionalInfo || '';
 
-      const orderUserName = formData.deliveryType === 'home' && shippingAddress ? shippingAddress.username : (formData.firstName || 'Customer');
+      // Home delivery and store pickup both keep the name from the selected address.
+      // The checkout form has no separate name field, so store pickup must not fall back to firstName.
+      const orderUserName = resolveCustomerName(shippingAddress);
       const orderPhone = formData.deliveryType === 'home' && shippingAddress ? shippingAddress.phonenumber : formData.phonenumber;
       const orderEmail = formData.email;
 
