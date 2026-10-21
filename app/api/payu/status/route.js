@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import dbConnect from "@/lib/db";
 import { verifyPayuHash, verifyPayuTransaction } from "@/lib/payu";
 import OrderNew from "@/models/orders_new";
@@ -240,11 +240,14 @@ async function handlePayuReturn(req) {
           );
         }
 
-        try {
-          await sendOrderConfirmationSms(order);
-        } catch (smsErr) {
-          console.error("[PayU Callback] Confirmation SMS failed:", smsErr.message);
-        }
+        const paidOrder = order;
+        after(async () => {
+          try {
+            await sendOrderConfirmationSms(paidOrder);
+          } catch (smsErr) {
+            console.error("[PayU Callback] Confirmation SMS failed:", smsErr.message);
+          }
+        });
       }
 
       // Record payment transaction

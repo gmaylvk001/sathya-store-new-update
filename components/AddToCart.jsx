@@ -36,6 +36,7 @@ const AddToCartButton = ({
   const { updateHeaderdetails, setIsLoggedIn, setUserData, setIsAdmin, userData } =
     useHeaderdetails();
   const [isLoading, setIsLoading] = useState(false);
+  const [cartSuccess, setCartSuccess] = useState(false);
   // const [showAuthModal, setShowAuthModal] = useState(false);
   // const [authError, setAuthError] = useState('');
   const qty = Number(stockQuantity ?? 0);
