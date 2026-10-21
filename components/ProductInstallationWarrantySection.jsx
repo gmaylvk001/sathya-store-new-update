@@ -33,18 +33,15 @@ function ServiceIcon({ className = "w-8 h-8" }) {
 }
 
 /**
- * Onsitego Logo / Badge Component
+ * Sathya / Onsitego warranty badge
  */
-function OnsitegoIcon({ className = "shrink-0 w-8 h-8" }) {
+function OnsitegoIcon({ className = "shrink-0 w-10 h-12" }) {
   return (
-    <div
-      className={`${className} rounded-md bg-[#251b5c] flex items-center justify-center shrink-0 shadow-2xs select-none`}
-      aria-label="Onsitego Extended Warranty"
-    >
-      <span className="text-[9px] font-black tracking-tight text-white leading-none">
-        onsite<span className="text-[#ff455b]">go</span>
-      </span>
-    </div>
+    <img
+      src="/images/Warranty_Asure_web.webp"
+      alt="Sathya Onsitego Extended Warranty"
+      className={`${className} object-contain`}
+    />
   );
 }
 
@@ -436,8 +433,8 @@ export default function ProductInstallationWarrantySection({
                       <div>
                         <div className="flex items-start gap-3 min-w-0 mb-2">
                           {/* Left Column: Fixed Icon */}
-                          <div className="shrink-0 w-8 h-8 rounded-md overflow-hidden flex items-center justify-center">
-                            <OnsitegoIcon className="w-8 h-8" />
+                          <div className="shrink-0 w-10 h-12 flex items-center justify-center">
+                            <OnsitegoIcon className="w-10 h-12" />
                           </div>
 
                           {/* Right Column: Title & Plan Info */}
