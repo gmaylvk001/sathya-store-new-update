@@ -94,6 +94,7 @@ const RelatedProducts = ({
   currentProductId,
   categoryId,
   brandId,
+  region,
   onViewAll,
   className = "",
 }) => {
@@ -163,72 +164,33 @@ const RelatedProducts = ({
       try {
         setLoading(true);
 
-        if (Array.isArray(relatedProducts) && relatedProducts.length > 0) {
-          const isFullObjects = typeof relatedProducts[0] === 'object' && relatedProducts[0]?.name;
+        const ids = Array.isArray(relatedProducts)
+          ? relatedProducts
+              .map((item) => (typeof item === "object" && item !== null ? item._id || item.id : item))
+              .filter(Boolean)
+              .join(",")
+          : "";
 
-          if (isFullObjects) {
-            if (!isCancelled) {
-              setProducts(relatedProducts);
-              setLoading(false);
-            }
-            return;
-          }
-
-          const ids = relatedProducts
-            .map((item) => (typeof item === 'object' ? item._id : item))
-            .filter(Boolean)
-            .join(',');
-
-          if (ids) {
-            const res = await fetch(`/api/product/related?ids=${encodeURIComponent(ids)}`);
-            const data = await res.json();
-            if (!isCancelled) {
-              if (res.ok && data.success && Array.isArray(data.products) && data.products.length > 0) {
-                setProducts(data.products);
-              } else {
-                setProducts([]);
-              }
-              setLoading(false);
-            }
-            return;
-          }
-        }
-
-        if (resolvedCategoryId) {
-          let url = `/api/product/related?category=${encodeURIComponent(resolvedCategoryId)}&exclude=${encodeURIComponent(resolvedCurrentId)}&limit=10`;
-          if (resolvedBrandId) {
-            url += `&brand=${encodeURIComponent(resolvedBrandId)}`;
-          }
-
-          const res = await fetch(url);
-          const data = await res.json();
-
+        if (!ids && !resolvedCategoryId) {
           if (!isCancelled) {
-            if (res.ok && data.success && Array.isArray(data.products) && data.products.length > 0) {
-              setProducts(data.products);
-            } else if (resolvedBrandId) {
-              // Fallback to category without brand filter if brand filter returned empty
-              const fallbackRes = await fetch(
-                `/api/product/related?category=${encodeURIComponent(resolvedCategoryId)}&exclude=${encodeURIComponent(resolvedCurrentId)}&limit=10`
-              );
-              const fallbackData = await fallbackRes.json();
-              if (!isCancelled) {
-                if (fallbackRes.ok && fallbackData.success && Array.isArray(fallbackData.products)) {
-                  setProducts(fallbackData.products);
-                } else {
-                  setProducts([]);
-                }
-              }
-            } else {
-              setProducts([]);
-            }
+            setProducts([]);
             setLoading(false);
           }
           return;
         }
 
+        const params = new URLSearchParams({ limit: "10" });
+        if (ids) params.set("ids", ids);
+        if (resolvedCategoryId) params.set("category", resolvedCategoryId);
+        if (resolvedBrandId) params.set("brand", resolvedBrandId);
+        if (resolvedCurrentId) params.set("exclude", resolvedCurrentId);
+        if (region) params.set("region", region);
+
+        const res = await fetch(`/api/product/related?${params.toString()}`);
+        const data = await res.json();
+
         if (!isCancelled) {
-          setProducts([]);
+          setProducts(res.ok && Array.isArray(data.products) ? data.products : []);
           setLoading(false);
         }
       } catch (error) {
@@ -245,7 +207,7 @@ const RelatedProducts = ({
     return () => {
       isCancelled = true;
     };
-  }, [serializedRelated, resolvedCurrentId, resolvedCategoryId, resolvedBrandId]);
+  }, [serializedRelated, resolvedCurrentId, resolvedCategoryId, resolvedBrandId, region]);
 
   const updateScrollState = useCallback(() => {
     if (!scrollRef.current) return;

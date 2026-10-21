@@ -2454,6 +2454,7 @@ export default function ProductClient() {
           currentProductId={product?._id}
           categoryId={product?.category}
           brandId={product?.brand}
+          region={globalRegion}
         />
         <RecentlyViewedProducts products={recentlyViewedProducts} />
       </div>

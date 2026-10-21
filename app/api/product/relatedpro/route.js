@@ -20,8 +20,14 @@ export async function GET(req) {
       );
     }
 
-    // 🔎 Build query: same category + same brand
-    const query = { category: categoryId, brand: brandId, stock_status: "In Stock", };
+    // Same category + brand, only products that can be bought online.
+    const query = {
+      category: categoryId,
+      brand: brandId,
+      status: "Active",
+      stock_status: "In Stock",
+      quantity: { $gte: 10 },
+    };
     if (excludeId) query._id = { $ne: excludeId }; 
 
     const relatedProducts = await Product.find(query)
