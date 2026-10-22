@@ -488,6 +488,9 @@ const Header = () => {
     }
   };
 
+  const RAW_CATEGORIES_CACHE_KEY = 'categories_raw_cache_v3';
+  const NESTED_CATEGORIES_CACHE_KEY = 'categories_nested_cache_v3';
+
   // ADD: robust extractors + fallback words
   const extractCategoryArray = (payload) => {
     try {
@@ -496,6 +499,78 @@ const Header = () => {
       if (payload && Array.isArray(payload.categories)) return payload.categories;
     } catch { }
     return [];
+  };
+
+  /**
+   * Build active category hierarchy ensuring complete ancestor chain validity.
+   * If any parent or ancestor is Inactive or missing, child categories will NOT be orphaned
+   * into root level or attached to dead branches.
+   */
+  const buildActiveCategoryTree = (rawData) => {
+    const rawArr = extractCategoryArray(rawData);
+    const isActiveStatus = (status) =>
+      String(status || "").trim().toLowerCase() === "active";
+
+    // 1. Collect only Active categories
+    const activeMap = new Map();
+    rawArr.forEach((cat) => {
+      if (cat && cat._id && isActiveStatus(cat.status)) {
+        activeMap.set(String(cat._id), {
+          ...cat,
+          subcategories: [],
+        });
+      }
+    });
+
+    // 2. Validate ancestor chain: a category is only visible if its entire chain of parents up to root is Active
+    const memoValid = new Map();
+    const isChainActive = (catId, visiting = new Set()) => {
+      if (memoValid.has(catId)) return memoValid.get(catId);
+      if (visiting.has(catId)) return false;
+      visiting.add(catId);
+
+      const node = activeMap.get(catId);
+      if (!node) {
+        memoValid.set(catId, false);
+        return false;
+      }
+
+      const pid = String(node.parentid || "none");
+      if (pid === "none" || pid === "" || pid === "null" || pid === "undefined") {
+        memoValid.set(catId, true);
+        return true;
+      }
+
+      const parentValid = activeMap.has(pid) && isChainActive(pid, visiting);
+      memoValid.set(catId, parentValid);
+      return parentValid;
+    };
+
+    // 3. Build top-level and nested tree
+    const rootCategories = [];
+    const seenRootIds = new Set();
+
+    for (const [id, node] of activeMap.entries()) {
+      if (!isChainActive(id)) {
+        // Parent or ancestor is inactive / deleted -> exclude orphan
+        continue;
+      }
+
+      const pid = String(node.parentid || "none");
+      if (pid === "none" || pid === "" || pid === "null" || pid === "undefined") {
+        if (!seenRootIds.has(id)) {
+          seenRootIds.add(id);
+          rootCategories.push(node);
+        }
+      } else {
+        const parentNode = activeMap.get(pid);
+        if (parentNode && !parentNode.subcategories.some((c) => String(c._id) === id)) {
+          parentNode.subcategories.push(node);
+        }
+      }
+    }
+
+    return sortNestedCategories(rootCategories);
   };
   const decodeHtmlEntities = (str) => {
     if (!str) return str;
@@ -547,8 +622,8 @@ const Header = () => {
   };
 
   useEffect(() => {
-    const rawKey = 'categories_raw_cache_v3';
-    const nestedKey = 'categories_nested_cache_v3';
+    const rawKey = RAW_CATEGORIES_CACHE_KEY;
+    const nestedKey = NESTED_CATEGORIES_CACHE_KEY;
     let mounted = true;
 
     try {
@@ -556,70 +631,50 @@ const Header = () => {
       localStorage.removeItem('categories_nested_cache_v2');
     } catch { }
 
-    const buildNestedAndCache = (rawData) => {
-      const rawArr = extractCategoryArray(rawData);
-      const activeCategories = rawArr.filter((cat) => cat.status === "Active");
-
-      const categoryMap = {};
-      activeCategories.forEach((cat) => {
-        categoryMap[cat._id] = { ...cat, subcategories: [] };
-      });
-
-      const nestedCategories = [];
-      const seenTop = new Set();
-      activeCategories.forEach((cat) => {
-        const id = String(cat._id);
-        if (cat.parentid === "none") {
-          if (seenTop.has(id)) return;
-          seenTop.add(id);
-          nestedCategories.push(categoryMap[cat._id]);
-        } else if (categoryMap[cat.parentid]) {
-          const parent = categoryMap[cat.parentid];
-          if (!parent.subcategories.some((c) => String(c._id) === id)) {
-            parent.subcategories.push(categoryMap[cat._id]);
-          }
-        }
-      });
-
-      const sortedNested = sortNestedCategories(nestedCategories);
-      saveCache(nestedKey, sortedNested);
-      return sortedNested;
-    };
-
     const applyRawToWords = (raw) => {
       const arr = extractCategoryArray(raw);
       setCategorieslist(arr);
       setWords(ensureWordsNotEmpty(arr.map((cat) => cat.category_name)));
     };
 
+    const fetchFreshCategories = async () => {
+      try {
+        const res = await fetch("/api/categories/get", { cache: "no-store" });
+        if (!res.ok) return;
+        const raw = await res.json();
+        if (!mounted) return;
+        saveCache(rawKey, raw);
+        applyRawToWords(raw);
+        const freshNested = buildActiveCategoryTree(raw);
+        saveCache(nestedKey, freshNested);
+        setCategories(freshNested);
+      } catch (err) {
+        console.error("Failed to fetch fresh categories:", err);
+      }
+    };
+
     const setupCategories = async () => {
       try {
-        // 1) Nested cache for mega-menu (instant render)
+        // 1) Instant initial render from cache (0 CLS)
         const nestedCached = loadCache(nestedKey);
-        if (nestedCached && (Date.now() - nestedCached.ts) < CACHE_TTL_MS) {
+        if (nestedCached && Array.isArray(nestedCached.data) && nestedCached.data.length > 0) {
           if (mounted) setCategories(nestedCached.data);
         }
 
-        // 2) Raw cache for search placeholder words
         const rawCached = loadCache(rawKey);
-        if (rawCached && (Date.now() - rawCached.ts) < CACHE_TTL_MS) {
+        if (rawCached && rawCached.data) {
           if (mounted) {
             applyRawToWords(rawCached.data);
-            if (!nestedCached) {
-              setCategories(buildNestedAndCache(rawCached.data));
+            if (!nestedCached || !Array.isArray(nestedCached.data) || nestedCached.data.length === 0) {
+              const nestedFromRaw = buildActiveCategoryTree(rawCached.data);
+              saveCache(nestedKey, nestedFromRaw);
+              setCategories(nestedFromRaw);
             }
           }
         }
 
-        // Fetch fresh categories if no valid cache or if cache expired
-        if (!nestedCached || !rawCached || (Date.now() - nestedCached.ts) >= CACHE_TTL_MS) {
-          const res = await fetch("/api/categories/get");
-          const raw = await res.json();
-          if (!mounted) return;
-          saveCache(rawKey, raw);
-          applyRawToWords(raw);
-          setCategories(buildNestedAndCache(raw));
-        }
+        // 2) Stale-While-Revalidate: ALWAYS fetch fresh categories in background so updates reflect immediately
+        await fetchFreshCategories();
       } catch (err) {
         console.error("Failed to fetch or build categories:", err);
         if (mounted) setWords(ensureWordsNotEmpty([]));
@@ -632,7 +687,38 @@ const Header = () => {
     };
 
     setupCategories();
-    return () => { mounted = false; };
+
+    // 3) Real-time sync listener for admin updates across tabs/windows
+    let syncChannel = null;
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      try {
+        syncChannel = new BroadcastChannel("sathya_category_sync");
+        syncChannel.onmessage = () => {
+          if (mounted) {
+            fetchFreshCategories();
+          }
+        };
+      } catch (_) {}
+    }
+
+    const handleStorageChange = (e) => {
+      if (e.key === "sathya_category_sync_timestamp" && mounted) {
+        fetchFreshCategories();
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", handleStorageChange);
+    }
+
+    return () => {
+      mounted = false;
+      if (syncChannel) {
+        try { syncChannel.close(); } catch (_) {}
+      }
+      if (typeof window !== "undefined") {
+        window.removeEventListener("storage", handleStorageChange);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1739,31 +1825,19 @@ const Header = () => {
 
     try {
       // use raw cache if available, otherwise fetch
-      let raw = loadCache('categories_raw_cache_v2')?.data;
+      let raw = loadCache(RAW_CATEGORIES_CACHE_KEY)?.data;
       let rawArr = extractCategoryArray(raw);
       if (!Array.isArray(rawArr) || rawArr.length === 0) {
-        const res = await fetch('/api/categories/get');
+        const res = await fetch('/api/categories/get', { cache: 'no-store' });
         raw = await res.json();
-        saveCache('categories_raw_cache_v2', raw);
+        saveCache(RAW_CATEGORIES_CACHE_KEY, raw);
         rawArr = extractCategoryArray(raw);
       }
 
-      // rebuild nested tree
-      const active = rawArr.filter((c) => c.status === 'Active');
-      const map = {};
-      active.forEach((c) => { map[c._id] = { ...c, subcategories: [] }; });
-      active.forEach((c) => {
-        if (c.parentid && map[c.parentid]) map[c.parentid].subcategories.push(map[c._id]);
-      });
-
-      const nested = [];
-      active.forEach((c) => {
-        if (c.parentid === 'none' || !map[c.parentid]) nested.push(map[c._id]);
-      });
-
-      const sortedNested = sortNestedCategories(nested);
+      // Rebuild nested tree using the robust buildActiveCategoryTree helper
+      const sortedNested = buildActiveCategoryTree(raw);
       setCategories(sortedNested);
-      saveCache('categories_nested_cache_v2', sortedNested);
+      saveCache(NESTED_CATEGORIES_CACHE_KEY, sortedNested);
     } catch (e) {
       console.error('ensureSubcategories failed:', e);
     } finally {

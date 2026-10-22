@@ -2,6 +2,15 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Category from "@/models/ecom_category_info";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 export async function GET() {
   try {
     await dbConnect();
@@ -44,11 +53,11 @@ export async function GET() {
       children: childrenMap[p._id.toString()] || [],
     }));
 
-    return NextResponse.json({ success: true, categories, hierarchy });
+    return NextResponse.json({ success: true, categories, hierarchy }, { headers: NO_CACHE_HEADERS });
   } catch (err) {
     return NextResponse.json(
       { success: false, message: err.message },
-      { status: 500 }
+      { status: 500, headers: NO_CACHE_HEADERS }
     );
   }
 }

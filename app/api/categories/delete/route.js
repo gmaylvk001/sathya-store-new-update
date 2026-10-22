@@ -23,20 +23,41 @@ export async function POST(req) {
             return NextResponse.json({ error: "Category not found" }, { status: 404 });
         }
 
-        // Delete all subcategories where parent matches category id or name
-        const deleteConditions = [
-            { parentid: categoryId },
-            { parentid: String(category._id) },
-            { parentid: category._id },
-            { parentid: category.category_name },
-        ];
-        if (category.md5_cat_name) {
-            deleteConditions.push({ parentid_new: category.md5_cat_name });
-        }
-        await Category.deleteMany({ $or: deleteConditions });
+        // Recursively find all descendant category IDs (children, grandchildren, etc.)
+        const allToDeleteIds = new Set([String(category._id)]);
+        let currentParentIdentifiers = [
+            String(category._id),
+            category.category_name,
+            category.md5_cat_name,
+        ].filter(Boolean);
 
-        // Delete the main category itself
-        await Category.findByIdAndDelete(categoryId);
+        while (currentParentIdentifiers.length > 0) {
+            const children = await Category.find({
+                $or: [
+                    { parentid: { $in: currentParentIdentifiers } },
+                    { parentid_new: { $in: currentParentIdentifiers } },
+                ],
+            }).select("_id category_name md5_cat_name").lean();
+
+            if (!children || children.length === 0) break;
+
+            const nextParents = [];
+            for (const child of children) {
+                const childIdStr = String(child._id);
+                if (!allToDeleteIds.has(childIdStr)) {
+                    allToDeleteIds.add(childIdStr);
+                    nextParents.push(childIdStr);
+                    if (child.category_name) nextParents.push(child.category_name);
+                    if (child.md5_cat_name) nextParents.push(child.md5_cat_name);
+                }
+            }
+            currentParentIdentifiers = nextParents;
+        }
+
+        // Delete main category and all descendants in one batch
+        await Category.deleteMany({
+            _id: { $in: Array.from(allToDeleteIds) }
+        });
 
         // Invalidate in-memory categories cache
         if (globalThis.__sathyaCategoriesCache) {
@@ -44,9 +65,12 @@ export async function POST(req) {
             globalThis.__sathyaCategoriesCache.at = 0;
         }
 
-        return NextResponse.json({ success: true, message: "Category deleted successfully" });
+        return NextResponse.json(
+            { success: true, message: "Category and all subcategories deleted successfully", deletedCount: allToDeleteIds.size },
+            { headers: { "Cache-Control": "no-store" } }
+        );
     } catch (error) {
-        console.error("Error updating category:", error);
+        console.error("Error deleting category:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

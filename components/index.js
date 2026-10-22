@@ -286,7 +286,7 @@ export default function HomeComponent() {
     };
     const fetchCategories = async () => {
       try {
-        const response = await fetch("/api/categories/get");
+        const response = await fetch("/api/categories/get", { cache: "no-store" });
         const resJson = await response.json();
         const data = Array.isArray(resJson)
           ? resJson
@@ -535,7 +535,7 @@ export default function HomeComponent() {
 
     const fetchCategories = async () => {
       try {
-        const response = await fetch('/api/categories/get');
+        const response = await fetch('/api/categories/get', { cache: 'no-store' });
         if (!response.ok) {
           throw new Error(`Network response was not ok (${response.status})`);
         }

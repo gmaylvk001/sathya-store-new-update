@@ -5,15 +5,22 @@ import Brand from "@/models/ecom_brand_info";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const g = globalThis;
 if (!g.__sathyaCategoriesCache) {
   g.__sathyaCategoriesCache = { data: null, at: 0, isBuilding: false };
 }
-if (!g.__sathyaComboLastSyncAt) {
-  g.__sathyaComboLastSyncAt = 0;
+
+export function invalidateCategoriesCache() {
+  if (g.__sathyaCategoriesCache) {
+    g.__sathyaCategoriesCache.data = null;
+    g.__sathyaCategoriesCache.at = 0;
+  }
 }
+
 const CATEGORIES_CACHE_TTL_MS = 10 * 60 * 1000; // 10 mins
-const COMBO_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 mins
 
 function buildDescendantMap(categories) {
   const childrenByParent = new Map();
@@ -53,20 +60,6 @@ function buildDescendantMap(categories) {
 async function fetchAndBuildCategories() {
   await dbConnect();
   const now = Date.now();
-
-  if (now - g.__sathyaComboLastSyncAt > COMBO_SYNC_INTERVAL_MS) {
-    g.__sathyaComboLastSyncAt = now;
-    try {
-      const { syncComboCategoryVisibility } = await import(
-        "@/lib/comboOffers/categoryVisibilityService"
-      );
-      syncComboCategoryVisibility().catch((syncErr) => {
-        console.warn("Combo category visibility sync error:", syncErr?.message);
-      });
-    } catch (syncErr) {
-      console.warn("Combo category visibility sync skipped:", syncErr?.message);
-    }
-  }
 
   const categories = await Category.find().sort({ position: 1 }).lean();
   if (!categories || !Array.isArray(categories)) {
@@ -154,13 +147,19 @@ async function fetchAndBuildCategories() {
   return categoriesWithProducts;
 }
 
+const NO_CACHE_HEADERS = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 export async function GET() {
   try {
     const now = Date.now();
     const cacheStore = g.__sathyaCategoriesCache;
 
     if (cacheStore.data && now - cacheStore.at < CATEGORIES_CACHE_TTL_MS) {
-      return NextResponse.json({ data: cacheStore.data }, { status: 200 });
+      return NextResponse.json({ data: cacheStore.data }, { status: 200, headers: NO_CACHE_HEADERS });
     }
 
     if (cacheStore.data) {
@@ -172,16 +171,16 @@ export async function GET() {
             cacheStore.isBuilding = false;
           });
       }
-      return NextResponse.json({ data: cacheStore.data }, { status: 200 });
+      return NextResponse.json({ data: cacheStore.data }, { status: 200, headers: NO_CACHE_HEADERS });
     }
 
     const data = await fetchAndBuildCategories();
-    return NextResponse.json({ data }, { status: 200 });
+    return NextResponse.json({ data }, { status: 200, headers: NO_CACHE_HEADERS });
   } catch (error) {
     console.error("❌ Error fetching categories with products/brands:", error);
     return NextResponse.json(
       { data: [], error: "Failed to fetch categories", details: error?.message || String(error) },
-      { status: 200 },
+      { status: 200, headers: NO_CACHE_HEADERS },
     );
   }
 }

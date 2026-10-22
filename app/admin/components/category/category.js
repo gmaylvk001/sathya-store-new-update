@@ -89,10 +89,29 @@ export default function CategoryComponent() {
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 20;
 
+  const broadcastCategoryChange = () => {
+    try {
+      localStorage.removeItem("categories_raw_cache_v3");
+      localStorage.removeItem("categories_nested_cache_v3");
+      localStorage.removeItem("categories_raw_cache_v2");
+      localStorage.removeItem("categories_nested_cache_v2");
+      localStorage.removeItem("headerCategories");
+      localStorage.removeItem("cache_footer_categories_v2");
+      localStorage.setItem("sathya_category_sync_timestamp", String(Date.now()));
+    } catch (_) {}
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      try {
+        const channel = new BroadcastChannel("sathya_category_sync");
+        channel.postMessage({ type: "CATEGORIES_UPDATED", timestamp: Date.now() });
+        channel.close();
+      } catch (_) {}
+    }
+  };
+
   // Fetch categories from API
   const fetchCategories = async () => {
     try {
-      const response = await fetch("/api/categories/get");
+      const response = await fetch("/api/categories/get", { cache: "no-store" });
       const json = await response.json();
       // API returns { data: [...] }; keep fallbacks for a raw array or { categories: [...] }
       const list = Array.isArray(json)
@@ -438,6 +457,7 @@ export default function CategoryComponent() {
         });
         setImagePreview(null);
 
+        broadcastCategoryChange();
         // Show success alert (if you still want this as an alert)
         setAlertMessage("Category added successfully!");
         setShowAlert(true);
@@ -626,6 +646,7 @@ export default function CategoryComponent() {
       }
 
       // Success case
+      broadcastCategoryChange();
       setIsUpdateModalOpen(false);
       fetchCategories();
       setAlertMessage("Category updated successfully!");
@@ -687,6 +708,7 @@ export default function CategoryComponent() {
 
       const result = await response.json();
       if (response.ok) {
+        broadcastCategoryChange();
         setCategories((prev) =>
           prev.filter(
             (c) =>
