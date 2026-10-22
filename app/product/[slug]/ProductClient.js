@@ -71,6 +71,124 @@ function FaqItem({ question, answer }) {
 
 
 
+// FlixMedia moves #flix-minisite in the DOM itself. If React owns that node,
+// unmounting it on a mobile/desktop switch throws:
+// "Failed to execute 'removeChild' on 'Node'".
+// React only owns this wrapper; the Flix container inside is plain HTML.
+function FlixMinisiteSlot() {
+  useEffect(() => {
+    return () => {
+      document.querySelectorAll("#flix-minisite").forEach((node) => {
+        if (!node.closest("[data-flix-slot]")) node.remove();
+      });
+    };
+  }, []);
+
+  return (
+    <div
+      data-flix-slot
+      className="w-full"
+      dangerouslySetInnerHTML={{
+        __html: '<div id="flix-minisite" class="flix-minisite-container w-full"></div>',
+      }}
+    />
+  );
+}
+
+function ThumbnailStrip({ images, selectedImageIndex, onSelect, resolveImagePath, onError }) {
+  const stripRef = useRef(null);
+  const [scroll, setScroll] = useState({ left: false, right: false });
+
+  const updateScroll = useCallback(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    // Hidden layout (mobile/desktop twin) has no width — don't measure or scroll it.
+    if (el.clientWidth === 0) {
+      setScroll({ left: false, right: false });
+      return;
+    }
+    setScroll({
+      left: el.scrollLeft > 2,
+      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 2,
+    });
+  }, []);
+
+  useEffect(() => {
+    updateScroll();
+    window.addEventListener("resize", updateScroll);
+    return () => window.removeEventListener("resize", updateScroll);
+  }, [images, updateScroll]);
+
+  useEffect(() => {
+    const el = stripRef.current;
+    const thumb = el?.children?.[selectedImageIndex];
+    if (!el || !thumb || el.clientWidth === 0) return;
+    const thumbLeft = thumb.offsetLeft;
+    if (thumbLeft < el.scrollLeft) {
+      el.scrollTo({ left: thumbLeft - 4, behavior: "smooth" });
+    } else if (thumbLeft + thumb.offsetWidth > el.scrollLeft + el.clientWidth) {
+      el.scrollTo({ left: thumbLeft + thumb.offsetWidth - el.clientWidth + 4, behavior: "smooth" });
+    }
+  }, [selectedImageIndex]);
+
+  const scrollBy = (direction) => {
+    const el = stripRef.current;
+    if (el) el.scrollBy({ left: direction * el.clientWidth * 0.8, behavior: "smooth" });
+  };
+
+  const validImages = (images || []).filter(
+    (img) => img && typeof img === "string" && img.trim() !== ""
+  );
+  if (!validImages.length) return null;
+
+  const arrowClass =
+    "flex-shrink-0 w-6 h-14 sm:w-7 sm:h-16 flex items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 shadow-sm hover:border-[#d72828] hover:text-[#d72828] transition-colors";
+
+  return (
+    <div className="relative flex items-center gap-1 w-full min-w-0 mt-3 lg:mt-0">
+      {scroll.left && (
+        <button type="button" aria-label="Previous images" onClick={() => scrollBy(-1)} className={arrowClass}>
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      )}
+      <div
+        ref={stripRef}
+        onScroll={updateScroll}
+        className="relative flex flex-1 min-w-0 gap-2 overflow-x-auto p-1 scrollbar-hide scroll-smooth"
+      >
+        {validImages.map((image, index) => (
+          <button
+            type="button"
+            key={index}
+            onClick={() => onSelect(index)}
+            aria-label={`Show image ${index + 1}`}
+            className={`flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-white p-1 border-2 transition-all duration-200 ${selectedImageIndex === index
+              ? "border-[#d72828] shadow-md"
+              : "border-gray-200 opacity-75 hover:opacity-100 hover:border-gray-400"
+              }`}
+          >
+            <img
+              src={resolveImagePath(image)}
+              alt={`Thumbnail ${index + 1}`}
+              className="w-full h-full object-contain"
+              onError={(e) => onError(e, image)}
+            />
+          </button>
+        ))}
+      </div>
+      {scroll.right && (
+        <button type="button" aria-label="Next images" onClick={() => scrollBy(1)} className={arrowClass}>
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function ProductClient() {
   const router = useRouter();
   const params = useParams();
@@ -1347,33 +1465,19 @@ export default function ProductClient() {
             </div>
 
             {/* Thumbnails */}
-            {product.images && product.images.filter(img => img && typeof img === "string" && img.trim() !== "").length > 0 && (
-              <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
-                {product.images.filter(img => img && typeof img === "string" && img.trim() !== "").map((image, index) => (
-                  <div key={index} className="flex-shrink-0">
-                    <img
-                      src={resolveImagePath(image)}
-                      alt={`Thumbnail ${index + 1}`}
-                      className="w-16 h-16 border border-gray-400 rounded-lg cursor-pointer object-cover"
-                      onClick={() => setSelectedImageIndex(index)}
-                      onError={(e) => handleImageErrorFallback(e, image)}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+            <ThumbnailStrip
+              images={product.images}
+              selectedImageIndex={selectedImageIndex}
+              onSelect={setSelectedImageIndex}
+              resolveImagePath={resolveImagePath}
+              onError={handleImageErrorFallback}
+            />
 
 
           </div>
 
           {/* 2. Brand + Name + Price */}
           <div className="mt-4">
-            <div className="flex items-center justify-between">
-              <p className="text-[#d72828] font-semibold text-sm uppercase tracking-wide">
-                {brand.find((b) => b.value === product.brand)?.label || ""}
-              </p>
-
-            </div>
             <h1 className="text-lg font-bold text-gray-900 leading-snug mt-1">{product.name}</h1>
             <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
               {product.model_number && <span>Model: {product.model_number}</span>}
@@ -1502,9 +1606,7 @@ export default function ProductClient() {
 
             {/* FlixMedia minisite target */}
             <div className="key-fea"></div>
-            {!isDesktop ? (
-              <div id="flix-minisite" className="flix-minisite-container w-full" />
-            ) : null}
+            {!isDesktop ? <FlixMinisiteSlot /> : null}
 
             {/* Share / Compare / Wishlist (Mobile) */}
             <div className="grid grid-cols-3 gap-2 mt-3">
@@ -1942,22 +2044,13 @@ export default function ProductClient() {
               </div>
 
               {/* Thumbnails Strip */}
-              {product.images && product.images.filter(img => img && typeof img === "string" && img.trim() !== "").length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  {product.images.filter(img => img && typeof img === "string" && img.trim() !== "").map((image, index) => (
-                    <div key={index} className="flex-shrink-0">
-                      <img
-                        src={resolveImagePath(image)}
-                        alt={`Thumbnail ${index + 1}`}
-                        className={`w-16 h-16 border rounded-lg cursor-pointer object-cover transition-all duration-200 ${selectedImageIndex === index ? 'border-[#d72828] ring-2 ring-red-500 scale-105' : 'border-gray-300 hover:border-gray-400 opacity-80 hover:opacity-100'
-                          }`}
-                        onClick={() => setSelectedImageIndex(index)}
-                        onError={(e) => handleImageErrorFallback(e, image)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
+              <ThumbnailStrip
+                images={product.images}
+                selectedImageIndex={selectedImageIndex}
+                onSelect={setSelectedImageIndex}
+                resolveImagePath={resolveImagePath}
+                onError={handleImageErrorFallback}
+              />
 
 
 
@@ -1999,14 +2092,6 @@ export default function ProductClient() {
               <div className="col-span-5 flex flex-col gap-3 min-w-0">
                 {/* 1. BREADCRUMBS AT TOP OF COLUMN 2 */}
                 <ProductBreadcrumb product={product} className="mb-1 text-xs w-full overflow-hidden" />
-
-                {/* Brand Link */}
-                {brand.find((b) => b.value === product.brand)?.label && (
-                  <p className="text-[#d72828] font-bold text-xs uppercase tracking-wider">
-                    From {brand.find((b) => b.value === product.brand)?.label} Store
-                  </p>
-                )}
-
                 {/* Title */}
                 <h1 className="text-xl font-bold text-gray-900 leading-snug">{product.name}</h1>
 
@@ -2046,9 +2131,7 @@ export default function ProductClient() {
                 />
 
                 <div className="key-fea"></div>
-                {isDesktop ? (
-                  <div id="flix-minisite" className="flix-minisite-container w-full" />
-                ) : null}
+                {isDesktop ? <FlixMinisiteSlot /> : null}
 
                 {/* Rating & Reviews */}
                 {avgRating > 0 && (
