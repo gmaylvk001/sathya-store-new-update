@@ -28,7 +28,23 @@ import {
   useRef,
 } from 'react';
 import { toast } from 'react-toastify';
-import { trackCompareAdd, trackCompareRemove } from '@/utils/compareHelpers';
+import {
+  trackCompareAdd,
+  trackCompareRemove,
+  COMPARE_TOAST_ID,
+  COMPARE_ERROR_TOAST_ID,
+  getCompareToastPosition,
+  notifyCompareSuccess,
+  notifyCompareError,
+} from '@/utils/compareHelpers';
+
+export {
+  COMPARE_TOAST_ID,
+  COMPARE_ERROR_TOAST_ID,
+  getCompareToastPosition,
+  notifyCompareSuccess,
+  notifyCompareError,
+};
 
 const STORAGE_KEY = 'compare_list';
 const MAX_COMPARE = 4;
@@ -133,7 +149,21 @@ export const CompareProvider = ({ children }) => {
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      // Clean up all pending debounce timers to avoid memory leaks / stale state updates
+      if (debounceRef.current) {
+        Object.values(debounceRef.current).forEach((timer) => clearTimeout(timer));
+        debounceRef.current = {};
+      }
+      // Clean up active compare notifications
+      try {
+        toast.dismiss(COMPARE_TOAST_ID);
+        toast.dismiss(COMPARE_ERROR_TOAST_ID);
+      } catch {
+        // safe guard
+      }
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── isInCompare ────────────────────────────────────────────────────────────
@@ -235,20 +265,14 @@ export const CompareProvider = ({ children }) => {
 
         // Validate max-4
         if (currentList.length >= MAX_COMPARE) {
-          toast.error('Compare list is full (max 4 products). Remove an item to add a new one.', {
-            position: 'top-center',
-            autoClose: 3000,
-          });
+          notifyCompareError('Compare list is full (max 4 products). Remove an item to add a new one.', 'compare-full-toast');
           return;
         }
 
         const newList = [...currentList, { productId, category_slug, category_id, category_name: displayCategory, productData: previewData }];
         writeLocalList(newList);
         setCompareList(newList);
-        toast.success(`"${product.name || 'Product'}" added to compare!`, {
-          position: 'bottom-right',
-          autoClose: 2000,
-        });
+        notifyCompareSuccess(product.name);
         trackCompareAdd({ productId, productName: product.name, category_slug: displayCategory });
         return;
       }
@@ -289,20 +313,14 @@ export const CompareProvider = ({ children }) => {
                 newCategory: data.newCategory,
               });
             } else {
-              toast.error(data.error || 'Failed to add to compare', {
-                position: 'top-center',
-                autoClose: 3500,
-              });
+              notifyCompareError(data.error || 'Failed to add to compare');
             }
             return;
           }
 
           // Sync with server-confirmed list
           setCompareList(data.items || [optimisticItem]);
-          toast.success(`"${product.name || 'Product'}" added to compare!`, {
-            position: 'bottom-right',
-            autoClose: 2000,
-          });
+          notifyCompareSuccess(product.name);
           trackCompareAdd({ productId, productName: product.name, category_slug });
 
         } catch (err) {
@@ -347,10 +365,7 @@ export const CompareProvider = ({ children }) => {
         if (!res.ok) {
           // Rollback on failure
           setCompareList(previousList);
-          toast.error('Failed to remove from compare. Please try again.', {
-            position: 'top-center',
-            autoClose: 3000,
-          });
+          notifyCompareError('Failed to remove from compare. Please try again.');
           return;
         }
 
@@ -391,10 +406,7 @@ export const CompareProvider = ({ children }) => {
 
       if (!res.ok) {
         setCompareList(previousList);
-        toast.error('Failed to clear compare list.', {
-          position: 'top-center',
-          autoClose: 3000,
-        });
+        notifyCompareError('Failed to clear compare list.');
       }
     } catch (err) {
       setCompareList(previousList);

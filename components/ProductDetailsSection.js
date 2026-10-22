@@ -9,7 +9,7 @@ import { FaShoppingCart, FaStar } from "react-icons/fa";
 import Link from "next/link";
 import { formatDistanceToNow, format } from "date-fns";
 import { useHeaderdetails } from '@/context/HeaderContext';
-import { ToastContainer, toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import { getDiscountInfo } from "@/lib/discountHelper";
 
 
@@ -1048,7 +1048,6 @@ const tabsForUI = useMemo(() => [
   
 return (
  <div className="mt-1 sm:mt-2 w-full">
-    <ToastContainer position="top-right" autoClose={5000} />
     
 
     {/* Section 2 — Tabs */}

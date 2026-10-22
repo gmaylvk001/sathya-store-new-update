@@ -8,6 +8,7 @@
 //   - trackCompareAdd / trackCompareRemove / trackCompareView: GA4 analytics events
 
 import { ADD_CART_ALLOWED_MOVEMENTS, isMovementAllowed } from '../lib/addCartConfig.js';
+import { toast } from 'react-toastify';
 
 // ─── Stock & Online Purchasing Availability (PDP Aligned) ────────────────────
 
@@ -417,4 +418,56 @@ export function formatBrandName(product) {
     }
   }
   return '';
+}
+
+// ─── Compare Toast Notification Helpers ─────────────────────────────────────
+
+export const COMPARE_TOAST_ID = 'compare-status-toast';
+export const COMPARE_ERROR_TOAST_ID = 'compare-error-toast';
+
+export function getCompareToastPosition() {
+  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    return 'top-center';
+  }
+  return 'top-right';
+}
+
+export function notifyCompareSuccess(productName) {
+  try {
+    toast.dismiss(COMPARE_TOAST_ID);
+  } catch {
+    // safe guard
+  }
+
+  return toast.success(`"${productName || 'Product'}" added to compare!`, {
+    toastId: COMPARE_TOAST_ID,
+    position: getCompareToastPosition(),
+    autoClose: 2500, // 2-3s auto-dismiss per specification
+    hideProgressBar: false,
+    closeOnClick: true,
+    pauseOnHover: false, // Prevents mobile touch/hover from freezing timer
+    pauseOnFocusLoss: false, // Prevents timer freeze when window/focus shifts
+    closeButton: true, // Direct manual close button support
+    draggable: true,
+  });
+}
+
+export function notifyCompareError(message, toastId = COMPARE_ERROR_TOAST_ID) {
+  try {
+    toast.dismiss(toastId);
+  } catch {
+    // safe guard
+  }
+
+  return toast.error(message, {
+    toastId,
+    position: getCompareToastPosition(),
+    autoClose: 3000,
+    hideProgressBar: false,
+    closeOnClick: true,
+    pauseOnHover: false,
+    pauseOnFocusLoss: false,
+    closeButton: true,
+    draggable: true,
+  });
 }

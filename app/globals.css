@@ -545,3 +545,34 @@ body::-webkit-scrollbar {
   background: #ED1C24;
 }
 
+/* Compare & Mobile Toast Notification Responsive Styling */
+@media (max-width: 768px) {
+  .Toastify__toast-container--top-center {
+    top: 12px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: calc(100vw - 24px) !important;
+    max-width: 440px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    z-index: 99999 !important;
+  }
+
+  .Toastify__toast-container--top-center .Toastify__toast {
+    border-radius: 12px !important;
+    margin-bottom: 8px !important;
+    padding: 12px 14px !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+  }
+
+  .Toastify__toast-container--top-center .Toastify__close-button {
+    align-self: flex-start !important;
+    padding: 4px !important;
+    margin-left: 8px !important;
+    opacity: 0.7 !important;
+  }
+}
+
+
