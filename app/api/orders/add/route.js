@@ -544,12 +544,9 @@ export async function POST(req) {
         }
       }
 
-      // Stock + coupon: only for offline confirmed checkouts at create time.
-      // Online: applied in verify-payment / Razorpay webhook after capture.
+      // Stock + coupon: applied only upon verified successful payment (verify-payment, PayU status, or Razorpay webhook).
+      // Never prematurely deduct stock while payment is pending, initialized, or unconfirmed.
       if (isNew) {
-        if (isOfflineCheckout) {
-          await applyItemSideEffects(item, user_id, isKarnatakaOrder);
-        }
         await saveOrderHistory(savedOrder);
 
         try {

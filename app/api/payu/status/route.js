@@ -7,78 +7,7 @@ import PaymentNewLive from "@/models/payment_new_live";
 import Cart from "@/models/ecom_cart_info";
 import { sendOrderConfirmationSms } from "@/lib/orderConfirmSms";
 import mongoose from "mongoose";
-import OwnerProduct from "@/models/OwnerProduct";
-import OrderDetailsNew from "@/models/order_details_new";
-import Product from "@/models/product";
-import { decrementStockForItem, trackCouponUsage } from "@/lib/orderPayment";
-
-/**
- * Restore reserved inventory if payment fails
- */
-async function restoreOrderStock(order) {
-  try {
-    const isUnilet =
-      String(order.order_owner || "").toLowerCase() === "unilet" ||
-      String(order.region || "").toLowerCase() === "karnataka";
-
-    const orderDetails = await OrderDetailsNew.find({
-      $or: [
-        { order_id: order._id },
-        ...(order.order_number ? [{ orderNumber: order.order_number }] : []),
-      ],
-    }).lean();
-
-    for (const detail of orderDetails) {
-      const qty = Number(detail.quantity) || 1;
-      const rawCode = detail.item_code || detail.product_id;
-      const itemCode = rawCode
-        ? (String(rawCode).startsWith("ITEM") ? String(rawCode) : `ITEM${rawCode}`)
-        : null;
-
-      if (isUnilet) {
-        const ownerQuery = { owner_id: "unilet" };
-        if (detail.product_id && mongoose.isValidObjectId(detail.product_id)) {
-          ownerQuery.product_id = detail.product_id;
-        } else if (itemCode) {
-          ownerQuery.product_item_code = itemCode;
-        }
-
-        let ownerProd = await OwnerProduct.findOne(ownerQuery);
-        if (!ownerProd && itemCode) {
-          ownerProd = await OwnerProduct.findOne({
-            owner_id: "unilet",
-            $or: [{ product_item_code: itemCode }, { vendor_item_code: itemCode }],
-          });
-        }
-
-        if (ownerProd) {
-          ownerProd.stock = (ownerProd.stock || 0) + qty;
-          if (ownerProd.stock > 0 && ownerProd.stock_status === "Out of Stock") {
-            ownerProd.stock_status = "In Stock";
-          }
-          await ownerProd.save();
-        }
-      } else {
-        let product = null;
-        if (detail.product_id && mongoose.isValidObjectId(detail.product_id)) {
-          product = await Product.findById(detail.product_id);
-        } else if (itemCode) {
-          product = await Product.findOne({ item_code: itemCode });
-        }
-
-        if (product) {
-          product.quantity = (product.quantity || 0) + qty;
-          if (product.quantity > 0 && product.stock_status === "Out of Stock") {
-            product.stock_status = "In Stock";
-          }
-          await product.save();
-        }
-      }
-    }
-  } catch (error) {
-    console.error("[PayU restoreOrderStock] Error restoring stock:", error.message);
-  }
-}
+import { markOrdersPaid } from "@/lib/orderPayment";
 
 // The request body can only be read once, so pick the parser up front.
 async function readPayuParams(req) {
@@ -184,8 +113,31 @@ async function handlePayuReturn(req) {
           },
         },
       ],
-      payment_status: "payment_initialized",
     });
+
+    if (!orders.length) {
+      console.warn(`[PayU Callback] No orders found for txnid=${txnid} baseOrder=${baseOrderNumber}`);
+      return NextResponse.redirect(
+        new URL(
+          `/checkout?error=${encodeURIComponent("Payment response was empty. Please check your order status before retrying.")}`,
+          baseUrl
+        ),
+        303
+      );
+    }
+
+    const allAlreadyPaid = orders.every(
+      (o) => String(o.payment_status).toLowerCase() === "paid"
+    );
+    if (allAlreadyPaid && isSuccess) {
+      return NextResponse.redirect(
+        new URL(
+          `/orders?payment=success&order_number=${encodeURIComponent(baseOrderNumber)}&payment_id=${encodeURIComponent(mihpayid || txnid)}`,
+          baseUrl
+        ),
+        303
+      );
+    }
 
     if (isSuccess && isValid) {
       const expectedTotal = orders.reduce(
@@ -206,49 +158,30 @@ async function handlePayuReturn(req) {
         );
       }
 
-      for (const order of orders) {
-        order.order_status = "ordered";
-        order.payment_status = "paid";
-        order.payment_id = String(mihpayid);
-        order.payment_method = "online";
-        order.payment_type = "PayU";
-        order.payment_mode = "PayU";
-        order.online_pay_refid = txnid;
-        order.online_pay_ref_status = "success";
-        await order.save();
+      const markResult = await markOrdersPaid({
+        orderNumber: baseOrderNumber,
+        userId: udf2 || orders[0]?.user_id,
+        paymentId: mihpayid,
+        paymentMethod: "online",
+        paymentType: "PayU",
+        paidAmountPaise: Math.round(paidAmount * 100),
+      });
 
-        await OrderHistoryNew.create({
-          order_id: String(order._id),
-          order_number: order.order_number,
-          order_status: "ordered",
-          notify: 1,
-          comment: `Order paid successfully via PayU (Mihpayid: ${mihpayid})`,
-        });
-
-        const isKarnataka =
-          order.order_owner === "unilet" ||
-          order.region === "karnataka" ||
-          String(order.order_number || "").endsWith("-UL");
-        for (const item of order.order_item || []) {
-          await decrementStockForItem(item, isKarnataka);
-          await trackCouponUsage(item, order.user_id);
-        }
-        if (order.promotion_code_applied) {
-          await trackCouponUsage(
-            { coupondetails: [order.promotion_code_applied], discount: 1 },
-            order.user_id
-          );
-        }
-
-        const paidOrder = order;
-        after(async () => {
-          try {
-            await sendOrderConfirmationSms(paidOrder);
-          } catch (smsErr) {
-            console.error("[PayU Callback] Confirmation SMS failed:", smsErr.message);
-          }
-        });
+      if (!markResult.success) {
+        console.error(`[PayU Callback] markOrdersPaid failed: ${markResult.error}`);
       }
+
+      await OrderNew.updateMany(
+        {
+          _id: { $in: orders.map((o) => o._id) },
+        },
+        {
+          $set: {
+            online_pay_refid: txnid,
+            online_pay_ref_status: "success",
+          },
+        }
+      );
 
       // Record payment transaction
       try {
@@ -295,9 +228,7 @@ async function handlePayuReturn(req) {
           notify: 0,
           comment: `PayU payment failed: ${failReason}`,
         });
-
-        // Restore reserved stock
-        await restoreOrderStock(order);
+        // Stock remains untouched because it was never prematurely deducted
       }
 
       return NextResponse.redirect(
