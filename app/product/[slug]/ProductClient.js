@@ -110,7 +110,7 @@ export default function ProductClient() {
   const [addOnProducts, setAddOnProducts] = useState([]);
   const [warranties, setWarranties] = useState([]);
   const [selectedWarrantyData, setSelectedWarrantyData] = useState(null);
-  const { pincode: globalPincode, region: globalRegion, isInitialized } = useRegion();
+  const { pincode: globalPincode, region: globalRegion, isInitialized, setPincode } = useRegion();
   const [highlightOffer, setHighlightOffer] = useState(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const { setSimilarProducts } = useCompare();
@@ -190,6 +190,7 @@ export default function ProductClient() {
   const [isCheckingDelivery, setIsCheckingDelivery] = useState(false);
   const [isEditingPincode, setIsEditingPincode] = useState(false);
   const deliveryRequestIdRef = useRef(0);
+  const skipNextHeaderDeliveryCheckRef = useRef(false);
 
   useEffect(() => {
     if (globalPincode) {
@@ -270,10 +271,29 @@ export default function ProductClient() {
     }
   };
 
+  const handlePincodeSubmit = async (event) => {
+    event.preventDefault();
+    const pinVal = String(deliveryPincode || "").replace(/\D/g, "").slice(0, 6);
+    setIsEditingPincode(false);
+    handleCheckDelivery(pinVal);
+
+    const currentPin = String(globalPincode || "").trim();
+    if (!/^\d{6}$/.test(pinVal) || pinVal === currentPin) return;
+
+    skipNextHeaderDeliveryCheckRef.current = true;
+    const updated = await setPincode(pinVal);
+    if (!updated) skipNextHeaderDeliveryCheckRef.current = false;
+  };
+
   useEffect(() => {
-    if (product?._id) {
-      handleCheckDelivery(deliveryPincode || globalPincode || "600001");
+    if (!product?._id) return;
+    if (skipNextHeaderDeliveryCheckRef.current) {
+      skipNextHeaderDeliveryCheckRef.current = false;
+      return;
     }
+    const headerPin = String(globalPincode || "").trim();
+    if (headerPin) setDeliveryPincode(headerPin);
+    handleCheckDelivery(headerPin || "600001");
   }, [product?._id, product?.item_code, globalPincode]);
 
   const outlineActionBtnClass =
@@ -2049,7 +2069,7 @@ export default function ProductClient() {
                       <div className="flex items-center gap-2 border border-gray-200 rounded-md px-2.5 py-1 bg-white shadow-2xs">
                         <IoLocationOutline className="text-gray-500 w-3.5 h-3.5" />
                         <span className="text-xs font-bold text-gray-800">
-                          {deliveryPincode || globalPincode || "600001"}
+                          {globalPincode || deliveryPincode || "600001"}
                         </span>
                         <button
                           type="button"
@@ -2061,11 +2081,7 @@ export default function ProductClient() {
                       </div>
                     ) : (
                       <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleCheckDelivery(deliveryPincode);
-                          setIsEditingPincode(false);
-                        }}
+                        onSubmit={handlePincodeSubmit}
                         className="flex items-center gap-1.5 bg-white border border-gray-300 rounded px-2 py-1 shadow-2xs"
                       >
                         <IoLocationOutline className="text-gray-500 w-3.5 h-3.5" />
