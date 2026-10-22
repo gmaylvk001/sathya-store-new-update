@@ -12,7 +12,22 @@ export async function GET(req) {
     await dbConnect();
     const adminScope = new URL(req.url).searchParams.get("scope") === "admin";
     const filter = adminScope ? ownerFieldFilter("store_owner", await isUniletView(req)) : {};
-    const rows = await StoreListing.find(filter).sort({ created_at: -1, exist_id: -1 }).lean();
+    let rows = await StoreListing.find(filter).sort({ created_at: -1, exist_id: -1 }).lean();
+    if ((!rows || rows.length === 0) && !adminScope) {
+      try {
+        const Store = (await import("@/models/store")).default;
+        const storeDocs = await Store.find({}).lean();
+        if (storeDocs && storeDocs.length > 0) {
+          rows = storeDocs.map(s => ({
+            ...s,
+            title: s.organisation_name || s.title,
+            store_owner: s.store_owner || 'sathya'
+          }));
+        }
+      } catch (fallbackErr) {
+        console.warn("Store fallback error in store_listings/get:", fallbackErr);
+      }
+    }
     return NextResponse.json(rows, {
       status: 200,
       headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
