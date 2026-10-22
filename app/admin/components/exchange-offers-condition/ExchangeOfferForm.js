@@ -5,16 +5,53 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 
+const EMPTY_FORM = {
+  categoryName: "ANY",
+  brand: "ANY",
+  type: "ANY",
+  condition: "ANY",
+  zone: "ANY",
+  price: "",
+  status: "Active",
+};
+
+function withCurrentValue(options, current) {
+  const list = Array.isArray(options) ? options : [];
+  const value = String(current || "").trim();
+  if (value && !list.includes(value)) return [value, ...list];
+  return list;
+}
+
+function SelectField({ label, name, value, options, onChange, required = false }) {
+  return (
+    <div className="flex items-center">
+      <label className="w-1/4 text-sm font-semibold text-gray-700">{label}</label>
+      <select
+        name={name}
+        value={value}
+        onChange={onChange}
+        required={required}
+        className="w-3/4 border rounded p-2 bg-white focus:outline-none focus:border-blue-400"
+      >
+        {options.map((option) => (
+          <option key={`${name}-${option}`} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export default function ExchangeOfferForm({ isEdit = false, initialData = null }) {
   const router = useRouter();
-  const [formData, setFormData] = useState({
-    categoryName: "",
-    brand: "",
-    type: "",
-    condition: "ANY",
-    zone: "",
-    price: "",
-    status: "Active",
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [options, setOptions] = useState({
+    categories: ["ANY"],
+    brands: ["ANY"],
+    types: ["ANY"],
+    conditions: ["ANY"],
+    zones: ["ANY"],
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
@@ -23,20 +60,46 @@ export default function ExchangeOfferForm({ isEdit = false, initialData = null }
   useEffect(() => {
     if (initialData) {
       setFormData({
-        categoryName: initialData.categoryName || "",
-        brand: initialData.brand || "",
-        type: initialData.type || "",
+        categoryName: initialData.categoryName || "ANY",
+        brand: initialData.brand || "ANY",
+        type: initialData.type || "ANY",
         condition: initialData.condition || "ANY",
-        zone: initialData.zone || "",
+        zone: initialData.zone || "ANY",
         price: initialData.price || "",
         status: initialData.status || "Active",
       });
     }
   }, [initialData]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadOptions = async () => {
+      try {
+        const params = formData.categoryName
+          ? `?categoryName=${encodeURIComponent(formData.categoryName)}`
+          : "";
+        const res = await fetch(`/api/exchange-offers-condition/form-options${params}`);
+        const data = await res.json();
+        if (!cancelled && res.ok && data.success) {
+          setOptions((prev) => ({ ...prev, ...data.data }));
+        }
+      } catch (err) {
+        console.error("Failed to load exchange offer dropdowns:", err);
+      }
+    };
+    loadOptions();
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.categoryName]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+      ...(name === "categoryName" ? { brand: "ANY", type: "ANY" } : {}),
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -78,6 +141,9 @@ export default function ExchangeOfferForm({ isEdit = false, initialData = null }
       <h2 className="text-2xl font-light text-gray-700 mb-6">
         {isEdit ? "Edit Exchange Offer" : "Create Exchange Offer"}
       </h2>
+      <p className="text-sm text-gray-500 mb-6">
+        Choose from the lists below. <span className="font-semibold">ANY</span> applies this offer to all values in that field.
+      </p>
 
       {error && <div className="mb-4 p-3 bg-red-50 text-red-600 rounded">{error}</div>}
       {success && <div className="mb-4 p-3 bg-green-50 text-green-600 rounded">{success}</div>}
@@ -94,53 +160,46 @@ export default function ExchangeOfferForm({ isEdit = false, initialData = null }
             />
           </div>
         )}
-        <div className="flex items-center">
-          <label className="w-1/4 text-sm font-semibold text-gray-700">Category Name</label>
-          <input
-            name="categoryName"
-            value={formData.categoryName}
-            onChange={handleChange}
-            required
-            className="w-3/4 border rounded p-2 focus:outline-none focus:border-blue-400"
-          />
-        </div>
-        <div className="flex items-center">
-          <label className="w-1/4 text-sm font-semibold text-gray-700">Brand</label>
-          <input
-            name="brand"
-            value={formData.brand}
-            onChange={handleChange}
-            required
-            className="w-3/4 border rounded p-2 focus:outline-none focus:border-blue-400"
-          />
-        </div>
-        <div className="flex items-center">
-          <label className="w-1/4 text-sm font-semibold text-gray-700">Type</label>
-          <input
-            name="type"
-            value={formData.type}
-            onChange={handleChange}
-            className="w-3/4 border rounded p-2 focus:outline-none focus:border-blue-400"
-          />
-        </div>
-        <div className="flex items-center">
-          <label className="w-1/4 text-sm font-semibold text-gray-700">Condition</label>
-          <input
-            name="condition"
-            value={formData.condition}
-            onChange={handleChange}
-            className="w-3/4 border rounded p-2 focus:outline-none focus:border-blue-400"
-          />
-        </div>
-        <div className="flex items-center">
-          <label className="w-1/4 text-sm font-semibold text-gray-700">Zone</label>
-          <input
-            name="zone"
-            value={formData.zone}
-            onChange={handleChange}
-            className="w-3/4 border rounded p-2 focus:outline-none focus:border-blue-400"
-          />
-        </div>
+        <SelectField
+          label="Category Name"
+          name="categoryName"
+          value={formData.categoryName}
+          options={withCurrentValue(options.categories, formData.categoryName)}
+          onChange={handleChange}
+          required
+        />
+        <SelectField
+          label="Brand"
+          name="brand"
+          value={formData.brand}
+          options={withCurrentValue(options.brands, formData.brand)}
+          onChange={handleChange}
+          required
+        />
+        <SelectField
+          label="Type"
+          name="type"
+          value={formData.type}
+          options={withCurrentValue(options.types, formData.type)}
+          onChange={handleChange}
+          required
+        />
+        <SelectField
+          label="Condition"
+          name="condition"
+          value={formData.condition}
+          options={withCurrentValue(options.conditions, formData.condition)}
+          onChange={handleChange}
+          required
+        />
+        <SelectField
+          label="Zone"
+          name="zone"
+          value={formData.zone}
+          options={withCurrentValue(options.zones, formData.zone)}
+          onChange={handleChange}
+          required
+        />
         <div className="flex items-center">
           <label className="w-1/4 text-sm font-semibold text-gray-700">Price</label>
           <input

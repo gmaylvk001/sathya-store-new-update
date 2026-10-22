@@ -3,42 +3,92 @@
 import React, { useState, useEffect } from "react";
 import ExchangeOfferModal from "./ExchangeOfferModal";
 
+async function resolveCategoryNames(productCategory, categoryId, subCategoryId) {
+  const names = new Set(
+    String(productCategory || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+  );
+
+  const ids = [...new Set([categoryId, subCategoryId].filter(Boolean).map((id) => String(id)))];
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const res = await fetch(`/api/categories/breadcrumb?id=${encodeURIComponent(id)}`);
+        if (!res.ok) return;
+        const cat = await res.json();
+        if (cat?.category_name) names.add(String(cat.category_name).trim());
+      } catch (err) {
+        console.warn("Exchange offer category lookup failed:", err);
+      }
+    })
+  );
+
+  return [...names].join(",");
+}
+
 export default function ExchangeOfferSection({
   productCategory,
+  categoryId,
+  subCategoryId,
+  sellingPrice = 0,
+  mrp = 0,
   onExchangeApply,
+  onAvailabilityChange,
 }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [appliedOffer, setAppliedOffer] = useState(null);
   const [hasExchangeOffers, setHasExchangeOffers] = useState(false);
+  const [maxDiscount, setMaxDiscount] = useState(0);
+  const [resolvedCategory, setResolvedCategory] = useState(productCategory || "");
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("without");
 
   useEffect(() => {
+    let cancelled = false;
     const checkAvailability = async () => {
+      setIsLoading(true);
       try {
+        const categoryName = await resolveCategoryNames(productCategory, categoryId, subCategoryId);
+        if (cancelled) return;
+        setResolvedCategory(categoryName);
+
+        if (!categoryName) {
+          setHasExchangeOffers(false);
+          onAvailabilityChange?.(false);
+          return;
+        }
+
         const res = await fetch(
-          `/api/exchange-offers-condition/options?categoryName=${encodeURIComponent(
-            productCategory
-          )}`
+          `/api/exchange-offers-condition/options?categoryName=${encodeURIComponent(categoryName)}`
         );
         const data = await res.json();
-        if (res.ok && data.success && data.data.types.length > 0) {
+        if (cancelled) return;
+        if (res.ok && data.success && (data.data.hasOffers || data.data.types?.length > 0)) {
           setHasExchangeOffers(true);
+          setMaxDiscount(Number(data.data.maxDiscount) || 0);
+          onAvailabilityChange?.(true);
         } else {
           setHasExchangeOffers(false);
+          setMaxDiscount(0);
+          onAvailabilityChange?.(false);
         }
       } catch (err) {
-        setHasExchangeOffers(false);
+        if (!cancelled) {
+          setHasExchangeOffers(false);
+          onAvailabilityChange?.(false);
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
-    if (productCategory) {
-      checkAvailability();
-    } else {
-      setIsLoading(false);
-    }
-  }, [productCategory]);
+
+    checkAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [productCategory, categoryId, subCategoryId]);
 
   const handleApply = (offer) => {
     setAppliedOffer(offer);
@@ -50,66 +100,79 @@ export default function ExchangeOfferSection({
     onExchangeApply(null);
   };
 
-  // Do not render anything if this category has no exchange offers in DB
   if (isLoading || !hasExchangeOffers) return null;
 
+  const displayPrice = Number(sellingPrice) || 0;
+  const displayMrp = Number(mrp) || 0;
+  const saveAmount = displayMrp > displayPrice ? displayMrp - displayPrice : 0;
+  const savePercent = displayMrp > 0 && saveAmount > 0 ? Math.round((saveAmount / displayMrp) * 100) : 0;
+  const upToAmount = Number(appliedOffer?.price || maxDiscount) || 0;
+  const formatMoney = (value) =>
+    Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+
   return (
-    <div className="w-full my-4 border border-gray-200 rounded-md overflow-hidden bg-white">
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 bg-gray-50">
+    <div className="w-full mt-3">
+      <div className="flex items-stretch border-b-2 border-[#d72828]">
         <button
+          type="button"
           onClick={() => setActiveTab("without")}
-          className={`flex-1 py-2.5 text-[11px] font-bold text-center uppercase tracking-wide transition-colors ${
-            activeTab === "without"
-              ? "bg-[#d72828] text-white"
-              : "text-gray-600 bg-white hover:bg-gray-50"
+          className={`px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-bold uppercase tracking-wide ${
+            activeTab === "without" ? "bg-[#d72828] text-white" : "bg-white text-gray-700 hover:bg-gray-50"
           }`}
         >
           WITHOUT EXCHANGE
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab("with")}
-          className={`flex-1 py-2.5 text-[11px] font-bold text-center uppercase tracking-wide transition-colors ${
-            activeTab === "with"
-              ? "bg-[#d72828] text-white"
-              : "text-gray-600 bg-white hover:bg-gray-50"
+          className={`px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-bold uppercase tracking-wide ${
+            activeTab === "with" ? "bg-[#d72828] text-white" : "bg-white text-gray-700 hover:bg-gray-50"
           }`}
         >
           WITH EXCHANGE
         </button>
       </div>
 
-      <div className="p-4">
-        {activeTab === "without" ? (
-          <p className="text-xs text-gray-500">
-            Standard purchase without exchange.
+      <div className="pt-3 pb-1">
+        {activeTab === "with" && upToAmount > 0 && (
+          <p className="text-green-600 font-semibold text-sm mb-1">
+            Up To ₹{Number(upToAmount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Off
           </p>
-        ) : (
-          <div className="space-y-3">
+        )}
+
+        {displayPrice > 0 && (
+          <>
+            <p className="text-3xl font-bold text-gray-900 leading-none">₹{formatMoney(displayPrice)}</p>
+            <p className="text-xs text-gray-500 mt-1">(Incl. all Taxes)</p>
+          </>
+        )}
+
+        {activeTab === "without" && saveAmount > 0 && (
+          <p className="text-sm mt-2">
+            <span className="text-[#c45c5c] line-through">MRP: ₹{formatMoney(displayMrp)}</span>
+            <span className="text-green-600 font-medium"> (Save ₹{formatMoney(saveAmount)}, {savePercent}% Off)</span>
+          </p>
+        )}
+
+        {activeTab === "with" && (
+          <div className="mt-3">
             {appliedOffer ? (
-              <div className="bg-green-50 border border-green-200 rounded p-3 flex justify-between items-center">
+              <div className="flex items-center justify-between gap-3 bg-gray-50 border border-gray-200 px-3 py-2.5">
                 <div>
-                  <p className="text-sm font-semibold text-green-700">
-                    Exchange Offer Applied
-                  </p>
-                  <p className="text-xs text-green-600">
+                  <p className="text-sm text-gray-800">Exchange applied: ₹{formatMoney(appliedOffer.price)}</p>
+                  <p className="text-xs text-gray-500">
                     {appliedOffer.brand} {appliedOffer.type} ({appliedOffer.condition})
                   </p>
-                  <p className="text-sm font-bold text-green-700 mt-1">
-                    - ₹{Number(appliedOffer.price).toFixed(2)}
-                  </p>
                 </div>
-                <button
-                  onClick={handleRemove}
-                  className="text-red-500 hover:text-red-700 text-xs font-semibold"
-                >
+                <button type="button" onClick={handleRemove} className="text-red-600 text-xs font-semibold">
                   Remove
                 </button>
               </div>
             ) : (
               <button
+                type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="w-full bg-[#f4f7f9] border border-[#d1d5db] text-gray-700 text-sm font-medium py-3 px-4 text-left rounded shadow-inner hover:bg-[#e9ecef] transition-colors"
+                className="w-full bg-[#f3f4f6] border border-gray-200 text-gray-700 text-sm py-3 px-4 text-left hover:bg-gray-200 transition-colors"
               >
                 Choose Product to Exchange
               </button>
@@ -121,7 +184,7 @@ export default function ExchangeOfferSection({
       <ExchangeOfferModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        categoryName={productCategory}
+        categoryName={resolvedCategory}
         onApply={handleApply}
       />
     </div>

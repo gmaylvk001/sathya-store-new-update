@@ -71,8 +71,11 @@ export default function BulkUploadModal({ isOpen, onClose, onSuccess }) {
         </div>
         <div className="px-6 py-6 space-y-4">
           <p className="text-sm text-gray-600">
-            Upload an Excel file (.xlsx, .xls) containing Exchange Offer Conditions.
-            The columns should be: Category Name, Brand, Type, Condition, Zone, Price, Status.
+            Upload an Excel file (.xlsx, .xls) with columns:
+            Category Name, Brand, Type, Condition, Zone, Price, Status.
+          </p>
+          <p className="text-xs text-gray-500">
+            Use the same names as the admin dropdowns. Type <span className="font-semibold">ANY</span> (or leave Type / Condition / Zone blank) to apply that field to all values. Example: Category Name = Air Conditioner, Brand = ANY, Type = Split AC.
           </p>
           
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">

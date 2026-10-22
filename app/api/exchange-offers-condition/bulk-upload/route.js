@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import ExchangeOfferCondition from "@/models/ExchangeOfferCondition";
+import { normalizeOfferValue } from "@/lib/exchangeOfferMatch";
 import * as xlsx from "xlsx";
 
 export async function POST(req) {
@@ -45,13 +46,13 @@ export async function POST(req) {
       if (categoryName && brand) {
         itemsToInsert.push({
           id: nextId++,
-          categoryName,
-          brand,
-          type,
-          condition,
-          zone,
+          categoryName: normalizeOfferValue(categoryName),
+          brand: normalizeOfferValue(brand),
+          type: normalizeOfferValue(type),
+          condition: normalizeOfferValue(condition),
+          zone: normalizeOfferValue(zone),
           price,
-          status
+          status: String(status).trim() === "Inactive" ? "Inactive" : "Active",
         });
       }
     }

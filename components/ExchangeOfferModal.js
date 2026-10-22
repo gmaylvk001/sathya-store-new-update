@@ -58,7 +58,7 @@ export default function ExchangeOfferModal({
   };
 
   const handleCheck = async () => {
-    if (!selectedType || !selectedBrand || !selectedCondition || !pincode) {
+    if ((types.length && !selectedType) || (brands.length && !selectedBrand) || (conditions.length && !selectedCondition) || !pincode) {
       setError("Please fill all fields before checking.");
       return;
     }
@@ -74,9 +74,9 @@ export default function ExchangeOfferModal({
         },
         body: JSON.stringify({
           categoryName,
-          type: selectedType,
-          brand: selectedBrand,
-          condition: selectedCondition,
+          type: selectedType || "ANY",
+          brand: selectedBrand || "ANY",
+          condition: selectedCondition || "ANY",
           zone: pincode,
         }),
       });
@@ -124,47 +124,53 @@ export default function ExchangeOfferModal({
             Which product would you like to exchange?
           </p>
 
-          <select
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-[#d72828]"
-            disabled={isLoadingOptions}
-          >
-            <option value="">Select Type</option>
-            {types.map((t, idx) => (
-              <option key={idx} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+          {types.length > 0 && (
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-[#d72828]"
+              disabled={isLoadingOptions}
+            >
+              <option value="">Select Type</option>
+              {types.map((t, idx) => (
+                <option key={idx} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          )}
 
-          <select
-            value={selectedBrand}
-            onChange={(e) => setSelectedBrand(e.target.value)}
-            className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-[#d72828]"
-            disabled={isLoadingOptions}
-          >
-            <option value="">Select Brand</option>
-            {brands.map((b, idx) => (
-              <option key={idx} value={b}>
-                {b}
-              </option>
-            ))}
-          </select>
+          {brands.length > 0 && (
+            <select
+              value={selectedBrand}
+              onChange={(e) => setSelectedBrand(e.target.value)}
+              className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-[#d72828]"
+              disabled={isLoadingOptions}
+            >
+              <option value="">Select Brand</option>
+              {brands.map((b, idx) => (
+                <option key={idx} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          )}
 
-          <select
-            value={selectedCondition}
-            onChange={(e) => setSelectedCondition(e.target.value)}
-            className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-[#d72828]"
-            disabled={isLoadingOptions}
-          >
-            <option value="">Select Working Condition</option>
-            {conditions.map((c, idx) => (
-              <option key={idx} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+          {conditions.length > 0 && (
+            <select
+              value={selectedCondition}
+              onChange={(e) => setSelectedCondition(e.target.value)}
+              className="w-full border border-gray-300 rounded p-2 text-sm focus:outline-none focus:border-[#d72828]"
+              disabled={isLoadingOptions}
+            >
+              <option value="">Select Working Condition</option>
+              {conditions.map((c, idx) => (
+                <option key={idx} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          )}
 
           <div className="flex gap-2">
             <input

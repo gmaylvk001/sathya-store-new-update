@@ -112,6 +112,7 @@ export default function ProductClient() {
   const [selectedWarrantyData, setSelectedWarrantyData] = useState(null);
   const { pincode: globalPincode, region: globalRegion, isInitialized, setPincode } = useRegion();
   const [highlightOffer, setHighlightOffer] = useState(null);
+  const [hasExchangeOffers, setHasExchangeOffers] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const { setSimilarProducts } = useCompare();
 
@@ -1356,8 +1357,18 @@ export default function ProductClient() {
               </div>
             )}
 
+            <ExchangeOfferSection
+              productCategory={product.sub_category_new_name ? product.sub_category_new_name.replace(/##/g, ",") : (product.categoryName || "")}
+              categoryId={product.category}
+              subCategoryId={product.sub_category}
+              sellingPrice={(product.special_price > 0 ? product.special_price : product.price) + (selectedWarrantyAmount || 0)}
+              mrp={product.price + (selectedWarrantyAmount || 0)}
+              onExchangeApply={handleExchangeApply}
+              onAvailabilityChange={setHasExchangeOffers}
+            />
+
             {/* Price */}
-            <div className="mt-3 border-t border-gray-200 pt-3">
+            <div className={`mt-3 border-t border-gray-200 pt-3 ${hasExchangeOffers ? "hidden" : ""}`}>
               <div className="flex flex-col leading-tight">
                 <span className="text-2xl font-bold text-[#d72828]">
                   ₹ {Number((product.special_price > 0 ? product.special_price : product.price) + (selectedWarrantyAmount || 0)).toLocaleString('en-IN')}
@@ -1615,10 +1626,6 @@ export default function ProductClient() {
           <div className="w-full block">
             {!isDesktop && (
               <div className="mt-4">
-                <ExchangeOfferSection
-                  productCategory={product.sub_category_new_name ? product.sub_category_new_name.replace(/##/g, ",") : (product.categoryName || "")}
-                  onExchangeApply={handleExchangeApply}
-                />
                 <PaymentOffers
                   product={product}
                   externalShowEmiModal={showEMIModal}
@@ -2021,8 +2028,18 @@ export default function ProductClient() {
                   </div>
                 )}
 
+                <ExchangeOfferSection
+                  productCategory={product.sub_category_new_name ? product.sub_category_new_name.replace(/##/g, ",") : (product.categoryName || "")}
+                  categoryId={product.category}
+                  subCategoryId={product.sub_category}
+                  sellingPrice={(product.special_price > 0 ? product.special_price : product.price) + (isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0)}
+                  mrp={product.price + (isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0)}
+                  onExchangeApply={handleExchangeApply}
+                  onAvailabilityChange={setHasExchangeOffers}
+                />
+
                 {/* Price & Offer Block */}
-                <div className="border-t border-b border-gray-200 py-3 my-1">
+                <div className={`border-t border-b border-gray-200 py-3 my-1 ${hasExchangeOffers ? "hidden" : ""}`}>
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className="text-3xl font-black text-[#d72828]">
                       ₹ {Number((product.special_price > 0 ? product.special_price : product.price) + (isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0)).toLocaleString('en-IN')}
@@ -2050,10 +2067,6 @@ export default function ProductClient() {
 
                 {/* Available Offers Component */}
                 <div className="mt-3">
-                  <ExchangeOfferSection
-                    productCategory={product.sub_category_new_name ? product.sub_category_new_name.replace(/##/g, ",") : (product.categoryName || "")}
-                    onExchangeApply={handleExchangeApply}
-                  />
                   <PaymentOffers
                     product={product}
                     externalShowEmiModal={showEMIModal}

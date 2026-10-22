@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import ExchangeOfferCondition from "@/models/ExchangeOfferCondition";
+import {
+  categoryMatches,
+  fieldMatches,
+  isAnyValue,
+  specificityScore,
+} from "@/lib/exchangeOfferMatch";
+import { isValidPincode, lookupPincode } from "@/lib/regionHelper";
 
 export async function POST(req) {
   try {
@@ -8,53 +15,56 @@ export async function POST(req) {
     const data = await req.json();
     const { categoryName, type, brand, condition, zone } = data;
 
-    if (!categoryName || !type || !brand || !condition) {
+    if (!categoryName) {
       return NextResponse.json(
-        { success: false, error: "Missing required fields (categoryName, type, brand, condition)" },
+        { success: false, error: "Missing required field (categoryName)" },
         { status: 400 }
       );
     }
 
-    const categories = categoryName.split(",").map(c => c.trim()).filter(Boolean);
+    const records = await ExchangeOfferCondition.find({ status: "Active" }).lean();
+    const zoneAliases = [];
 
-    // First try to find an exact match including the zone (or pincode)
-    let query = {
-      categoryName: { $in: categories },
-      type,
-      brand,
-      condition,
-      status: "Active"
-    };
-
-    let offer = null;
-
-    if (zone) {
-      offer = await ExchangeOfferCondition.findOne({ ...query, zone });
+    if (zone && isValidPincode(zone)) {
+      try {
+        const geo = await lookupPincode(zone);
+        zoneAliases.push(geo?.city, geo?.region, geo?.stateName);
+      } catch (err) {
+        console.warn("[Exchange Offer] Pincode lookup skipped:", err.message);
+      }
     }
 
-    // If no exact zone match, try to find one where zone is "Any" or empty
-    if (!offer) {
-      offer = await ExchangeOfferCondition.findOne({
-        ...query,
-        $or: [{ zone: "Any" }, { zone: "" }, { zone: { $exists: false } }]
-      });
-    }
-    
-    // If still no match, just try to find any matching the 4 primary criteria
-    if (!offer) {
-      offer = await ExchangeOfferCondition.findOne(query);
-    }
+    const matches = records.filter((offer) => {
+      const zoneOk =
+        isAnyValue(offer.zone) ||
+        fieldMatches(offer.zone, zone) ||
+        zoneAliases.some((alias) => fieldMatches(offer.zone, alias));
 
-    if (!offer) {
+      return (
+        categoryMatches(offer.categoryName, categoryName) &&
+        fieldMatches(offer.type, type) &&
+        fieldMatches(offer.brand, brand) &&
+        fieldMatches(offer.condition, condition) &&
+        zoneOk
+      );
+    });
+
+    if (!matches.length) {
       return NextResponse.json(
         { success: false, error: "No matching exchange offer found." },
         { status: 404 }
       );
     }
 
+    matches.sort((a, b) => {
+      const scoreDiff = specificityScore(b, { zone, zoneAliases }) - specificityScore(a, { zone, zoneAliases });
+      if (scoreDiff !== 0) return scoreDiff;
+      return (Number(b.price) || 0) - (Number(a.price) || 0);
+    });
+
     return NextResponse.json({
       success: true,
-      data: offer,
+      data: matches[0],
     });
   } catch (error) {
     console.error("Error checking Exchange Offer:", error);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import ExchangeOfferCondition from "@/models/ExchangeOfferCondition";
+import { normalizeOfferValue } from "@/lib/exchangeOfferMatch";
 
 export async function POST(req) {
   try {
@@ -13,6 +14,11 @@ export async function POST(req) {
 
     const newOffer = new ExchangeOfferCondition({
       ...data,
+      categoryName: normalizeOfferValue(data.categoryName),
+      brand: normalizeOfferValue(data.brand),
+      type: normalizeOfferValue(data.type),
+      condition: normalizeOfferValue(data.condition),
+      zone: normalizeOfferValue(data.zone),
       id: nextId,
     });
 
