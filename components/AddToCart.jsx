@@ -244,6 +244,9 @@ const AddToCartButton = ({
       }
 
       setCartSuccess(true);
+      setTimeout(() => {
+        setCartSuccess(false);
+      }, 2500);
     } catch (error) {
       console.error("Add to cart error:", error);
     } finally {

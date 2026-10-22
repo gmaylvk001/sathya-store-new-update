@@ -47,6 +47,7 @@ import PaymentNewLive from "@/models/payment_new_live";
 import CancelOrders from "@/models/cancel_orders_live";
 import { ensureAppCancelsMoved } from "@/lib/cancelOrdersLive";
 import product from "@/models/product";
+import Review from "@/models/Review";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
@@ -189,20 +190,47 @@ export async function GET(req) {
       lineItemsByOrder.set(String(order._id), details.length > 0 ? details : (order.order_item || []));
     }
 
-    // Product slugs for all item codes in one query; first product per code wins
+    // Product slugs and IDs for all item codes in one query; first product per code wins
     const itemCodes = [
       ...new Set(
         [...lineItemsByOrder.values()].flat().map((item) => item.item_code).filter(Boolean)
       ),
     ];
-    const slugByItemCode = new Map();
+    const productInfoByItemCode = new Map();
     if (itemCodes.length) {
       const productDocs = await product
-        .find({ item_code: { $in: itemCodes } }, "slug item_code")
+        .find({ item_code: { $in: itemCodes } }, "slug item_code _id")
         .sort({ _id: 1 })
         .lean();
       for (const p of productDocs) {
-        if (!slugByItemCode.has(p.item_code)) slugByItemCode.set(p.item_code, p.slug);
+        if (!productInfoByItemCode.has(p.item_code)) {
+          productInfoByItemCode.set(p.item_code, {
+            slug: p.slug,
+            id: String(p._id),
+          });
+        }
+      }
+    }
+
+    // Check products already reviewed by the current user
+    let userReviewedProductIds = new Set();
+    if (userId) {
+      try {
+        const userReviews = await Review.find({
+          $or: [
+            { user_id: String(userId) },
+            ...(mongoose.isValidObjectId(userId)
+              ? [{ user_id: new mongoose.Types.ObjectId(userId) }]
+              : []),
+          ],
+        })
+          .select("product_id")
+          .lean();
+        userReviewedProductIds = new Set(
+          userReviews.map((r) => String(r.product_id)).filter(Boolean)
+        );
+      } catch (e) {
+        console.error("Error fetching user reviews for orders:", e);
       }
     }
 
@@ -213,14 +241,22 @@ export async function GET(req) {
 
       for (let item of lineItems) {
         const itemCode = item.item_code;
-        const slug = itemCode ? slugByItemCode.get(itemCode) : null;
+        const matchedProduct = itemCode ? productInfoByItemCode.get(itemCode) : null;
+        const slug = matchedProduct?.slug || null;
+        const resolvedId = matchedProduct?.id || null;
 
         const itemObj = item.toObject ? item.toObject() : item;
+        const finalProductId = itemObj.product_id || resolvedId || itemObj.productId || null;
+
         itemsWithSlug.push({
           ...itemObj,
+          product_id: finalProductId,
           name: itemObj.product_name || itemObj.name,
           price: itemObj.product_price || itemObj.price,
-          slug: slug || null
+          slug: slug || null,
+          is_reviewed: Boolean(
+            finalProductId && userReviewedProductIds.has(String(finalProductId))
+          ),
         });
       }
 

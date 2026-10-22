@@ -509,7 +509,6 @@ useEffect(() => {
     comment: "",
   });
   const [submitting, setSubmitting] = useState(false);
-  const userId = "66f03a7b8f...";
 
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
@@ -537,12 +536,15 @@ useEffect(() => {
         return;
       }
 
-      if(data1.loggedIn) {
-        const userId    = data1.user.userId;
+      if (data1.loggedIn) {
+        const userId = data1.user?.userId || data1.user?._id;
         const productId = product._id;
         const res = await fetch(`/api/reviews/${product._id}`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({
             userId,
             productId,
@@ -553,14 +555,13 @@ useEffect(() => {
         });
         const data = await res.json();
         if (data.success) {
-           toast.success("Review added successfully!");
-          // window.location.reload();
+          toast.success("Review added successfully!");
+          setReviewForm({ title: "", rating: 0, comment: "" });
         } else {
-           toast.error("Error: " + data.error);
+          toast.error(data.error || "Failed to submit review");
         }
-      }else {
-         toast.error("Please login to review the product!..");
-        // alert("Please login to review the product!..")
+      } else {
+        toast.error("Please login to review the product!..");
       }
     } catch (error) {
       // console.error("Error submitting review:", error);
