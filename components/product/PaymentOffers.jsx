@@ -5,15 +5,36 @@ import Image from "next/image";
 import BankLogo from "./BankLogo";
 import { usePaymentOffersModal } from "@/hooks/usePaymentOffersModal";
 import { EmiPlansModal, BankOffersModal } from "@/components/ProductOffersSection";
+import {
+  getPaymentOffersAriaAttributes,
+  getPaymentOffersChevronClass,
+  getPaymentOffersHeaderMarginClass,
+} from "@/lib/paymentOffersHelper";
+
+export {
+  getPaymentOffersAriaAttributes,
+  getPaymentOffersChevronClass,
+  getPaymentOffersHeaderMarginClass,
+};
 
 /**
  * PaymentOffers Component
  * Displays eligible Bank Offers and EMI options for a product.
  * Defensively checks for undefined/null props and handles empty states.
  */
-export default function PaymentOffers({ product, externalShowEmiModal, onExternalCloseEmiModal }) {
+export default function PaymentOffers({
+  product,
+  externalShowEmiModal,
+  onExternalCloseEmiModal,
+  initialExpanded = true,
+}) {
   const [offersData, setOffersData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(Boolean(initialExpanded));
+
+  const toggleExpanded = () => {
+    setIsExpanded((prev) => !prev);
+  };
 
   // Isolated interactive modal and card selection state
   const {
@@ -143,39 +164,82 @@ export default function PaymentOffers({ product, externalShowEmiModal, onExterna
     <div className="w-full mt-4">
       {/* 1. TOP ACCORDION / BEST PRICE HEADER */}
       <div
-        onClick={() => openBankOffersModal()}
+        onClick={toggleExpanded}
         role="button"
         tabIndex={0}
+        aria-expanded={isExpanded}
+        aria-controls="payment-offers-collapsible-content"
+        aria-label={isExpanded ? "Collapse Payment Offers" : "Expand Payment Offers"}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            openBankOffersModal();
+            toggleExpanded();
           }
         }}
-        className="bg-[#FFF5F5] border border-gray-200 rounded-xl px-3 py-2.5 flex items-center justify-between mb-4 cursor-pointer hover:bg-pink-50/70 transition-all"
+        className={`bg-[#FFF5F5] border border-gray-200 rounded-xl px-3 py-2.5 flex items-center justify-between cursor-pointer hover:bg-pink-50/70 transition-all select-none focus:outline-none focus:ring-2 focus:ring-pink-400 focus:ring-offset-1 ${
+          isExpanded ? "mb-4" : "mb-0"
+        }`}
       >
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="bg-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+          <span className="bg-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-2xs">
             BEST PRICE
           </span>
           <span className="text-green-600 font-bold text-sm">
-            ₹{bestPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-gray-500 font-normal">with all applicable Offers</span>
+            ₹{bestPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+            <span className="text-gray-500 font-normal">
+              with all applicable{" "}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openBankOffersModal();
+                }}
+                className="text-blue-600 font-medium hover:underline cursor-pointer focus:outline-none"
+                title="View applicable bank offers"
+              >
+                Offers
+              </button>
+            </span>
           </span>
         </div>
-        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-        </svg>
+
+        {/* Accordion Toggle Arrow Button */}
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          aria-controls="payment-offers-collapsible-content"
+          aria-label={isExpanded ? "Collapse Payment Offers" : "Expand Payment Offers"}
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleExpanded();
+          }}
+          className="w-7 h-7 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-800 hover:bg-pink-100/60 transition-all focus:outline-none focus:ring-2 focus:ring-pink-400 cursor-pointer"
+          title={isExpanded ? "Collapse Payment Offers" : "Expand Payment Offers"}
+        >
+          <svg
+            className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "" : "rotate-180"}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
       </div>
 
-      {/* 2. SECTION HEADER */}
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center">
-          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <h3 className="font-semibold text-gray-800 text-base">Payment Offers</h3>
-      </div>
+      {/* 2. COLLAPSIBLE OFFERS CONTENT */}
+      {isExpanded && (
+        <div id="payment-offers-collapsible-content" className="animate-fadeIn">
+          {/* SECTION HEADER */}
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center">
+              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="font-semibold text-gray-800 text-base">Payment Offers</h3>
+          </div>
 
       <div className="space-y-6">
         {/* 3. EMI OFFERS ROW */}
@@ -341,6 +405,8 @@ export default function PaymentOffers({ product, externalShowEmiModal, onExterna
           </div>
         )}
       </div>
+    </div>
+  )}
 
       {/* 5. REUSED EMI PLANS & DETAILS MODAL */}
       {isEmiModalOpen && (
