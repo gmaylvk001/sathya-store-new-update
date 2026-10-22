@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/db";
 import OrderNew from "@/models/orders_new";
+import StoreListing from "@/models/store_listings";
 import { sendOrderData } from "@/lib/sendOrderData";
+import { ownerFieldFilter } from "@/lib/storeView";
 
 /**
  * Exist CallApi for Home Delivery PlaceOrder:
@@ -42,6 +44,19 @@ export async function POST(req, { params }) {
       return NextResponse.json(
         { success: false, message: "Order not found" },
         { status: 404 }
+      );
+    }
+
+    const uniletOrder = String(order.order_owner || "").trim().toLowerCase() === "unilet";
+    const branchPattern = branchid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const matchingStore = await StoreListing.findOne({
+      branch_code: { $regex: new RegExp(`^${branchPattern}$`, "i") },
+      ...ownerFieldFilter("store_owner", uniletOrder),
+    }).select("_id").lean();
+    if (!matchingStore) {
+      return NextResponse.json(
+        { success: false, message: uniletOrder ? "Select a Unilet store" : "Select a Sathya store" },
+        { status: 400 }
       );
     }
 

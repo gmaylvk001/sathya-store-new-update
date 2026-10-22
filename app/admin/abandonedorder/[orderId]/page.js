@@ -36,6 +36,10 @@ const OrderDetails = () => {
   const [sendingSms, setSendingSms] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const isUniletOrder = String(order?.order_owner || "").trim().toLowerCase() === "unilet";
+  const assignableStores = stores.filter((store) => {
+    const owner = String(store?.store_owner || "").trim().toLowerCase();
+    return isUniletOrder ? owner === "unilet" : owner !== "unilet";
+  });
 
   // 🔹 Fetch Stores
   useEffect(() => {
@@ -271,17 +275,23 @@ const OrderDetails = () => {
 
   useEffect(() => {
     if (!order || !stores.length) return;
+    const uniletOrder = String(order.order_owner || "").trim().toLowerCase() === "unilet";
     const currentCode = String(order.pickup_type || "").trim();
-    if (!currentCode) return;
-    const matched = stores.find((store) => storeBranchCode(store) === currentCode);
-    if (matched) setAssignStoreId(String(matched._id));
+    const matched = currentCode
+      ? stores.find((store) => {
+          const owner = String(store?.store_owner || "").trim().toLowerCase();
+          const sameOwner = uniletOrder ? owner === "unilet" : owner !== "unilet";
+          return sameOwner && storeBranchCode(store) === currentCode;
+        })
+      : null;
+    setAssignStoreId(matched ? String(matched._id) : "");
   }, [order, stores]);
 
   const handleAssignStore = async () => {
-    const store = stores.find((item) => String(item._id) === String(assignStoreId));
+    const store = assignableStores.find((item) => String(item._id) === String(assignStoreId));
     const pickup_type = storeBranchCode(store);
-    if (!assignStoreId) {
-      toast.error("Please select a store");
+    if (!assignStoreId || !store) {
+      toast.error(isUniletOrder ? "Select a Unilet store" : "Select a Sathya store");
       return;
     }
     if (!pickup_type) {
@@ -567,7 +577,9 @@ const OrderDetails = () => {
             Assign to store ({currentOrderNumber})
           </div>
           <div className="p-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Select store</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Select {isUniletOrder ? "Unilet" : "Sathya"} store
+            </label>
             <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
               <select
                 value={assignStoreId}
@@ -575,7 +587,7 @@ const OrderDetails = () => {
                 className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-400"
               >
                 <option value="">Choose</option>
-                {stores.map((store) => {
+                {assignableStores.map((store) => {
                   const code = storeBranchCode(store);
                   const label = store.title || store.organisation_name || store.store_name || store.name || "Store";
                   return (

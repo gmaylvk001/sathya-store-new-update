@@ -6,7 +6,9 @@ import OrderDetailsNew from "@/models/order_details_new";
 import OrderHistoryNew from "@/models/order_history_new";
 import Product from "@/models/product";
 import OwnerProduct from "@/models/OwnerProduct";
+import StoreListing from "@/models/store_listings";
 import { requireAdmin } from "@/lib/adminRequest";
+import { ownerFieldFilter } from "@/lib/storeView";
 
 const ORDER_STATUSES = [
   "Billed",
@@ -203,6 +205,23 @@ export async function PATCH(req, { params }) {
       if (!pickup_type) {
         return NextResponse.json(
           { success: false, message: "Please select a store with branch code" },
+          { status: 400 }
+        );
+      }
+
+      const existingOrder = await OrderNew.findById(orderId).select("order_owner").lean();
+      if (!existingOrder) {
+        return NextResponse.json({ success: false, message: "Order not found" }, { status: 404 });
+      }
+      const uniletOrder = String(existingOrder.order_owner || "").trim().toLowerCase() === "unilet";
+      const branchPattern = pickup_type.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const matchingStore = await StoreListing.findOne({
+        branch_code: { $regex: new RegExp(`^${branchPattern}$`, "i") },
+        ...ownerFieldFilter("store_owner", uniletOrder),
+      }).select("_id").lean();
+      if (!matchingStore) {
+        return NextResponse.json(
+          { success: false, message: uniletOrder ? "Select a Unilet store" : "Select a Sathya store" },
           { status: 400 }
         );
       }

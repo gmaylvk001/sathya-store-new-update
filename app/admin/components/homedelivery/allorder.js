@@ -36,10 +36,22 @@ const OrdersTable = () => {
 
   const DEFAULT_BRANCH = "SSSA";
 
+  const storesForOrder = (order, storeList = stores) => {
+    const uniletOrder = String(order?.order_owner || "").trim().toLowerCase() === "unilet";
+    return storeList.filter((store) => {
+      const owner = String(store?.store_owner || "").trim().toLowerCase();
+      return uniletOrder ? owner === "unilet" : owner !== "unilet";
+    });
+  };
+
   const resolveDefaultBranch = (order, storeList) => {
+    const owned = storesForOrder(order, storeList);
     const existing = String(order?.pickup_type || "").trim();
-    if (existing) return existing;
-    const hasSssa = storeList.some(
+    const existingMatch = owned.some(
+      (store) => String(store?.branch_code || store?.location_id || "").trim() === existing
+    );
+    if (existing && existingMatch) return existing;
+    const hasSssa = owned.some(
       (s) => String(s?.branch_code || s?.location_id || "").trim().toUpperCase() === DEFAULT_BRANCH
     );
     return hasSssa ? DEFAULT_BRANCH : "";
@@ -209,9 +221,17 @@ const OrdersTable = () => {
   // Exist PlaceOrder / CheckStatus
   const handlePlaceOrderClick = async (order) => {
     const id = String(order._id);
-    const branchid = String(rowStoreMap[id] || order.pickup_type || DEFAULT_BRANCH).trim();
+    const selected = String(rowStoreMap[id] || "").trim();
+    const allowed = storesForOrder(order).some(
+      (store) => String(store?.branch_code || store?.location_id || "").trim() === selected
+    );
+    const branchid = allowed ? selected : "";
     if (!branchid) {
-      window.alert("Please select a store / branch");
+      window.alert(
+        String(order?.order_owner || "").trim().toLowerCase() === "unilet"
+          ? "Select a Unilet store"
+          : "Select a Sathya store"
+      );
       return;
     }
 
@@ -402,7 +422,7 @@ const OrdersTable = () => {
                             className="w-full border border-gray-300 rounded px-2 py-1 text-xs bg-white"
                           >
                             <option value="">Choose</option>
-                            {stores.map((store) => {
+                            {storesForOrder(o).map((store) => {
                               const code = String(store?.branch_code || store?.location_id || "").trim();
                               return (
                                 <option key={store._id} value={code || String(store._id)}>
