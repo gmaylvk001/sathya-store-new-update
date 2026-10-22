@@ -116,6 +116,7 @@ export default function ProductClient() {
   productRef.current = product;
   const [highlightOffer, setHighlightOffer] = useState(null);
   const [hasExchangeOffers, setHasExchangeOffers] = useState(false);
+  const [hasPaymentOffers, setHasPaymentOffers] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const { setSimilarProducts } = useCompare();
 
@@ -1660,8 +1661,9 @@ export default function ProductClient() {
                   product={product}
                   externalShowEmiModal={showEMIModal}
                   onExternalCloseEmiModal={() => setShowEMIModal(false)}
+                  onAvailabilityChange={setHasPaymentOffers}
                 />
-                <CompetitorPriceTracker product={product} className="mt-3" />
+                <CompetitorPriceTracker product={product} className={hasPaymentOffers ? "mt-3" : "mt-0"} />
                 <ProductInstallationWarrantySection
                   product={product}
                   warranties={warranties}
@@ -2096,13 +2098,12 @@ export default function ProductClient() {
                 </div>
 
                 {/* Available Offers Component */}
-                <div className="mt-3">
-                  <PaymentOffers
-                    product={product}
-                    externalShowEmiModal={showEMIModal}
-                    onExternalCloseEmiModal={() => setShowEMIModal(false)}
-                  />
-                </div>
+                <PaymentOffers
+                  product={product}
+                  externalShowEmiModal={showEMIModal}
+                  onExternalCloseEmiModal={() => setShowEMIModal(false)}
+                  onAvailabilityChange={setHasPaymentOffers}
+                />
 
                 {/* Delivery Options & Badges Card (Screenshot Reference Exact Match) */}
                 <div className="border border-gray-200 rounded-xl p-3.5 bg-white shadow-2xs mt-3">

@@ -9,27 +9,37 @@ import {
   getPaymentOffersAriaAttributes,
   getPaymentOffersChevronClass,
   getPaymentOffersHeaderMarginClass,
+  MIN_EMI_PRICE,
+  isEmiEligible,
+  filterEligibleBankOffers,
+  calculatePaymentOffersBestPrice,
 } from "@/lib/paymentOffersHelper";
 
 export {
   getPaymentOffersAriaAttributes,
   getPaymentOffersChevronClass,
   getPaymentOffersHeaderMarginClass,
+  MIN_EMI_PRICE,
+  isEmiEligible,
+  filterEligibleBankOffers,
+  calculatePaymentOffersBestPrice,
 };
 
 /**
  * PaymentOffers Component
  * Displays eligible Bank Offers and EMI options for a product.
  * Defensively checks for undefined/null props and handles empty states.
+ * Completely collapses to null when no offers are available, preventing empty blank space.
  */
 export default function PaymentOffers({
   product,
   externalShowEmiModal,
   onExternalCloseEmiModal,
   initialExpanded = true,
+  onAvailabilityChange,
 }) {
   const [offersData, setOffersData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(Boolean(product?._id));
   const [isExpanded, setIsExpanded] = useState(Boolean(initialExpanded));
 
   const toggleExpanded = () => {
@@ -55,28 +65,36 @@ export default function PaymentOffers({
   const price = Number(product?.special_price ?? product?.price ?? product?.sellingPrice ?? product?.finalPrice ?? 0);
 
   useEffect(() => {
-    // Temporary console logger for debugging as requested
-    console.log("[PaymentOffers] Evaluated Price:", price);
-  }, [price]);
-
-  useEffect(() => {
-    if (!product?._id) return;
+    if (!product?._id) {
+      setIsLoading(false);
+      onAvailabilityChange?.(false);
+      return;
+    }
 
     let isMounted = true;
     setIsLoading(true);
 
     // Fetch from the API which utilizes our refactored offerCalculator
     fetch(`/api/products/${product._id}/payment-offers?price=${price}`)
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Offers API response error: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then((data) => {
         if (isMounted) {
           setOffersData(data);
           setIsLoading(false);
         }
       })
-      .catch(err => {
+      .catch((err) => {
         console.error("Failed to fetch payment offers:", err);
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          setOffersData(null);
+          setIsLoading(false);
+          onAvailabilityChange?.(false);
+        }
       });
 
     return () => {
@@ -84,84 +102,66 @@ export default function PaymentOffers({
     };
   }, [product?._id, price]);
 
-  if (isLoading) {
-    return (
-      <div className="w-full mt-3 border border-gray-200 rounded-xl bg-white p-4 animate-pulse">
-        <div className="h-4 w-1/3 bg-gray-200 rounded mb-4"></div>
-        <div className="h-16 bg-gray-100 rounded-lg border border-gray-200"></div>
-      </div>
-    );
-  }
-
-  if (!offersData || typeof offersData !== "object") {
-    return null;
-  }
-
-  let rawEmiOffers = Array.isArray(offersData.emiOffers) ? offersData.emiOffers : [];
-  let rawBankOffers = Array.isArray(offersData.bankOffers) ? offersData.bankOffers : [];
-
-  // 2. Strict EMI Rule
-  const MIN_EMI_PRICE = 2500;
-  // CRITICAL: If price < 2500, DO NOT render the EMI heading, tabs, or cards.
+  // 2. Strict EMI Rule & Validation
+  let rawEmiOffers = Array.isArray(offersData?.emiOffers) ? offersData.emiOffers : [];
   if (price < MIN_EMI_PRICE) {
     rawEmiOffers = [];
   }
-  const showEmi = price >= MIN_EMI_PRICE && rawEmiOffers.length > 0;
+  const showEmi = isEmiEligible(price, rawEmiOffers);
 
-  // 3. Strict Bank Offers Filter
-  const validBankOffers = rawBankOffers.filter(offer => {
-    // Filter inactive offers
-    if (offer.isActive === false) return false;
-
-    // Filter expired offers
-    if (offer.validTill && new Date(offer.validTill) < new Date()) return false;
-
-    // Filter by minOrderValue
-    if (price < (offer.minOrderValue || 0)) return false;
-
-    // Filter by calculated discount
-    if ((offer.calculatedDiscount || 0) <= 0) return false;
-
-    // Filter out if effectivePrice >= price
-    if ((offer.effectivePrice || price) >= price) return false;
-
-    return true;
-  });
-
-  // Guarantee Best Offer (highest savings) is always at index 0 for both cards and modal
-  validBankOffers.sort((a, b) => {
-    if (a.isBestOffer && !b.isBestOffer) return -1;
-    if (!a.isBestOffer && b.isBestOffer) return 1;
-    return (b.calculatedDiscount || 0) - (a.calculatedDiscount || 0);
-  });
+  // 3. Strict Bank Offers Filter & Validation
+  let rawBankOffers = Array.isArray(offersData?.bankOffers) ? offersData.bankOffers : [];
+  const validBankOffers = filterEligibleBankOffers(price, rawBankOffers);
+  const showBankOffers = validBankOffers.length > 0;
 
   // Guarantee Best Deal EMI is always at index 0
   if (rawEmiOffers.length > 0) {
     rawEmiOffers.sort((a, b) => {
       if (a.isBestDeal && !b.isBestDeal) return -1;
       if (!a.isBestDeal && b.isBestDeal) return 1;
-      return (a.monthlyEmi || 0) - (b.monthlyEmi || 0);
+      return (Number(a.monthlyEmi) || 0) - (Number(b.monthlyEmi) || 0);
     });
   }
 
-  const showBankOffers = validBankOffers.length > 0;
+  const hasOffers = Boolean(showEmi || showBankOffers);
 
-  // 4. Container Collapse Rule
-  if (!showEmi && !showBankOffers) {
-    // NEVER display an empty card or empty container.
+  // Synchronize availability state with parent container
+  useEffect(() => {
+    if (!isLoading) {
+      onAvailabilityChange?.(hasOffers);
+    }
+  }, [hasOffers, isLoading, onAvailabilityChange]);
+
+  // Ensure clean teardown resets parent availability
+  useEffect(() => {
+    return () => {
+      onAvailabilityChange?.(false);
+    };
+  }, [onAvailabilityChange]);
+
+  // Handle loading state: for sub-2500 products EMI cannot exist;
+  // returning null prevents layout shift / flicker.
+  if (isLoading) {
+    if (price < MIN_EMI_PRICE) {
+      return null;
+    }
     return (
-      <div className="mt-3 text-xs text-gray-500 italic px-2">
-        Standard Payment Methods Available at Checkout
-      </div>
+      <div className="w-full mt-3 h-11 border border-pink-100/60 rounded-xl bg-pink-50/30 animate-pulse" />
     );
   }
 
+  // 4. Container Collapse Rule:
+  // When no offers are available, collapse completely to null.
+  // NEVER display an empty card, empty container, or placeholder text.
+  if (!hasOffers) {
+    return null;
+  }
+
   // Calculate best price for the top banner
-  const maxDiscount = validBankOffers.length > 0 ? Math.max(...validBankOffers.map(o => o.calculatedDiscount || 0)) : 0;
-  const bestPrice = price - maxDiscount;
+  const { bestPrice } = calculatePaymentOffersBestPrice(price, validBankOffers);
 
   return (
-    <div className="w-full mt-4">
+    <div className="w-full mt-3">
       {/* 1. TOP ACCORDION / BEST PRICE HEADER */}
       <div
         onClick={toggleExpanded}
