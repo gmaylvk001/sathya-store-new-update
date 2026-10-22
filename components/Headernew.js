@@ -1069,8 +1069,9 @@ const Header = () => {
       if (category && category !== 'All Category' && category !== 'All Categories') {
         qs.set('category', category);
       }
+      if (region) qs.set('region', region);
 
-      const res = await fetch(`/api/search/suggestions?${qs}`, { signal: controller.signal });
+      const res = await fetch(`/api/search/suggestions?${qs}`, { signal: controller.signal, cache: 'no-store' });
 
       // Cancelled or superseded by newer request
       if (requestId !== searchRequestIdRef.current) return;
@@ -1119,7 +1120,7 @@ const Header = () => {
         setIsLoadingMore(false);
       }
     }
-  }, []);
+  }, [region]);
 
   const handleLoadMore = useCallback((e) => {
     if (e) {

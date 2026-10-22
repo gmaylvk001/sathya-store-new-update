@@ -92,6 +92,7 @@ export default function ProductClient() {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const variantCacheRef = useRef({});
+  const productRef = useRef(null);
   const applyingVariantRef = useRef(false);
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -111,6 +112,8 @@ export default function ProductClient() {
   const [warranties, setWarranties] = useState([]);
   const [selectedWarrantyData, setSelectedWarrantyData] = useState(null);
   const { pincode: globalPincode, region: globalRegion, isInitialized, setPincode } = useRegion();
+  const variantKey = (id) => `${globalRegion || "tamilnadu"}::${id}`;
+  productRef.current = product;
   const [highlightOffer, setHighlightOffer] = useState(null);
   const [hasExchangeOffers, setHasExchangeOffers] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -779,7 +782,8 @@ export default function ProductClient() {
     const fetchRelatedProducts = async () => {
       try {
         const res = await fetch(
-          `/api/product/relatedpro?category=${categoryId}&brand=${brandId}&exclude=${currentProductId}&limit=5`
+          `/api/product/relatedpro?category=${categoryId}&brand=${brandId}&exclude=${currentProductId}&limit=5&region=${encodeURIComponent(globalRegion || "tamilnadu")}`,
+          { cache: "no-store" }
         );
         const data = await res.json();
         console.log("current related products is:", data);
@@ -798,8 +802,9 @@ export default function ProductClient() {
       }
     };
 
-    if (categoryId && brandId) fetchRelatedProducts();
-  }, [categoryId, brandId, currentProductId]);
+    if (!isInitialized || !categoryId || !brandId) return;
+    fetchRelatedProducts();
+  }, [categoryId, brandId, currentProductId, globalRegion, isInitialized]);
 
 
   const toggleRelatedProduct = (product) => {
@@ -855,7 +860,7 @@ export default function ProductClient() {
       if (!product?._id) return;
       const ids = product?.featured_products?.length ? product.featured_products : [];
       try {
-        const res = await fetch('/api/product/featured', {
+        const res = await fetch(`/api/product/featured?region=${encodeURIComponent(globalRegion || "tamilnadu")}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -876,8 +881,9 @@ export default function ProductClient() {
       }
     };
 
+    if (!isInitialized) return;
     fetchFeaturedProducts();
-  }, [product?._id, product?.category, product?.brand]);
+  }, [product?._id, product?.category, product?.brand, globalRegion, isInitialized]);
   // derived main image
   const mainImage = (product?.images && product.images.length > 0 && product.images[selectedImageIndex]) ? product.images[selectedImageIndex] : "/uploads/products/placeholder.jpg";
   const matchedBrandForManufacturer = (() => {
@@ -953,41 +959,64 @@ export default function ProductClient() {
   }, [product?._id]);
 
   useEffect(() => {
-    const applyProductData = (data) => {
+    const applyProductData = (data, { pricesOnly = false } = {}) => {
+      const regionKey = globalRegion || "tamilnadu";
+      const remember = (key, value) => {
+        if (key) variantCacheRef.current[`${regionKey}::${key}`] = value;
+      };
+      if (data?.variantGroup?.products?.length) {
+        const group = data.variantGroup;
+        group.products.forEach((sibling) => {
+          const cachedSibling = { ...sibling, variantGroup: group };
+          remember(sibling?.slug, cachedSibling);
+          remember(sibling?._id ? String(sibling._id) : "", cachedSibling);
+        });
+        if (data.slug) remember(data.slug, { ...data, variantGroup: group });
+      } else if (data?.slug) {
+        remember(data.slug, data);
+      }
+
+      const current = productRef.current;
+      if (pricesOnly && current && (current.slug === data.slug || String(current._id) === String(data._id))) {
+        setProduct({
+          ...current,
+          price: data.price,
+          special_price: data.special_price,
+          isUnilet: data.isUnilet,
+          resolvedRegion: data.resolvedRegion,
+          bestPriceDetails: data.bestPriceDetails,
+          best_price: data.best_price,
+          variantGroup: data.variantGroup || current.variantGroup,
+        });
+        return;
+      }
+
       setProduct(data);
       setSelectedImageIndex(0);
       setQuantity(1);
       if (data?.images?.[0]) setSelectedImage(`/uploads/products/${data.images[0]}`);
-      if (data?.variantGroup?.products?.length) {
-        const group = data.variantGroup;
-        group.products.forEach((sibling) => {
-          const cachedSibling = {
-            ...sibling,
-            variantGroup: group,
-          };
-          if (sibling?.slug) variantCacheRef.current[sibling.slug] = cachedSibling;
-          if (sibling?._id) variantCacheRef.current[String(sibling._id)] = cachedSibling;
-        });
-        if (data.slug) {
-          variantCacheRef.current[data.slug] = { ...data, variantGroup: group };
-        }
-      }
     };
 
     const fetchProduct = async () => {
-      if (!slug) return;
+      const requestSlug = productRef.current?.slug || slug;
+      if (!requestSlug) return;
+      const region = globalRegion || "tamilnadu";
+      const sameProduct = Boolean(productRef.current);
 
-      const cached = variantCacheRef.current[slug];
+      const cached = variantCacheRef.current[`${region}::${requestSlug}`];
       if (cached) {
         applyingVariantRef.current = false;
-        applyProductData(cached);
+        applyProductData(cached, { pricesOnly: sameProduct && cached.slug === productRef.current?.slug });
         setLoading(false);
         return;
       }
 
       try {
-        setLoading((currentLoading) => (product ? currentLoading : true));
-        const response = await fetch(`/api/product/${slug}`);
+        setLoading((currentLoading) => (sameProduct ? currentLoading : true));
+        const response = await fetch(
+          `/api/product/${encodeURIComponent(requestSlug)}?region=${encodeURIComponent(region)}`,
+          { cache: "no-store" }
+        );
 
         if (!response.ok) {
           setErrorMessage("Content not loading. Please try again later.");
@@ -1006,9 +1035,9 @@ export default function ProductClient() {
           if (!foundProduct) {
             throw new Error("Product not found");
           }
-          applyProductData(foundProduct);
+          applyProductData(foundProduct, { pricesOnly: sameProduct });
         } else if (data && data.slug) {
-          applyProductData(data);
+          applyProductData(data, { pricesOnly: sameProduct });
         } else {
           throw new Error("Invalid product data");
         }
@@ -1021,8 +1050,9 @@ export default function ProductClient() {
       }
     };
 
+    if (!isInitialized) return;
     fetchProduct();
-  }, [slug]);
+  }, [slug, globalRegion, isInitialized]);
 
   useEffect(() => {
     if (!product?._id) return;
@@ -1051,10 +1081,10 @@ export default function ProductClient() {
 
     const group = product?.variantGroup;
     const cached = {
-      ...(variantCacheRef.current[targetSlug] || match),
+      ...(variantCacheRef.current[variantKey(targetSlug)] || match),
       variantGroup: group,
     };
-    variantCacheRef.current[targetSlug] = cached;
+    variantCacheRef.current[variantKey(targetSlug)] = cached;
     applyingVariantRef.current = true;
     setProduct(cached);
     setSelectedImageIndex(0);
@@ -1074,7 +1104,7 @@ export default function ProductClient() {
   useEffect(() => {
     const onPopState = () => {
       const currentSlug = window.location.pathname.split("/").filter(Boolean).pop();
-      const cached = currentSlug ? variantCacheRef.current[currentSlug] : null;
+      const cached = currentSlug ? variantCacheRef.current[variantKey(currentSlug)] : null;
       if (cached) {
         setProduct(cached);
         setSelectedImageIndex(0);

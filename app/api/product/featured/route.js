@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Product from "@/models/product";
+import { applyRegionPrices, readRequestRegion } from "@/lib/priceResolver";
 
 export async function GET(req) {
   try {
@@ -18,7 +19,7 @@ export async function GET(req) {
       .limit(limit)
       .lean();
 
-    return NextResponse.json(products, { status: 200 });
+    return NextResponse.json(await applyRegionPrices(products, readRequestRegion(req)), { status: 200 });
   } catch (error) {
     console.error("Featured GET API Error:", error);
     return NextResponse.json(
@@ -60,7 +61,9 @@ export async function POST(req) {
       products = [...products, ...additionalProducts];
     }
 
-    return NextResponse.json(products.slice(0, 2));
+    return NextResponse.json(
+      await applyRegionPrices(products.slice(0, 2), readRequestRegion(req))
+    );
   } catch (error) {
     console.error("Featured/FBT API Error:", error);
     return NextResponse.json({ message: "Server error", error: error.message }, { status: 500 });

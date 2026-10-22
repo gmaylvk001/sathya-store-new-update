@@ -5,6 +5,7 @@ import { Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useCart } from '@/context/CartContext';
+import { useRegion } from '@/context/RegionContext';
 import Link from "next/link";
 import { v4 as uuidv4 } from "uuid";
 import { MdSecurity, MdLoop, MdVerified, MdCardMembership, MdLocalShipping, MdLock } from "react-icons/md";
@@ -343,6 +344,7 @@ export default function CartComponent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { cartCount, updateCartCount } = useCart();
+  const { region, isInitialized } = useRegion();
   const { updateWishlist } = useWishlist();
 
   // Modal states
@@ -716,10 +718,11 @@ export default function CartComponent() {
     }
   }, []);
 
-  // Initial cart fetch on mount
+  // Load cart after the header pincode is known, and again when it changes.
   useEffect(() => {
-    fetchCartData({ silent: false });
-  }, [fetchCartData]);
+    if (!isInitialized) return;
+    fetchCartData({ silent: Boolean(cartData?.items?.length) });
+  }, [fetchCartData, isInitialized, region]);
 
   // Window focus & tab visibility change listener to auto-refresh latest prices
   useEffect(() => {

@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db"; 
 import Product from "@/models/product";
+import { applyRegionPrices, readRequestRegion } from "@/lib/priceResolver";
 
 export async function GET(req) {
   try {
@@ -36,7 +37,7 @@ export async function GET(req) {
 
     return NextResponse.json({
       success: true,
-      products: relatedProducts,
+      products: await applyRegionPrices(relatedProducts, readRequestRegion(req)),
     });
 
   } catch (error) {

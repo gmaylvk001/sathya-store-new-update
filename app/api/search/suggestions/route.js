@@ -4,6 +4,7 @@ import Category from "@/models/ecom_category_info";
 import { NextResponse } from "next/server";
 import { getActiveBrandsForSearch } from "@/lib/brandSearch";
 import { escapeRegExp } from "@/lib/searchMatch";
+import { applyRegionPrices, readRequestRegion } from "@/lib/priceResolver";
 
 export const runtime = "nodejs";
 
@@ -41,6 +42,7 @@ export async function GET(req) {
     const rawCategory = (searchParams.get("category") || "").trim().slice(0, 100);
     const page = Math.max(1, parseInt(searchParams.get("page"), 10) || 1);
     const limit = Math.min(24, Math.max(1, parseInt(searchParams.get("limit"), 10) || 8));
+    const region = readRequestRegion(req);
 
     const q = sanitizeInput(rawQuery).replace(/\s+/g, " ");
     const category = rawCategory;
@@ -60,7 +62,7 @@ export async function GET(req) {
       });
     }
 
-    const cacheKey = `${q.toLowerCase()}|${category.toLowerCase()}|p${page}|l${limit}`;
+    const cacheKey = `${region}|${q.toLowerCase()}|${category.toLowerCase()}|p${page}|l${limit}`;
     const cached = getCached(cacheKey);
     if (cached) {
       return NextResponse.json(cached, {
@@ -288,9 +290,10 @@ export async function GET(req) {
     const totalPages = Math.ceil(total / limit);
     const hasMore = page < totalPages;
 
+    const pricedItems = await applyRegionPrices(items, region);
     const responsePayload = {
       success: true,
-      results: items,
+      results: pricedItems,
       pagination: {
         page,
         limit,

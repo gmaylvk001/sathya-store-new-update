@@ -21,11 +21,13 @@ import {
 import { CATEGORY_PAGE_SHELL_CLASS } from "@/lib/categoryPageComponents/layout";
 import { humanLabel } from "@/lib/humanLabel";
 import { sortProductsClient } from "@/lib/productSort";
+import { useRegion } from "@/context/RegionContext";
 
 export default function SearchPage() {
   const router = useRouter();
   const params = useSearchParams();
   const searchQuery = params.get("query") || "";
+  const { region, isInitialized } = useRegion();
 
   useEffect(() => {
     if (!searchQuery) router.push("/");
@@ -209,6 +211,7 @@ export default function SearchPage() {
         qs.set("query", searchQuery);
         qs.set("page", String(pageNum));
         qs.set("limit", "12");
+        if (region) qs.set("region", region);
         if (!bootstrap || filtersOverride) {
           if (activeFilters.brands.length) {
             qs.set("brands", activeFilters.brands.join(","));
@@ -320,7 +323,7 @@ export default function SearchPage() {
         setIsFiltering(false);
       }
     },
-    [searchQuery, selectedFilters, brandMap, priceRange]
+    [searchQuery, selectedFilters, brandMap, priceRange, region]
   );
 
   useEffect(() => {
@@ -347,11 +350,12 @@ export default function SearchPage() {
   }, []);
 
   useEffect(() => {
+    if (!isInitialized) return;
     skipNextFilterFetch.current = true;
     setFilterUrlReady(false);
     fetchResults(1, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery]);
+  }, [searchQuery, region, isInitialized]);
 
   useEffect(() => {
     if (!filterUrlReady) return;

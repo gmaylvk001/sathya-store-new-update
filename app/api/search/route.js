@@ -10,6 +10,7 @@ import mongoose from "mongoose";
 import { buildSearchOrConditions, scoreProductMatch, getBrandSearchConstraints } from "@/lib/searchMatch";
 import { getActiveBrandsForSearch } from "@/lib/brandSearch";
 import { humanLabel, looksLikeMongoId } from "@/lib/humanLabel";
+import { applyRegionPrices, readRequestRegion } from "@/lib/priceResolver";
 
 export const runtime = "nodejs";
 
@@ -478,7 +479,7 @@ if (productCategoryIds.size > 0) {
 }
     /* ---------------- RETURN ---------------- */
     return NextResponse.json({
-      products,
+      products: await applyRegionPrices(products, readRequestRegion(req)),
       pagination: {
         total,
         currentPage: page,
