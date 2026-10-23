@@ -1,16 +1,7 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import OfferModule from "@/models/OfferModule";
-
-function createSlug(name) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+import { generateSlug } from "@/lib/offersHelper";
 
 async function uniqueSlug(baseSlug, excludeId = null) {
   let slug = baseSlug;
@@ -28,27 +19,53 @@ export async function POST(req) {
     await dbConnect();
     const data = await req.json();
     const offerName = data.offerName?.trim();
+    const requestedSlug = data.slug?.trim();
+    const description = data.description?.trim() || "";
+    const banner = data.banner?.trim() || "";
+    const isActive = data.isActive !== undefined ? Boolean(data.isActive) : true;
+    const products = Array.isArray(data.products) ? data.products : [];
 
     if (!offerName) {
       return NextResponse.json({ success: false, error: "Offer name is required" }, { status: 400 });
     }
 
-    const baseSlug = createSlug(offerName);
+    const baseSlug = requestedSlug ? generateSlug(requestedSlug) : generateSlug(offerName);
     if (!baseSlug) {
-      return NextResponse.json({ success: false, error: "Invalid offer name" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "Invalid offer name or slug" }, { status: 400 });
     }
 
-    const slug = await uniqueSlug(baseSlug);
+    // Check if the exact requested slug already exists
+    if (requestedSlug) {
+      const existing = await OfferModule.findOne({ slug: baseSlug });
+      if (existing) {
+        return NextResponse.json(
+          { success: false, error: `Slug "${baseSlug}" already exists. Please choose a different slug.` },
+          { status: 400 }
+        );
+      }
+    }
+
+    const finalSlug = await uniqueSlug(baseSlug);
 
     const newOffer = new OfferModule({
       offerName,
-      slug,
+      slug: finalSlug,
+      description,
+      banner,
+      isActive,
+      products,
     });
 
     await newOffer.save();
-    return NextResponse.json({ success: true, message: "Offer added successfully" }, { status: 201 });
+    return NextResponse.json(
+      { success: true, message: "Offer added successfully", data: newOffer },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error in POST /api/offer-module/add:", error);
-    return NextResponse.json({ success: false, error: "Error adding offer", message: error?.message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: "Error adding offer", message: error?.message },
+      { status: 500 }
+    );
   }
 }

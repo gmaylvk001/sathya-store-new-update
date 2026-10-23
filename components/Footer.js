@@ -38,9 +38,9 @@ const POLICY_LINKS = [
 ];
 
 const OFFER_LINKS = [
-  { label: "Weekend Offers", href: "/deals-offer" },
-  { label: "Big Discounts", href: "/deals-offer" },
-  { label: "Bundle Offer", href: "/category/combo-offers" },
+  { label: "Weekend Offers", href: "/offers/weekend-offers" },
+  { label: "Big Discounts", href: "/offers/big-discounts" },
+  { label: "Bundle Offer", href: "/offers/bundle-offer" },
 ];
 
 const SOCIAL_LINKS = [
@@ -155,6 +155,33 @@ const Footer = () => {
         console.error("Error fetching footer categories:", err);
       }
     })();
+  }, []);
+
+  const [footerOffers, setFooterOffers] = useState(OFFER_LINKS);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/offer-module/active");
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data?.success && Array.isArray(data.data) && data.data.length > 0) {
+            const dynamicLinks = data.data.map((o) => ({
+              label: o.offerName,
+              href: `/offers/${o.slug}`,
+            }));
+            setFooterOffers(dynamicLinks);
+          }
+        }
+      } catch (err) {
+        console.warn("Error fetching active footer offers:", err);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   /** All active sub-categories (under main), with correct URLs */
@@ -473,9 +500,17 @@ const Footer = () => {
                     } md:block pb-4 md:pb-0`}
                   >
                     <ul className="space-y-2.5">
-                      {OFFER_LINKS.map((link) => (
-                        <li key={link.label}>
-                          <Link href={link.href} className="footer-link text-sm">
+                      {footerOffers.map((link) => (
+                        <li key={link.label || link.href}>
+                          <Link
+                            href={link.href}
+                            className="footer-link text-sm"
+                            onClick={() => {
+                              if (typeof window !== "undefined") {
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }
+                            }}
+                          >
                             {link.label}
                           </Link>
                         </li>
