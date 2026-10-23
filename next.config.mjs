@@ -93,11 +93,6 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: "/loyalty",
-        destination: "/",
-        permanent: false,
-      },
-      {
         source: "/enquiry",
         destination: "/contact",
         permanent: true,
