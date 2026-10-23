@@ -544,11 +544,12 @@ function YouMayLike({ relatedProducts = [], loading = false, brandMap = {} }) {
       {/* Product Skeleton / Scrollable Row */}
       {isActuallyLoading ? (
         <div
-          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory scroll-smooth touch-pan-x"
+          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto pb-4 overscroll-x-contain touch-manipulation"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
             WebkitOverflowScrolling: "touch",
+            touchAction: "pan-x pan-y",
           }}
         >
           {[1, 2, 3, 4, 5].map((i) => (
@@ -568,21 +569,24 @@ function YouMayLike({ relatedProducts = [], loading = false, brandMap = {} }) {
       ) : (
         <div
           ref={scrollRef}
-          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory scroll-smooth touch-pan-x"
+          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto pb-4 overscroll-x-contain touch-manipulation"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
             WebkitOverflowScrolling: "touch",
+            touchAction: "pan-x pan-y",
           }}
         >
           {displayProducts.map((product) => (
             <div
               key={product._id}
-              className="flex-[0_0_calc((100%-8px)/2)] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 snap-start min-w-0 max-w-[calc((100%-8px)/2)] sm:max-w-none"
+              className="flex-[0_0_calc((100%-8px)/2)] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 min-w-0 max-w-[calc((100%-8px)/2)] sm:max-w-none"
             >
               <ProductCard
                 product={normalizeProduct(product, brandMap)}
                 onProductClick={handleProductClick}
+                compactMobile={true}
+                checkMovement={false}
               />
             </div>
           ))}
@@ -663,11 +667,12 @@ function RecentlyViewed({ brandMap = {} }) {
           Recently Viewed
         </h2>
         <div
-          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory scroll-smooth touch-pan-x"
+          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto pb-4 overscroll-x-contain touch-manipulation"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
             WebkitOverflowScrolling: "touch",
+            touchAction: "pan-x pan-y",
           }}
         >
           {[1, 2, 3, 4, 5].map((i) => (
@@ -748,21 +753,24 @@ function RecentlyViewed({ brandMap = {} }) {
         {/* Horizontal Scrollable Row */}
         <div
           ref={scrollRef}
-          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory scroll-smooth touch-pan-x"
+          className="recommended-scrollbar flex w-full min-w-0 max-w-full flex-nowrap gap-2 sm:gap-4 overflow-x-auto pb-4 overscroll-x-contain touch-manipulation"
           style={{
             scrollbarWidth: "none",
             msOverflowStyle: "none",
             WebkitOverflowScrolling: "touch",
+            touchAction: "pan-x pan-y",
           }}
         >
           {recentProducts.map((product) => (
             <div
               key={product._id}
-              className="flex-[0_0_calc((100%-8px)/2)] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 snap-start min-w-0 max-w-[calc((100%-8px)/2)] sm:max-w-none"
+              className="flex-[0_0_calc((100%-8px)/2)] sm:flex-[0_0_calc((100%-16px)/2)] md:flex-[0_0_calc((100%-32px)/3)] lg:flex-[0_0_calc((100%-48px)/4)] xl:flex-[0_0_calc((100%-64px)/5)] shrink-0 min-w-0 max-w-[calc((100%-8px)/2)] sm:max-w-none"
             >
               <ProductCard
                 product={normalizeProduct(product, brandMap)}
                 onProductClick={handleClick}
+                compactMobile={true}
+                checkMovement={false}
               />
             </div>
           ))}
