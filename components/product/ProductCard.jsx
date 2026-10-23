@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { FaStar } from "react-icons/fa";
 import AddToWishlistButton from "@/components/ProductCard";
 import ProductAddtoCart from "@/components/AddToCart";
 import CompareButton from "@/components/CompareButton";
@@ -128,12 +127,6 @@ export default function ProductCard({
             : variantClasses.imageContainer
         }`}
       >
-        {/* Top-left discount badge */}
-        {hasDiscount && (
-          <span className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 z-10 bg-gradient-to-r from-rose-600 to-red-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 sm:px-2 sm:py-0.5 rounded-full shadow-xs tracking-wide">
-            -{discountPercent}%
-          </span>
-        )}
 
         {/* Top-right Wishlist + Compare buttons */}
         <div
@@ -205,19 +198,6 @@ export default function ProductCard({
             {name}
           </h4>
         </Link>
-
-        {/* Rating Section */}
-        <div className="flex items-center gap-1 mb-1 h-4">
-          <div className="flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/60">
-            <FaStar className="text-amber-500 text-[9px]" />
-            <span>{(ratingValue > 0 ? ratingValue : 4.5).toFixed(1)}</span>
-          </div>
-          {reviewCount > 0 && (
-            <span className="text-[10px] text-gray-400 font-medium">
-              ({reviewCount})
-            </span>
-          )}
-        </div>
 
         <PriceBlock 
           price={currentPrice} 
