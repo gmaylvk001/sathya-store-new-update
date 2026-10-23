@@ -10,7 +10,6 @@ import Notification from "@/models/Notification.js";
 import { sendOrderData } from "@/lib/sendOrderData";
 import { sendOrderConfirmationSms } from "@/lib/orderConfirmSms";
 import { isKarnatakaPincode } from "@/lib/regionHelper";
-import { buildOrderNumber } from "@/lib/orderNumber";
 import { getAuthUserId } from "@/lib/authRequest";
 import {
   generateUniqueOrderNumber,
@@ -65,35 +64,24 @@ function toNumber(value, fallback = null) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function makeOrderNumber(base, index) {
-  const raw = stringify(base) || buildOrderNumber(false);
-  if (index === 0) return raw;
-  const formatted = String(raw).match(/^(\d{8})_(OL|UL)_\d{6}$/i);
-  if (formatted) return buildOrderNumber(formatted[2].toUpperCase() === "UL");
-  if (raw.endsWith("-UL")) {
-    const root = raw.slice(0, -3);
-    const prefixMatch = root.match(/^(ORD)/i);
-    const prefix = prefixMatch ? prefixMatch[1] : "ORD";
-    const numeric = root.replace(/^ORD/i, "");
-    if (/^\d+$/.test(numeric)) {
-      return `${prefix}${String(BigInt(numeric) + BigInt(index))}-UL`;
-    }
-    return `${root}-${index + 1}-UL`;
-  }
-  const prefixMatch = raw.match(/^(ORD)/i);
-  const prefix = prefixMatch ? prefixMatch[1] : "ORD";
-  const numeric = raw.replace(/^ORD/i, "");
-  if (/^\d+$/.test(numeric)) {
-    return `${prefix}${String(BigInt(numeric) + BigInt(index))}`;
-  }
-  return `${raw}-${index + 1}`;
+function resolveItemWarrantyAmount(item) {
+  const fromData =
+    toNumber(item?.warrantyData?.price, 0) ||
+    toNumber(item?.warrantyData?.amount, 0) ||
+    0;
+  if (fromData > 0) return fromData;
+  const extended = toNumber(item?.extendedWarranty, 0) || 0;
+  if (extended > 0) return extended;
+  // Align with cart: warranty > 10 is a price; smaller values are years, not ₹
+  const legacy = toNumber(item?.warranty, 0) || 0;
+  return legacy > 10 ? legacy : 0;
 }
 
 function lineAmount(item) {
   const price = toNumber(item.price ?? item.product_price, 0) || 0;
   const qty = toNumber(item.quantity, 1) || 1;
   const discount = toNumber(item.discount, 0) || 0;
-  const warranty = toNumber(item.warrantyData?.price ?? item.warranty, 0) || 0;
+  const warranty = resolveItemWarrantyAmount(item);
   const total = price * qty - discount + warranty;
   return Number.isFinite(total) && total > 0 ? total : price * qty;
 }
@@ -336,7 +324,9 @@ export async function POST(req) {
     for (const item of order_item) {
       const qty = Math.max(1, Math.floor(toNumber(item.quantity, 1) || 1));
       const { price } = await resolveLinePrice(item, isKarnatakaOrder);
-      const warranty = await resolveWarrantyPrice(item.warrantyData);
+      const warrantyFromData = await resolveWarrantyPrice(item.warrantyData);
+      const warranty =
+        warrantyFromData || resolveItemWarrantyAmount(item);
       const discount = Math.max(0, toNumber(item.discount, 0) || 0);
       const lineTotal = price * qty - discount + warranty;
       serverTotal += lineTotal > 0 ? lineTotal : price * qty;
@@ -345,6 +335,7 @@ export async function POST(req) {
         quantity: qty,
         price,
         product_price: price,
+        extendedWarranty: warranty,
       });
     }
 
@@ -357,6 +348,9 @@ export async function POST(req) {
         { status: 400 }
       );
     }
+
+    const checkoutGroupId =
+      stringify(existingByClientNumber?.checkout_group_id) || baseOrderNumber;
 
     const sharedFields = {
       user_id: String(user_id),
@@ -384,15 +378,34 @@ export async function POST(req) {
       pickup_type: pickup_type || null,
       applied_payment_offer: applied_payment_offer || appliedPaymentOffer || null,
       appliedPaymentOffer: appliedPaymentOffer || applied_payment_offer || null,
+      checkout_group_id: checkoutGroupId,
     };
 
-    const siblingNumbers = pricedItems.map((_, index) => makeOrderNumber(baseOrderNumber, index));
+    // Reuse existing line orders in this checkout group (order numbers stay as-is).
     const existingOrders = await OrderNew.find({
-      order_number: { $in: siblingNumbers },
       user_id: String(user_id),
-    });
+      $or: [
+        { checkout_group_id: checkoutGroupId },
+        { order_number: checkoutGroupId },
+        { order_number: baseOrderNumber },
+      ],
+    }).sort({ created_at: 1 });
+
+    const siblingNumbers = [];
+    for (let index = 0; index < pricedItems.length; index++) {
+      if (existingOrders[index]?.order_number) {
+        siblingNumbers.push(String(existingOrders[index].order_number));
+      } else if (index === 0) {
+        siblingNumbers.push(baseOrderNumber);
+      } else {
+        siblingNumbers.push(
+          await generateUniqueOrderNumber({ isKarnataka: isKarnatakaOrder })
+        );
+      }
+    }
+
     const existingByNumber = new Map(
-      existingOrders.map((order) => [order.order_number, order])
+      existingOrders.map((order) => [String(order.order_number), order])
     );
 
     // Pre-order stock re-validation to prevent overselling on initial order placement
@@ -479,6 +492,7 @@ export async function POST(req) {
         order_item: [item],
         order_amount: String(thisAmount || serverTotal || order_amount || 0),
         order_number: thisOrderNumber,
+        checkout_group_id: checkoutGroupId,
         loyalty_points_redeemed: index === 0 ? (loyalty_points_redeemed || 0) : 0,
         loyalty_discount: index === 0 ? (loyalty_discount || 0) : 0,
         promotion_code_applied: index === 0 ? (promotion_code_applied || null) : null,
@@ -516,6 +530,9 @@ export async function POST(req) {
         existing.payment_method = payment_method || existing.payment_method;
         existing.payment_type = payment_type || existing.payment_type;
         existing.payment_mode = payment_type || payment_method || existing.payment_mode;
+        if (!existing.checkout_group_id) {
+          existing.checkout_group_id = checkoutGroupId;
+        }
         savedOrder = await existing.save();
 
         if (oldStatus !== savedOrder.order_status) {
@@ -671,6 +688,11 @@ export async function POST(req) {
       }
     }
 
+    const checkoutTotal =
+      serverTotal > 0
+        ? serverTotal
+        : savedOrders.reduce((sum, o) => sum + (Number(o.order_amount) || 0), 0);
+
     return Response.json(
       {
         success: true,
@@ -679,6 +701,9 @@ export async function POST(req) {
           : "Order updated successfully",
         order: primaryOrder,
         orders: savedOrders,
+        // Full multi-item checkout total (sum of sibling line orders)
+        total_amount: checkoutTotal,
+        order_amount: checkoutTotal,
       },
       { status: createdAny ? 201 : 200 }
     );

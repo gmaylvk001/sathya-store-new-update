@@ -99,6 +99,9 @@ const OrderNewSchema = new mongoose.Schema({
   netamt: optionalString,
   online_pay_refid: optionalString,
   online_pay_ref_status: optionalString,
+  // Shared across every line order in one checkout (payment totals / verify).
+  // Does not change order_number format.
+  checkout_group_id: optionalString,
   order_owner: {
     type: String,
     required: false,
@@ -154,6 +157,11 @@ OrderNewSchema.index(
 OrderNewSchema.index(
   { cart_id: 1 },
   { name: "cart_id_relation" }
+);
+
+OrderNewSchema.index(
+  { checkout_group_id: 1 },
+  { name: "checkout_group_id_relation" }
 );
 
 OrderNewSchema.index({ user_id: 1, created_at: -1 }, { name: "user_created_at" });

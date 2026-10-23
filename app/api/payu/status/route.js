@@ -99,11 +99,13 @@ async function handlePayuReturn(req) {
       );
     }
 
-    // Exact / sibling match only — never loose prefix (ORD12 must not match ORD123...)
+    // Exact / checkout-group / legacy sibling match — never loose prefix
     const baseNoUl = baseOrderNumber.replace(/-UL$/i, "");
     const orders = await OrderNew.find({
       $or: [
         { online_pay_refid: txnid },
+        { checkout_group_id: baseOrderNumber },
+        { checkout_group_id: baseNoUl },
         { order_number: baseOrderNumber },
         { order_number: baseNoUl },
         { order_number: `${baseNoUl}-UL` },

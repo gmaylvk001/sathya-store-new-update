@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getPayuConfig, generatePayuHash } from "@/lib/payu";
 import dbConnect from "@/lib/db";
 import OrderNew from "@/models/orders_new";
+import { findRelatedOrders } from "@/lib/orderPayment";
 
 /**
  * POST /api/payu/init
@@ -28,7 +29,7 @@ export async function POST(req) {
       );
     }
 
-    // Always use server-side order total — never trust client amount
+    // Always use server-side checkout total — sum all sibling line orders
     const exactOrder = await OrderNew.findOne({ order_number: String(order_number) }).lean();
     if (!exactOrder) {
       return NextResponse.json(
@@ -37,10 +38,10 @@ export async function POST(req) {
       );
     }
 
-    const related = await OrderNew.find({
-      user_id: exactOrder.user_id,
-      order_number: String(order_number),
-    }).lean();
+    const related = await findRelatedOrders(
+      String(order_number),
+      exactOrder.user_id || user_id
+    );
 
     const serverAmount = related.reduce(
       (sum, o) => sum + (Number(o.order_amount) || 0),
@@ -79,23 +80,12 @@ export async function POST(req) {
       udf5: "",
     });
 
-    // Tag this order + safe siblings with txn id (no loose prefix regex)
-    const baseNoUl = String(order_number).replace(/-UL$/i, "");
+    // Tag every line in this checkout group with the txn id
+    const relatedIds = related.map((o) => o._id).filter(Boolean);
     await OrderNew.updateMany(
-      {
-        $or: [
-          { order_number: String(order_number) },
-          { order_number: baseNoUl },
-          { order_number: `${baseNoUl}-UL` },
-          {
-            order_number: {
-              $regex: new RegExp(
-                `^${baseNoUl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-\\d+(-UL)?$`
-              ),
-            },
-          },
-        ],
-      },
+      relatedIds.length
+        ? { _id: { $in: relatedIds } }
+        : { order_number: String(order_number) },
       {
         $set: {
           online_pay_refid: txnid,

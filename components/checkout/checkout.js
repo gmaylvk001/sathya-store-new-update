@@ -1806,7 +1806,33 @@ export default function CheckoutPage() {
       const gstNumber = formData.needGstInvoice ? formData.gst_number.trim().toUpperCase() : '';
 
       setIsSubmitting(true);
-      const totalAmount = orderSummary.total;
+      // Match cart getWarrantyPrice: one warranty amount per line (no year-as-₹ / no double count).
+      const lineWarrantyAmount = (item) => {
+        if (item.extendedWarranty != null && Number(item.extendedWarranty) > 0) {
+          return Number(item.extendedWarranty);
+        }
+        if (item.warrantyData?.price != null && Number(item.warrantyData.price) > 0) {
+          return Number(item.warrantyData.price);
+        }
+        if (item.warrantyData?.amount != null && Number(item.warrantyData.amount) > 0) {
+          return Number(item.warrantyData.amount);
+        }
+        // Cart treats warranty > 10 as a price; smaller values are years, not ₹
+        if (typeof item.warranty === "number" && item.warranty > 10) {
+          return item.warranty;
+        }
+        return 0;
+      };
+      const cartPayable = cartItems.reduce((sum, item) => {
+        const unit = Number(item.price > 0 ? item.price : item.actual_price) || 0;
+        const qty = Number(item.quantity) || 1;
+        const lineDiscount = Number(item.discount) || 0;
+        return sum + unit * qty + lineWarrantyAmount(item) - lineDiscount;
+      }, 0);
+      const totalAmount = Math.max(
+        0,
+        cartPayable > 0 ? cartPayable : Number(orderSummary.total) || 0
+      );
       let savedAddressId = shippingAddress?._id;
       let savedBillingId = billingAddress?._id;
 
@@ -1908,11 +1934,20 @@ export default function CheckoutPage() {
 
           order_number = orderData?.order?.order_number || orderData?.orders?.[0]?.order_number || order_number;
 
+          // Prefer full checkout total (all sibling line orders), never a single line amount
+          const paidTotal =
+            Number(orderData?.total_amount) ||
+            Number(orderData?.order_amount) ||
+            (Array.isArray(orderData?.orders)
+              ? orderData.orders.reduce((s, o) => s + (Number(o.order_amount) || 0), 0)
+              : 0) ||
+            totalAmount;
+
           if (isKarnataka) {
             // Karnataka orders proceed directly to PayU gateway
             await handlePayuPayment({
               orderNumber: order_number,
-              totalAmount: Number(orderData?.order?.order_amount) || totalAmount,
+              totalAmount: paidTotal,
               userId,
               customerName: orderUserName,
               customerEmail: orderEmail,
@@ -1921,7 +1956,7 @@ export default function CheckoutPage() {
             return;
           }
 
-          let result = await handleOnlinePayment(totalAmount, paymentMethod === 'emi', order_number);
+          let result = await handleOnlinePayment(paidTotal, paymentMethod === 'emi', order_number);
           paymentId = result.paymentId; paymentStatus = result.status; paymentMode = result.mode;
         } catch (error) { toast.error(`Payment failed: ${error.message}`); setIsSubmitting(false); return; }
       }
