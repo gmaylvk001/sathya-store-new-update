@@ -239,7 +239,10 @@ export async function GET(req) {
       const itemsWithSlug = [];
       const lineItems = lineItemsByOrder.get(String(order._id)) || [];
 
-      for (let item of lineItems) {
+      const savedOrderItems = Array.isArray(order.order_item) ? order.order_item : [];
+
+      for (let i = 0; i < lineItems.length; i++) {
+        const item = lineItems[i];
         const itemCode = item.item_code;
         const matchedProduct = itemCode ? productInfoByItemCode.get(itemCode) : null;
         const slug = matchedProduct?.slug || null;
@@ -248,12 +251,46 @@ export async function GET(req) {
         const itemObj = item.toObject ? item.toObject() : item;
         const finalProductId = itemObj.product_id || resolvedId || itemObj.productId || null;
 
+        // order_details rows are often sparse — backfill warranty/variants from order.order_item
+        const fromOrderItem =
+          savedOrderItems.find((oi) => {
+            const oiCode = oi?.item_code || oi?.itemCode || "";
+            const normalized = oiCode
+              ? String(oiCode).startsWith("ITEM")
+                ? String(oiCode)
+                : `ITEM${oiCode}`
+              : "";
+            return (
+              (itemCode && normalized && normalized === String(itemCode)) ||
+              String(oi?.productId || oi?.product_id || "") === String(finalProductId || "")
+            );
+          }) ||
+          savedOrderItems[i] ||
+          {};
+
         itemsWithSlug.push({
           ...itemObj,
           product_id: finalProductId,
           name: itemObj.product_name || itemObj.name,
           price: itemObj.product_price || itemObj.price,
           slug: slug || null,
+          warrantyData: itemObj.warrantyData || fromOrderItem.warrantyData || null,
+          extendedWarranty:
+            itemObj.extendedWarranty ?? fromOrderItem.extendedWarranty ?? null,
+          variantValues:
+            itemObj.variantValues ||
+            fromOrderItem.variantValues ||
+            itemObj.selectedVariant ||
+            fromOrderItem.selectedVariant ||
+            null,
+          selectedVariant:
+            itemObj.selectedVariant ||
+            fromOrderItem.selectedVariant ||
+            itemObj.variantValues ||
+            fromOrderItem.variantValues ||
+            null,
+          color: itemObj.color || fromOrderItem.color || null,
+          attributes: itemObj.attributes || fromOrderItem.attributes || null,
           is_reviewed: Boolean(
             finalProductId && userReviewedProductIds.has(String(finalProductId))
           ),

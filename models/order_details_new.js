@@ -55,6 +55,11 @@ const OrderDetailsNewSchema = new mongoose.Schema({
   image: optionalString,
   discount: optionalNumber,
   warrantyData: { type: mongoose.Schema.Types.Mixed, required: false, default: null },
+  extendedWarranty: optionalNumber,
+  variantValues: { type: mongoose.Schema.Types.Mixed, required: false, default: null },
+  selectedVariant: { type: mongoose.Schema.Types.Mixed, required: false, default: null },
+  color: optionalString,
+  attributes: { type: mongoose.Schema.Types.Mixed, required: false, default: null },
   coupondetails: { type: mongoose.Schema.Types.Mixed, required: false, default: null },
 }, {
   timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

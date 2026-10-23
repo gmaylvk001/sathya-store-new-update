@@ -45,6 +45,84 @@ const toCheckoutEmail = (value) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : '';
 };
 
+/** Same warranty display helpers as cart page */
+const getWarrantyPrice = (item) => {
+  if (!item) return 0;
+  if (item.extendedWarranty != null && Number(item.extendedWarranty) > 0) {
+    return Number(item.extendedWarranty);
+  }
+  if (item.warrantyData?.price != null && Number(item.warrantyData.price) > 0) {
+    return Number(item.warrantyData.price);
+  }
+  if (item.warrantyData?.amount != null && Number(item.warrantyData.amount) > 0) {
+    return Number(item.warrantyData.amount);
+  }
+  if (typeof item.warranty === "number" && item.warranty > 10) {
+    return item.warranty;
+  }
+  return 0;
+};
+
+const getItemWarranty = (item) => {
+  if (!item) return null;
+  const wd = item.warrantyData;
+  const price = getWarrantyPrice(item);
+  const year = Number(
+    wd?.year ||
+      wd?.duration ||
+      item.selectedWarranty ||
+      (typeof item.warranty === "number" && item.warranty <= 5 ? item.warranty : 0) ||
+      0
+  );
+  if (price <= 0 && year <= 0) return null;
+  const rawTitle = wd?.title || wd?.name;
+  const hasValidName =
+    rawTitle &&
+    typeof rawTitle === "string" &&
+    rawTitle.trim() !== "" &&
+    rawTitle.toLowerCase() !== "null" &&
+    rawTitle.toLowerCase() !== "undefined";
+  const title =
+    (hasValidName ? rawTitle : "") ||
+    (year > 0 ? `${year} Year Extended Warranty` : "Extended Warranty Protection");
+  return { title, price, year };
+};
+
+const getItemVariations = (item) => {
+  if (!item) return [];
+  const entries = [];
+  const seenKeys = new Set();
+  const addEntry = (rawKey, rawVal) => {
+    if (!rawKey || rawVal == null) return;
+    const key = String(rawKey).trim();
+    if (seenKeys.has(key.toLowerCase())) return;
+    let val = "";
+    if (typeof rawVal === "object") {
+      val = rawVal.label || rawVal.value || rawVal.name || "";
+    } else {
+      val = String(rawVal).trim();
+    }
+    if (!val || val.toLowerCase() === "undefined" || val.toLowerCase() === "null") return;
+    seenKeys.add(key.toLowerCase());
+    entries.push({ key, value: val });
+  };
+  if (item.variantValues && typeof item.variantValues === "object") {
+    for (const [k, v] of Object.entries(item.variantValues)) addEntry(k, v);
+  }
+  if (item.selectedVariant && typeof item.selectedVariant === "object") {
+    for (const [k, v] of Object.entries(item.selectedVariant)) addEntry(k, v);
+  }
+  if (item.color) addEntry("Color", item.color);
+  if (Array.isArray(item.attributes)) {
+    item.attributes.forEach((attr) => {
+      if (attr && (attr.name || attr.key) && (attr.value || attr.val)) {
+        addEntry(attr.name || attr.key, attr.value || attr.val);
+      }
+    });
+  }
+  return entries;
+};
+
 const FloatInput = ({ label, name, type = 'text', required, readOnly, value, onChange, onBlur, error, inputMode, maxLength, showLock, hint }) => (
   <div>
       <div className="relative">
@@ -1922,7 +2000,27 @@ export default function CheckoutPage() {
               payment_id: '', payment_status: 'payment_initialized',
               order_number: order_number || undefined,
               pincode: normDeliveryPin || normHeaderPin,
-              order_details: cartItems.map(item => ({ item_code: `ITEM${item.item_code}`, product_id: item.productId || item.id || item._id, product_name: item.name, product_price: item.price, model: 'N/A', user_id: userId, coupondiscount: 0, created_at: new Date(), updated_at: new Date(), quantity: item.quantity, store_id: formData.deliveryType === 'store' ? formData.selectedStore : (isKarnataka ? 'unilet' : 'STORE01'), orderNumber: order_number || undefined })),
+              order_details: cartItems.map(item => ({
+                item_code: `ITEM${item.item_code}`,
+                product_id: item.productId || item.id || item._id,
+                product_name: item.name,
+                product_price: item.price,
+                model: 'N/A',
+                user_id: userId,
+                coupondiscount: 0,
+                created_at: new Date(),
+                updated_at: new Date(),
+                quantity: item.quantity,
+                store_id: formData.deliveryType === 'store' ? formData.selectedStore : (isKarnataka ? 'unilet' : 'STORE01'),
+                orderNumber: order_number || undefined,
+                image: item.image || null,
+                warrantyData: item.warrantyData || null,
+                extendedWarranty: item.extendedWarranty || 0,
+                variantValues: item.variantValues || item.selectedVariant || null,
+                selectedVariant: item.selectedVariant || item.variantValues || null,
+                color: item.color || null,
+                attributes: item.attributes || null,
+              })),
             }),
           });
           const orderData = await orderRes.json();
@@ -2009,7 +2107,27 @@ export default function CheckoutPage() {
           gst_number: gstNumber,
           payment_id: paymentData.payment_id, payment_status: paymentData.status,
           order_number: order_number || undefined,
-          order_details: cartItems.map(item => ({ item_code: `ITEM${item.item_code}`, product_id: item.productId || item.id || item._id, product_name: item.name, product_price: item.price, model: 'N/A', user_id: userId, coupondiscount: 0, created_at: new Date(), updated_at: new Date(), quantity: item.quantity, store_id: formData.deliveryType === 'store' ? formData.selectedStore : (isKarnataka ? 'unilet' : 'STORE01'), orderNumber: order_number || undefined })),
+          order_details: cartItems.map(item => ({
+            item_code: `ITEM${item.item_code}`,
+            product_id: item.productId || item.id || item._id,
+            product_name: item.name,
+            product_price: item.price,
+            model: 'N/A',
+            user_id: userId,
+            coupondiscount: 0,
+            created_at: new Date(),
+            updated_at: new Date(),
+            quantity: item.quantity,
+            store_id: formData.deliveryType === 'store' ? formData.selectedStore : (isKarnataka ? 'unilet' : 'STORE01'),
+            orderNumber: order_number || undefined,
+            image: item.image || null,
+            warrantyData: item.warrantyData || null,
+            extendedWarranty: item.extendedWarranty || 0,
+            variantValues: item.variantValues || item.selectedVariant || null,
+            selectedVariant: item.selectedVariant || item.variantValues || null,
+            color: item.color || null,
+            attributes: item.attributes || null,
+          })),
         }),
       });
       if (!orderRes.ok) throw new Error('Order creation failed');
@@ -2498,6 +2616,8 @@ export default function CheckoutPage() {
                   const productId = resolveCartProductId(item);
                   const unavailableInKarnataka = isItemUnavailableInKarnataka(item);
                   const isRemoving = removingProductId === productId;
+                  const itemVariations = getItemVariations(item);
+                  const itemWarranty = getItemWarranty(item);
 
                   return (
                     <div
@@ -2537,19 +2657,37 @@ export default function CheckoutPage() {
                         <h4 className="text-xs font-bold text-gray-900 line-clamp-2 leading-snug group-hover:text-[#d72828] transition-colors">
                           {item.name}
                         </h4>
+                        {itemVariations.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1 mt-1">
+                            {itemVariations.map((v, vIdx) => (
+                              <span
+                                key={vIdx}
+                                className="inline-flex items-center gap-1 bg-gray-100/90 border border-gray-200/90 text-gray-800 text-[10px] font-medium px-1.5 py-0.5 rounded-md"
+                              >
+                                <span className="text-gray-500 font-normal">{v.key}:</span>
+                                <span className="font-semibold text-gray-900">{v.value}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         {unavailableInKarnataka && (
                           <p className="mt-1 text-[10px] font-semibold text-red-600 leading-snug">
                             Not available for Karnataka delivery. Remove this item to continue.
                           </p>
                         )}
 
-                        {item.warrantyData && (
-                          <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
-                            <svg className="w-3 h-3 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        {itemWarranty && (
+                          <div className="mt-1 inline-flex items-center gap-1.5 bg-amber-50/90 border border-amber-200 text-amber-900 rounded-lg px-2 py-0.5 text-[10px] w-fit">
+                            <svg className="w-3 h-3 text-amber-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" />
                             </svg>
-                            {item.warrantyData.year}yr Warranty
-                          </span>
+                            <span className="font-semibold text-amber-950">{itemWarranty.title}</span>
+                            {itemWarranty.price > 0 && (
+                              <span className="bg-amber-100/90 text-amber-900 font-bold px-1 py-0.5 rounded text-[9px] border border-amber-200">
+                                +₹{Number(itemWarranty.price).toLocaleString("en-IN")}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
 

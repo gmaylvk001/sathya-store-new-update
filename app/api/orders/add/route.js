@@ -87,35 +87,55 @@ function lineAmount(item) {
 }
 
 function buildOrderDetailRows(order_item, order_details, savedOrder, userId) {
-  const source = Array.isArray(order_details) && order_details.length
-    ? order_details
-    : Array.isArray(order_item) ? order_item : [];
+  const items = Array.isArray(order_item) ? order_item : [];
+  const details = Array.isArray(order_details) && order_details.length ? order_details : null;
+  const source = details || items;
 
-  return source.map((row) => {
-    const rawCode = row.item_code || row.itemCode || "";
+  return source.map((row, index) => {
+    // Client order_details is often sparse — pull warranty/variants from full cart line
+    const fromItem = items[index] || items[0] || {};
+    const rawCode = row.item_code || row.itemCode || fromItem.item_code || fromItem.itemCode || "";
     const itemCode = rawCode
       ? (String(rawCode).startsWith("ITEM") ? String(rawCode) : `ITEM${rawCode}`)
       : null;
-    const productId = row.product_id ?? row.productId ?? row.id ?? null;
-    const price = row.product_price ?? row.price ?? null;
+    const productId =
+      row.product_id ?? row.productId ?? row.id ??
+      fromItem.product_id ?? fromItem.productId ?? fromItem.id ?? null;
+    const price = row.product_price ?? row.price ?? fromItem.product_price ?? fromItem.price ?? null;
+    const warrantyData = row.warrantyData || fromItem.warrantyData || null;
+    const variantValues =
+      row.variantValues ||
+      fromItem.variantValues ||
+      row.selectedVariant ||
+      fromItem.selectedVariant ||
+      null;
+    const color = row.color || fromItem.color || null;
 
     return {
       order_id: savedOrder._id,
       user_id: toObjectId(userId),
       item_code: itemCode,
       product_id: productId != null ? String(productId) : null,
-      product_name: stringify(row.product_name || row.name),
+      product_name: stringify(row.product_name || row.name || fromItem.name || fromItem.product_name),
       product_price: price != null ? String(price) : null,
-      model: stringify(row.model),
-      quantity: toNumber(row.quantity, 1),
-      store_id: stringify(row.store_id),
+      model: stringify(row.model || fromItem.model),
+      quantity: toNumber(row.quantity ?? fromItem.quantity, 1),
+      store_id: stringify(row.store_id || fromItem.store_id),
       orderNumber: stringify(savedOrder.order_number),
       coupon_discount: toNumber(row.coupon_discount ?? row.coupondiscount, 0),
-      image: stringify(row.image),
-      discount: toNumber(row.discount),
-      warrantyData: row.warrantyData || null,
-      coupondetails: row.coupondetails ?? null,
-      type: stringify(row.type) || "online",
+      image: stringify(row.image || fromItem.image),
+      discount: toNumber(row.discount ?? fromItem.discount),
+      warrantyData,
+      extendedWarranty:
+        toNumber(row.extendedWarranty ?? fromItem.extendedWarranty, 0) ||
+        toNumber(warrantyData?.price ?? warrantyData?.amount, 0) ||
+        null,
+      variantValues,
+      selectedVariant: row.selectedVariant || fromItem.selectedVariant || variantValues || null,
+      color: color != null ? String(color) : null,
+      attributes: row.attributes || fromItem.attributes || null,
+      coupondetails: row.coupondetails ?? fromItem.coupondetails ?? null,
+      type: stringify(row.type || fromItem.type) || "online",
     };
   }).filter((row) => row.product_name || row.item_code || row.product_id);
 }
