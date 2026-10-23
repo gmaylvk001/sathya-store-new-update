@@ -275,21 +275,22 @@ const Footer = () => {
         }
         .footer-category-scroll {
           scrollbar-width: thin;
-          scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+          scrollbar-color: #525252 #262626;
         }
         .footer-category-scroll::-webkit-scrollbar {
-          width: 4px;
+          width: 6px;
         }
         .footer-category-scroll::-webkit-scrollbar-track {
-          background: transparent;
+          background: #262626;
+          border-radius: 9999px;
         }
         .footer-category-scroll::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.22);
+          background: #525252;
           border-radius: 9999px;
           transition: background 0.2s ease;
         }
         .footer-category-scroll::-webkit-scrollbar-thumb:hover {
-          background: #ED1C24;
+          background: #a3a3a3;
         }
       `}</style>
       <footer className="w-full">
@@ -425,7 +426,7 @@ const Footer = () => {
                     openSections.categories ? "block" : "hidden"
                   } md:block pb-4 md:pb-0`}
                 >
-                  <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5 md:block md:space-y-2.5 md:max-h-[28rem] md:overflow-y-auto md:pr-2 footer-category-scroll">
+                  <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5 md:block md:space-y-2.5 max-h-[220px] overflow-y-auto pr-2 scrollbar-thin [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-neutral-800 [&::-webkit-scrollbar-thumb]:bg-neutral-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-neutral-400 footer-category-scroll">
                     {categoryColumnLinks.length === 0 ? (
                       <li className="text-sm text-gray-500">Loading…</li>
                     ) : (
