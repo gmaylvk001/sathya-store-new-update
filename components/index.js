@@ -23,7 +23,7 @@ import RecentlyViewedProducts from '@/components/RecentlyViewedProducts';
 import CategoryProducts from '@/components/CategoryProducts';
 import HomePageRenderer from '@/components/homePageComponents/HomePageRenderer';
 import TrendingVideoSection from '@/components/TrendingVideoSection';
-// import OurLocations from '@/components/OurLocations';
+import { buildBrandHref } from '@/lib/categoryPageComponents/categoryHref';
 import { ChevronRight } from "lucide-react";
 import 'swiper/css';
 import 'swiper/css/navigation';
@@ -1264,8 +1264,8 @@ export default function HomeComponent() {
                             className="w-full h-16 sm:h-18 max-w-[150px] px-3 py-2 bg-white rounded-xl border-2 border-gray-150/80 shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:border-[#ff9b9b] hover:ring-2 hover:ring-[#ffe4e6] hover:shadow-md transition-all duration-300 flex items-center justify-center overflow-hidden cursor-pointer"
                             onClick={(e) => {
                               e.preventDefault();
-                              e.stopPropagation();
-                              router.push(`/brand/${brand.brand_slug || slugify(brand.brand_name)}`);
+                              const slug = brand.brand_slug || slugify(brand.brand_name);
+                              router.push(buildBrandHref(slug, Boolean(brand.hasOverview)));
                             }}
                             onPointerDown={(e) => e.stopPropagation()}
                           >
@@ -1667,7 +1667,7 @@ export default function HomeComponent() {
           <HomePageRenderer />
         </div>
         <ToastContainer />
-        <RecentlyViewedProducts />
+        {/* <RecentlyViewedProducts /> */}
       </div>
     </>
   );
