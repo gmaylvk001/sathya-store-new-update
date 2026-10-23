@@ -82,9 +82,10 @@ export default function ContactComponent() {
 
       const result = await response.json();
       if (result.success) {
+        const updatedItem = result.data || { ...contactToEdit, updatedAt: new Date().toISOString() };
         setContacts(
           contacts.map((contact) =>
-            contact._id === id ? contactToEdit : contact
+            contact._id === id ? { ...contact, ...updatedItem } : contact
           )
         );
         showAlert("Contact updated successfully", "success");
@@ -97,6 +98,67 @@ export default function ContactComponent() {
     } finally {
       setShowEditModal(false);
     }
+  };
+
+  const renderDateCell = (createdAt, updatedAt) => {
+    const parseDate = (str) => {
+      if (!str) return null;
+      try {
+        const d = new Date(str);
+        if (isNaN(d.getTime())) return null;
+        const dateFormatted = d.toISOString().split("T")[0];
+        const timeFormatted = d.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }).toLowerCase();
+        return { dateFormatted, timeFormatted };
+      } catch {
+        return null;
+      }
+    };
+
+    const created = parseDate(createdAt);
+    const updated = parseDate(updatedAt);
+
+    const isModified =
+      created &&
+      updated &&
+      Math.abs(new Date(updatedAt).getTime() - new Date(createdAt).getTime()) > 2000;
+
+    if (isModified && updated) {
+      return (
+        <div className="flex flex-col items-center justify-center leading-tight py-1">
+          <span className="whitespace-nowrap font-medium text-gray-800 text-xs">
+            {updated.dateFormatted}
+          </span>
+          <span className="whitespace-nowrap text-[11px] text-gray-400">
+            {updated.timeFormatted}
+          </span>
+          <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider mt-0.5">
+            Modified
+          </span>
+        </div>
+      );
+    }
+
+    if (created) {
+      return (
+        <div className="flex flex-col items-center justify-center leading-tight py-1">
+          <span className="whitespace-nowrap font-medium text-gray-800 text-xs">
+            {created.dateFormatted}
+          </span>
+          <span className="whitespace-nowrap text-[11px] text-gray-400">
+            {created.timeFormatted}
+          </span>
+          <span className="text-[10px] font-bold text-green-600 uppercase tracking-wider mt-0.5">
+            Created
+          </span>
+        </div>
+      );
+    }
+
+    return "-";
   };
 
   const showAlert = (message, type) => {
@@ -163,29 +225,27 @@ export default function ContactComponent() {
 
   // Prepare export data
   const dataForExport = filteredContacts.map((item) => ({
-    Date: item.createdAt
+    "Created Date": item.createdAt
       ? item.createdAt.split("T")[0]
       : "",
-
+    "Modified Date": item.updatedAt
+      ? item.updatedAt.split("T")[0]
+      : (item.createdAt ? item.createdAt.split("T")[0] : ""),
     Name: item.name || "",
-
     Email: item.email_address || "",
-
     "Mobile Number": item.mobile_number || "",
-
     City: item.city || "",
-
     "Enquiry Type": item.enquiry_type || "",
-
     "Invoice Number": item.invoice_number || "",
-
     Message: item.message || "",
+    Status: item.status || "active",
   }));
 
   // Create worksheet
   const worksheet = XLSX.utils.json_to_sheet(dataForExport, {
     header: [
-      "Date",
+      "Created Date",
+      "Modified Date",
       "Name",
       "Email",
       "Mobile Number",
@@ -193,6 +253,7 @@ export default function ContactComponent() {
       "Enquiry Type",
       "Invoice Number",
       "Message",
+      "Status",
     ],
   });
 
@@ -319,63 +380,48 @@ export default function ContactComponent() {
               <table className="w-full border border-gray-300">
                 <thead>
                   <tr className="bg-gray-200 text-center">
-                   <th className="p-2">Date</th>
+                    <th className="p-2 whitespace-nowrap">Date</th>
                     <th className="p-2">Name</th>
-                     <th className="p-2">Email</th>
+                    <th className="p-2">Email</th>
                     <th className="p-2">Mobile Number</th>
                     <th className="p-2">City</th>
                     <th className="p-2 whitespace-nowrap">Enquiry Type</th>
                     <th className="p-2">Message</th>
-                    {/* <th className="p-2">Status</th> */}
-                    {/* <th className="p-2">Created At</th>
-                    <th className="p-2">Actions</th> */}
+                    <th className="p-2">Status</th>
+                    <th className="p-2 whitespace-nowrap">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentContacts.map((contact) => (
-                    <tr key={contact._id} className="text-center border-b">
-                      {/* <td className="p-2 font-bold">{contact.email_address || '-'}</td> */}
-                      <td className="p-2 whitespace-nowrap">{contact.createdAt.split("T")[0] || "-"}</td>
-                      <td className="p-2">{contact.name || '-'}</td>
+                    <tr key={contact._id} className="text-center border-b hover:bg-gray-50 transition">
+                      <td className="p-2 whitespace-nowrap">{renderDateCell(contact.createdAt, contact.updatedAt)}</td>
+                      <td className="p-2 font-medium text-gray-800">{contact.name || '-'}</td>
                       <td className="p-2">{contact.email_address || '-'}</td>
                       <td className="p-2">{contact.mobile_number || '-'}</td>
                       <td className="p-2">{contact.city || '-'}</td>
                       <td className="p-2 whitespace-nowrap">{contact.enquiry_type || '-'}</td>
-                      <td className="p-2">{contact.message || '-'}</td>
-                      {/* <td className="p-2">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      <td className="p-2 max-w-xs truncate" title={contact.message}>{contact.message || '-'}</td>
+                      <td className="p-2">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
                           contact.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                         }`}>
-                          {contact.status || '-'}
+                          {contact.status || 'active'}
                         </span>
-                      </td> */}
-                      {/* <td className="p-2">
-                        {contact.createdAt ? new Date(contact.createdAt).toLocaleDateString() : '-'}
                       </td>
-                      <td className="p-2">
-                        <div className="flex items-center gap-2 justify-center">
+                      <td className="p-2 whitespace-nowrap">
+                        <div className="flex items-center justify-center">
                           <button
                             onClick={() => {
-                              setContactToEdit(contact);
+                              setContactToEdit({ ...contact });
                               setShowEditModal(true);
                             }}
-                            className="w-7 h-7 bg-red-100 text-red-600 rounded-full inline-flex items-center justify-center"
-                            title="Edit"
+                            className="w-8 h-8 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 rounded-full inline-flex items-center justify-center transition shadow-xs cursor-pointer"
+                            title="Edit Contact"
                           >
-                            <Icon icon="mingcute:edit-line" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setContactToDelete(contact._id);
-                              setShowConfirmationModal(true);
-                            }}
-                            className="w-7 h-7 bg-pink-100 text-pink-600 rounded-full inline-flex items-center justify-center"
-                            title="Delete"
-                          >
-                            <Icon icon="mingcute:delete-2-line" />
+                            <Icon icon="mingcute:edit-line" className="w-4 h-4" />
                           </button>
                         </div>
-                      </td> */}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -455,95 +501,150 @@ export default function ContactComponent() {
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg w-96">
-            <h2 className="text-xl font-bold mb-4">
-              {contactToEdit?._id ? "Edit Contact" : "Add Contact"}
-            </h2>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-xs z-50 p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-3 border-b pb-3">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Icon icon="mingcute:edit-line" className="text-blue-600 w-5 h-5" />
+                {contactToEdit?._id ? "Edit Contact Details" : "Add Contact"}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <Icon icon="mdi:close" className="w-6 h-6" />
+              </button>
+            </div>
+
+            {contactToEdit?.createdAt && (
+              <div className="text-xs text-gray-600 mb-4 bg-gray-50 border border-gray-200 p-2.5 rounded-lg flex flex-wrap justify-between gap-2">
+                <span>
+                  Created: <strong className="text-gray-800">{new Date(contactToEdit.createdAt).toLocaleString("en-IN")}</strong>
+                </span>
+                <span>
+                  Modified: <strong className="text-gray-800">{contactToEdit.updatedAt ? new Date(contactToEdit.updatedAt).toLocaleString("en-IN") : "-"}</strong>
+                </span>
+              </div>
+            )}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 if (contactToEdit?._id) {
                   handleEdit(contactToEdit._id);
-                } else {
-                  // Handle add contact logic here
-                  // You'll need to implement this
                 }
               }}
             >
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Email Address</label>
-                <input
-                  type="email"
-                  value={contactToEdit?.email_address || ""}
-                  onChange={(e) =>
-                    setContactToEdit({ ...contactToEdit, email_address: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded-md w-full"
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-left">
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={contactToEdit?.name || ""}
+                    onChange={(e) =>
+                      setContactToEdit({ ...contactToEdit, name: e.target.value })
+                    }
+                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-sm focus:ring-2 focus:ring-red-400 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    value={contactToEdit?.email_address || ""}
+                    onChange={(e) =>
+                      setContactToEdit({ ...contactToEdit, email_address: e.target.value })
+                    }
+                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-sm focus:ring-2 focus:ring-red-400 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Mobile Number</label>
+                  <input
+                    type="text"
+                    value={contactToEdit?.mobile_number || ""}
+                    onChange={(e) =>
+                      setContactToEdit({ ...contactToEdit, mobile_number: e.target.value })
+                    }
+                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-sm focus:ring-2 focus:ring-red-400 focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">City</label>
+                  <input
+                    type="text"
+                    value={contactToEdit?.city || ""}
+                    onChange={(e) =>
+                      setContactToEdit({ ...contactToEdit, city: e.target.value })
+                    }
+                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-sm focus:ring-2 focus:ring-red-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Enquiry Type</label>
+                  <input
+                    type="text"
+                    value={contactToEdit?.enquiry_type || ""}
+                    onChange={(e) =>
+                      setContactToEdit({ ...contactToEdit, enquiry_type: e.target.value })
+                    }
+                    placeholder="e.g. Order Support"
+                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-sm focus:ring-2 focus:ring-red-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Invoice Number</label>
+                  <input
+                    type="text"
+                    value={contactToEdit?.invoice_number || ""}
+                    onChange={(e) =>
+                      setContactToEdit({ ...contactToEdit, invoice_number: e.target.value })
+                    }
+                    placeholder="Optional"
+                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-sm focus:ring-2 focus:ring-red-400 focus:outline-none"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Status</label>
+                  <select
+                    value={contactToEdit?.status || "active"}
+                    onChange={(e) =>
+                      setContactToEdit({ ...contactToEdit, status: e.target.value })
+                    }
+                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-sm focus:ring-2 focus:ring-red-400 focus:outline-none bg-white"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold uppercase text-gray-600 mb-1">Message</label>
+                  <textarea
+                    value={contactToEdit?.message || ""}
+                    onChange={(e) =>
+                      setContactToEdit({ ...contactToEdit, message: e.target.value })
+                    }
+                    className="border border-gray-300 px-3 py-2 rounded-lg w-full text-sm focus:ring-2 focus:ring-red-400 focus:outline-none"
+                    rows="3"
+                  />
+                </div>
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Name</label>
-                <input
-                  type="text"
-                  value={contactToEdit?.name || ""}
-                  onChange={(e) =>
-                    setContactToEdit({ ...contactToEdit, name: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded-md w-full"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Mobile Number</label>
-                <input
-                  type="text"
-                  value={contactToEdit?.mobile_number || ""}
-                  onChange={(e) =>
-                    setContactToEdit({ ...contactToEdit, mobile_number: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded-md w-full"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Message</label>
-                <textarea
-                  value={contactToEdit?.message || ""}
-                  onChange={(e) =>
-                    setContactToEdit({ ...contactToEdit, message: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded-md w-full"
-                  rows="3"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-2">Status</label>
-                <select
-                  value={contactToEdit?.status || "active"}
-                  onChange={(e) =>
-                    setContactToEdit({ ...contactToEdit, status: e.target.value })
-                  }
-                  className="border px-3 py-2 rounded-md w-full"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              <div className="flex justify-end space-x-3">
+              <div className="flex justify-end space-x-3 mt-6 border-t pt-4">
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="bg-gray-300 px-4 py-2 rounded-md"
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="bg-red-500 px-4 py-2 rounded-md text-white"
+                  className="bg-[#d72828] hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm transition cursor-pointer"
                 >
-                  {contactToEdit?._id ? "Save" : "Add"}
+                  Save Changes
                 </button>
               </div>
             </form>
