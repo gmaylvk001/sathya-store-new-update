@@ -243,6 +243,35 @@ export default function ProductClient() {
     [product?.price, product?.special_price]
   );
 
+  const currentVariantValues = useMemo(() => {
+    if (!product) return null;
+    let values = {};
+    if (product.variantGroup?.products?.length && product.variantGroup?.attributes?.length) {
+      const match = product.variantGroup.products.find(
+        (p) => p && String(p._id) === String(product._id)
+      );
+      if (match?.values && typeof match.values === "object") {
+        for (const [k, v] of Object.entries(match.values)) {
+          if (v != null && String(v).trim() !== "") {
+            values[k] = typeof v === "object" ? (v.label || v.value || JSON.stringify(v)) : String(v).trim();
+          }
+        }
+      }
+    }
+    // Also check direct product fields if not already populated
+    if (!values.Color && product.color) values.Color = product.color;
+    if (!values.Size && product.size) values.Size = product.size;
+    if (!values.Capacity && product.capacity) values.Capacity = product.capacity;
+    return Object.keys(values).length > 0 ? values : null;
+  }, [product]);
+
+  const currentColor = useMemo(() => {
+    if (currentVariantValues?.Color) return currentVariantValues.Color;
+    if (currentVariantValues?.color) return currentVariantValues.color;
+    if (product?.color) return product.color;
+    return "";
+  }, [currentVariantValues, product?.color]);
+
   // Sync related products to compare context for similar product recommendations
   useEffect(() => {
     if (relatedProducts && relatedProducts.length > 0) {
@@ -637,15 +666,18 @@ export default function ProductClient() {
 
       const warrantyEligible = isExtendedWarrantyEligible(product);
       const effectiveWarrantyAmount = warrantyEligible
-        ? Number(selectedWarrantyAmount || selectedExtendedWarranty || selectedWarrantyData?.amount || selectedWarrantyData?.price || 0)
+        ? Number(selectedWarrantyAmount || selectedWarrantyData?.amount || selectedWarrantyData?.price || 0)
         : 0;
 
-      // Safe clean warranty object for checkout
+      // Safe clean warranty object for checkout and cart state
       const activeWarranty = (warrantyEligible && selectedWarrantyData) ? {
         id: selectedWarrantyData._id || selectedWarrantyData.id || "ew-plan",
-        title: selectedWarrantyData.title || selectedWarrantyData.name || "Extended Warranty",
-        price: effectiveWarrantyAmount,
-        duration: selectedWarrantyData.duration || selectedWarrantyData.period || ""
+        item_no: selectedWarrantyData.item_no || null,
+        name: selectedWarrantyData.name || selectedWarrantyData.title || (selectedWarrantyData.year ? `${selectedWarrantyData.year} Year Extended Warranty` : "Extended Warranty"),
+        title: selectedWarrantyData.title || selectedWarrantyData.name || (selectedWarrantyData.year ? `${selectedWarrantyData.year} Year Extended Warranty` : "Extended Warranty"),
+        year: Number(selectedWarrantyData.year || (selectedWarrantyData.duration ? parseInt(selectedWarrantyData.duration, 10) : 1)),
+        duration: selectedWarrantyData.duration || (selectedWarrantyData.year ? `${selectedWarrantyData.year} Year` : ""),
+        price: effectiveWarrantyAmount
       } : null;
 
       // ✅ Add main product to cart
@@ -659,9 +691,12 @@ export default function ProductClient() {
           body: JSON.stringify({
             productId: product?._id,
             quantity: Number(quantity) || 1,
-            selectedWarranty: Number(selectedWarranty || 0),
+            selectedWarranty: Number(activeWarranty?.year || (effectiveWarrantyAmount > 0 ? 1 : 0)),
             selectedExtendedWarranty: effectiveWarrantyAmount,
             warrantyData: activeWarranty,
+            variantValues: currentVariantValues || undefined,
+            selectedVariant: currentVariantValues || undefined,
+            color: currentColor || undefined,
             ...(guestCartId && { guestCartId }),
           }),
         });
@@ -1743,6 +1778,9 @@ export default function ProductClient() {
                       selectedFrequentProducts={selectedFrequentProducts}
                       selectedRelatedProducts={selectedRelatedProducts}
                       warrantyData={isExtendedWarrantyEligible(product) ? selectedWarrantyData : null}
+                      variantValues={currentVariantValues}
+                      selectedVariant={currentVariantValues}
+                      color={currentColor}
                       buttonLabel={isOpenBox ? "Enquire to Buy" : "Add to Cart"}
                       buttonClassName={addToCartOutlineClass}
                       movement={product.movement}
@@ -1980,6 +2018,9 @@ export default function ProductClient() {
                 selectedFrequentProducts={selectedFrequentProducts}
                 selectedRelatedProducts={selectedRelatedProducts}
                 warrantyData={selectedWarrantyData}
+                variantValues={currentVariantValues}
+                selectedVariant={currentVariantValues}
+                color={currentColor}
                 buttonLabel="Add Selected to Cart"
                 buttonClassName="bg-[#d72828] text-white"
                 movement={product.movement}
@@ -2481,6 +2522,9 @@ export default function ProductClient() {
                             selectedFrequentProducts={selectedFrequentProducts}
                             selectedRelatedProducts={selectedRelatedProducts}
                             warrantyData={isExtendedWarrantyEligible(product) ? selectedWarrantyData : null}
+                            variantValues={currentVariantValues}
+                            selectedVariant={currentVariantValues}
+                            color={currentColor}
                             buttonLabel={isOpenBox ? "Enquire to Buy" : "Add To Cart"}
                             buttonClassName="w-full border-2 border-[#d72828] text-[#d72828] hover:bg-red-50 font-bold py-2.5 rounded-lg text-sm transition-all shadow-none"
                             movement={product.movement}

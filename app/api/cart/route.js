@@ -38,9 +38,18 @@ const getCartIdentifier = (req, body = {}) => {
     return { userId, guestId: null };
   }
 
+  let queryGuestId = null;
+  try {
+    if (req?.url) {
+      const url = new URL(req.url);
+      queryGuestId = url.searchParams.get("guestCartId") || url.searchParams.get("guestId");
+    }
+  } catch {}
+
   const guestId =
     body.guestCartId ||
     body.guestId ||
+    queryGuestId ||
     req.headers.get("guestcartid") ||
     req.headers.get("guestCartId") ||
     req.headers.get("GuestCartId") ||
@@ -92,6 +101,9 @@ export async function POST(req) {
       selectedExtendedWarranty = 0,
       upsellProducts = [],
       warrantyData = null,
+      selectedVariant = null,
+      variantValues = null,
+      color = null,
       region: reqRegion,
       pincode: reqPincode,
     } = body;
@@ -184,23 +196,105 @@ export async function POST(req) {
       }
       cart.items[existingItemIndex].price = itemEffectivePrice;
       cart.items[existingItemIndex].actual_price = priceInfo.price;
-      const isWarrantyEligible = isExtendedWarrantyEligible(product);
+      const isWarrantyEligible = Boolean(warrantyData) || Number(selectedExtendedWarranty || 0) > 0 || Number(selectedWarranty || 0) > 0 || isExtendedWarrantyEligible(product);
       const effectiveExtendedWarranty = isWarrantyEligible
         ? Number(selectedExtendedWarranty || warrantyData?.amount || warrantyData?.price || 0)
         : 0;
-      const effectiveWarranty = isWarrantyEligible ? Number(selectedWarranty || 0) : 0;
-      const effectiveWarrantyData = isWarrantyEligible ? warrantyData : null;
+      const effectiveWarranty = isWarrantyEligible ? Number(selectedWarranty || warrantyData?.year || 0) : 0;
+      const effectiveWarrantyData = isWarrantyEligible && (warrantyData || effectiveExtendedWarranty > 0 || effectiveWarranty > 0)
+        ? {
+            item_no: warrantyData?.item_no || null,
+            name: warrantyData?.name || warrantyData?.title || (warrantyData?.year || effectiveWarranty ? `${warrantyData?.year || effectiveWarranty} Year Extended Warranty` : "Extended Warranty"),
+            title: warrantyData?.title || warrantyData?.name || (warrantyData?.year || effectiveWarranty ? `${warrantyData?.year || effectiveWarranty} Year Extended Warranty` : "Extended Warranty"),
+            year: Number(warrantyData?.year || effectiveWarranty || 0),
+            duration: warrantyData?.duration || (warrantyData?.year || effectiveWarranty ? `${warrantyData?.year || effectiveWarranty} Year` : ""),
+            price: effectiveExtendedWarranty,
+          }
+        : null;
+
+      // Resolve variant attributes
+      let resolvedVariantValues = variantValues || selectedVariant || cart.items[existingItemIndex].variantValues || null;
+      let resolvedColor = color || cart.items[existingItemIndex].color || null;
+      if (!resolvedVariantValues && product.variantGroupId) {
+        try {
+          const VariantGroup = (await import("@/models/variantGroup")).default;
+          const vg = await VariantGroup.findById(product.variantGroupId).lean();
+          if (vg?.products?.length) {
+            const match = vg.products.find(p => String(p.productId) === String(product._id));
+            if (match?.values && Object.keys(match.values).length > 0) {
+              resolvedVariantValues = match.values;
+              if (match.values.Color || match.values.color) {
+                resolvedColor = match.values.Color || match.values.color;
+              }
+            }
+          }
+        } catch (vgErr) {
+          console.warn("Variant resolve error:", vgErr);
+        }
+      }
+      if (!resolvedVariantValues && (product.color || product.size || product.star)) {
+        resolvedVariantValues = {};
+        if (product.color) resolvedVariantValues.Color = product.color;
+        if (product.size) resolvedVariantValues.Size = product.size;
+        if (product.star) resolvedVariantValues["Star Rating"] = `${product.star} Star`;
+      }
+      if (!resolvedColor && (resolvedVariantValues?.Color || resolvedVariantValues?.color)) {
+        resolvedColor = resolvedVariantValues.Color || resolvedVariantValues.color;
+      }
 
       cart.items[existingItemIndex].warranty = effectiveWarranty;
       cart.items[existingItemIndex].extendedWarranty = effectiveExtendedWarranty;
       cart.items[existingItemIndex].warrantyData = effectiveWarrantyData;
+      cart.items[existingItemIndex].variantValues = resolvedVariantValues;
+      cart.items[existingItemIndex].selectedVariant = resolvedVariantValues;
+      cart.items[existingItemIndex].color = resolvedColor;
     } else {
-      const isWarrantyEligible = isExtendedWarrantyEligible(product);
+      const isWarrantyEligible = Boolean(warrantyData) || Number(selectedExtendedWarranty || 0) > 0 || Number(selectedWarranty || 0) > 0 || isExtendedWarrantyEligible(product);
       const effectiveExtendedWarranty = isWarrantyEligible
         ? Number(selectedExtendedWarranty || warrantyData?.amount || warrantyData?.price || 0)
         : 0;
-      const effectiveWarranty = isWarrantyEligible ? Number(selectedWarranty || 0) : 0;
-      const effectiveWarrantyData = isWarrantyEligible ? warrantyData : null;
+      const effectiveWarranty = isWarrantyEligible ? Number(selectedWarranty || warrantyData?.year || 0) : 0;
+      const effectiveWarrantyData = isWarrantyEligible && (warrantyData || effectiveExtendedWarranty > 0 || effectiveWarranty > 0)
+        ? {
+            item_no: warrantyData?.item_no || null,
+            name: warrantyData?.name || warrantyData?.title || (warrantyData?.year || effectiveWarranty ? `${warrantyData?.year || effectiveWarranty} Year Extended Warranty` : "Extended Warranty"),
+            title: warrantyData?.title || warrantyData?.name || (warrantyData?.year || effectiveWarranty ? `${warrantyData?.year || effectiveWarranty} Year Extended Warranty` : "Extended Warranty"),
+            year: Number(warrantyData?.year || effectiveWarranty || 0),
+            duration: warrantyData?.duration || (warrantyData?.year || effectiveWarranty ? `${warrantyData?.year || effectiveWarranty} Year` : ""),
+            price: effectiveExtendedWarranty,
+          }
+        : null;
+
+      // Resolve variant attributes
+      let resolvedVariantValues = variantValues || selectedVariant || null;
+      let resolvedColor = color || null;
+      if (!resolvedVariantValues && product.variantGroupId) {
+        try {
+          const VariantGroup = (await import("@/models/variantGroup")).default;
+          const vg = await VariantGroup.findById(product.variantGroupId).lean();
+          if (vg?.products?.length) {
+            const match = vg.products.find(p => String(p.productId) === String(product._id));
+            if (match?.values && Object.keys(match.values).length > 0) {
+              resolvedVariantValues = match.values;
+              if (match.values.Color || match.values.color) {
+                resolvedColor = match.values.Color || match.values.color;
+              }
+            }
+          }
+        } catch (vgErr) {
+          console.warn("Variant resolve error:", vgErr);
+        }
+      }
+      if (!resolvedVariantValues && (product.color || product.size || product.star)) {
+        resolvedVariantValues = {};
+        if (product.color) resolvedVariantValues.Color = product.color;
+        if (product.size) resolvedVariantValues.Size = product.size;
+        if (product.star) resolvedVariantValues["Star Rating"] = `${product.star} Star`;
+      }
+      if (!resolvedColor && (resolvedVariantValues?.Color || resolvedVariantValues?.color)) {
+        resolvedColor = resolvedVariantValues.Color || resolvedVariantValues.color;
+      }
+
       const productImage =
         Array.isArray(product.images) && product.images.length > 0
           ? product.images[0]
@@ -218,6 +312,9 @@ export async function POST(req) {
         warranty: effectiveWarranty,
         extendedWarranty: effectiveExtendedWarranty,
         warrantyData: effectiveWarrantyData,
+        variantValues: resolvedVariantValues,
+        selectedVariant: resolvedVariantValues,
+        color: resolvedColor,
         actual_price: priceInfo.price,
       });
     }
@@ -349,6 +446,64 @@ export async function GET(req) {
           }
         }
 
+        // Resolve variant attributes if not stored on item
+        let itemVariantValues = item.variantValues || item.selectedVariant || null;
+        let itemColor = item.color || null;
+
+        if (!itemVariantValues && prodDoc?.variantGroupId) {
+          try {
+            const VariantGroup = (await import("@/models/variantGroup")).default;
+            const vg = await VariantGroup.findById(prodDoc.variantGroupId).lean();
+            if (vg?.products?.length) {
+              const match = vg.products.find(p => String(p.productId) === String(prodDoc._id));
+              if (match?.values && Object.keys(match.values).length > 0) {
+                itemVariantValues = match.values;
+                if (match.values.Color || match.values.color) {
+                  itemColor = match.values.Color || match.values.color;
+                }
+              }
+            }
+          } catch (vgErr) {
+            console.warn("Error resolving variant values in GET cart:", vgErr);
+          }
+        }
+
+        if (!itemVariantValues && (prodDoc?.color || prodDoc?.size || prodDoc?.star)) {
+          itemVariantValues = {};
+          if (prodDoc.color) itemVariantValues.Color = prodDoc.color;
+          if (prodDoc.size) itemVariantValues.Size = prodDoc.size;
+          if (prodDoc.star) itemVariantValues["Star Rating"] = `${prodDoc.star} Star`;
+        }
+        if (!itemColor && (itemVariantValues?.Color || itemVariantValues?.color)) {
+          itemColor = itemVariantValues.Color || itemVariantValues.color;
+        }
+
+        let normalizedWarrantyData = item.warrantyData || null;
+        const hasWarranty =
+          Boolean(Number(item.extendedWarranty || 0) > 0) ||
+          Boolean(Number(item.warranty || 0) > 0) ||
+          Boolean(Number(normalizedWarrantyData?.price || 0) > 0) ||
+          Boolean(Number(normalizedWarrantyData?.year || 0) > 0);
+
+        if (!hasWarranty) {
+          normalizedWarrantyData = null;
+        } else if (!normalizedWarrantyData && (item.extendedWarranty > 0 || item.warranty > 0)) {
+          normalizedWarrantyData = {
+            item_no: null,
+            name: item.warranty > 0 ? `${item.warranty} Year Extended Warranty` : "Extended Warranty",
+            title: item.warranty > 0 ? `${item.warranty} Year Extended Warranty` : "Extended Warranty",
+            year: Number(item.warranty || 0),
+            price: Number(item.extendedWarranty || 0),
+            duration: item.warranty > 0 ? `${item.warranty} Year` : "",
+          };
+        } else if (normalizedWarrantyData && !normalizedWarrantyData.name && !normalizedWarrantyData.title) {
+          normalizedWarrantyData = {
+            ...normalizedWarrantyData,
+            name: normalizedWarrantyData.year ? `${normalizedWarrantyData.year} Year Extended Warranty` : "Extended Warranty",
+            title: normalizedWarrantyData.year ? `${normalizedWarrantyData.year} Year Extended Warranty` : "Extended Warranty",
+          };
+        }
+
         return {
           original_quantity,
           item_code: itemCode,
@@ -359,7 +514,10 @@ export async function GET(req) {
           quantity: item.quantity,
           warranty: item.warranty || 0,
           extendedWarranty: item.extendedWarranty || 0,
-          warrantyData: item.warrantyData || null,
+          warrantyData: normalizedWarrantyData,
+          variantValues: itemVariantValues,
+          selectedVariant: itemVariantValues,
+          color: itemColor || prodDoc?.color || null,
           actual_price: liveActualPrice,
           specs: prodDoc?.key_specifications?.slice(0, 3) || [],
           slug: prodDoc?.slug || "",
@@ -531,6 +689,13 @@ export async function PUT(req) {
         image: img,
         quantity: item.quantity,
         item_code: code,
+        warranty: item.warranty || 0,
+        extendedWarranty: item.extendedWarranty || 0,
+        warrantyData: item.warrantyData || null,
+        variantValues: item.variantValues || null,
+        selectedVariant: item.selectedVariant || null,
+        color: item.color || null,
+        slug: item.slug || item.productId?.slug || "",
         original_quantity: item.original_quantity ?? null,
       };
     });

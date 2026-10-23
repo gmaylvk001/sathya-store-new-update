@@ -13,7 +13,7 @@ import OpenBoxPopup from "@/components/OpenBoxPopup";
 
 import { v4 as uuidv4 } from "uuid";
 
-const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts = [], extendedWarranty, selectedFrequentProducts = [], stockQuantity = 1, special_price, onSuccess, buttonLabel, buttonClassName, movement, productName, productSlug, warrantyData }) => {
+const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts = [], extendedWarranty, selectedFrequentProducts = [], stockQuantity = 1, special_price, onSuccess, buttonLabel, buttonClassName, movement, productName, productSlug, warrantyData, variantValues, selectedVariant, color }) => {
   const { openAuthModal } = useModal();
   const { updateHeaderdetails, setIsLoggedIn, setUserData, setIsAdmin, userData } = useHeaderdetails();
   const [isLoading, setIsLoading] = useState(false);
@@ -58,6 +58,15 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
           localStorage.setItem("guestCartId", guestCartId);
         }
 
+        const formattedWarranty = warrantyData ? {
+          item_no: warrantyData.item_no || null,
+          name: warrantyData.name || warrantyData.title || (warrantyData.year ? `${warrantyData.year} Year Extended Warranty` : "Extended Warranty"),
+          title: warrantyData.title || warrantyData.name || (warrantyData.year ? `${warrantyData.year} Year Extended Warranty` : "Extended Warranty"),
+          year: Number(warrantyData.year || warranty || 0),
+          duration: warrantyData.duration || (warrantyData.year ? `${warrantyData.year} Year` : ""),
+          price: Number(extendedWarranty || warrantyData.price || warrantyData.amount || 0),
+        } : null;
+
         // ✅ Add main product to cart in a single direct API call
         const cartResponse = await fetch("/api/cart", {
           method: "POST",
@@ -69,9 +78,12 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
             productId,
             original_prod_quantity: stockQuantity,
             quantity,
-            selectedWarranty: Number(warranty || 0),
+            selectedWarranty: Number(warranty || warrantyData?.year || 0),
             selectedExtendedWarranty: Number(extendedWarranty || warrantyData?.amount || warrantyData?.price || 0),
-            warrantyData: warrantyData || null,
+            warrantyData: formattedWarranty,
+            variantValues: variantValues || selectedVariant || undefined,
+            selectedVariant: selectedVariant || variantValues || undefined,
+            color: color || undefined,
             guestCartId: guestCartId || undefined,
           }),
         });

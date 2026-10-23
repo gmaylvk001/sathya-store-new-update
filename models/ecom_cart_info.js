@@ -31,14 +31,27 @@ const cartItemSchema = new mongoose.Schema({
   image: {
     type: String
   },
-   warranty: { type: Number, default: 0 }, // ✅ Add this
-  extendedWarranty: { type: Number, default: 0 }, // ✅ Add this
-    warrantyData: {
+  warranty: { type: Number, default: 0 },
+  extendedWarranty: { type: Number, default: 0 },
+  warrantyData: {
     item_no: { type: String, default: null },
     name: { type: String, default: null },
+    title: { type: String, default: null },
     year: { type: Number, default: null },
+    duration: { type: String, default: null },
     price: { type: Number, default: null },
-
+  },
+  variantValues: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  selectedVariant: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
+  },
+  color: {
+    type: String,
+    default: null,
   },
   upsells: [
     {
@@ -46,8 +59,7 @@ const cartItemSchema = new mongoose.Schema({
       price: Number,
     },
   ],
-
-}, { _id: false });
+}, { _id: false, strict: false });
 
 const cartSchema = new mongoose.Schema({
   userId: {
@@ -128,5 +140,8 @@ cartSchema.pre('save', function(next) {
   next();
 });
 
-const Cart = mongoose.models.ecom_cart_info || mongoose.model('ecom_cart_info', cartSchema);
+if (mongoose.models.ecom_cart_info) {
+  delete mongoose.models.ecom_cart_info;
+}
+const Cart = mongoose.model('ecom_cart_info', cartSchema);
 export default Cart;

@@ -23,6 +23,107 @@ const slugify = (str) => {
     .trim();
 };
 
+const getWarrantyPrice = (item) => {
+  if (!item) return 0;
+  if (item.extendedWarranty != null && Number(item.extendedWarranty) > 0) {
+    return Number(item.extendedWarranty);
+  }
+  if (item.warrantyData?.price != null && Number(item.warrantyData.price) > 0) {
+    return Number(item.warrantyData.price);
+  }
+  if (item.warrantyData?.amount != null && Number(item.warrantyData.amount) > 0) {
+    return Number(item.warrantyData.amount);
+  }
+  if (typeof item.warranty === "number" && item.warranty > 10) {
+    return item.warranty;
+  }
+  return 0;
+};
+
+const getItemWarranty = (item) => {
+  if (!item) return null;
+  const wd = item.warrantyData;
+  const price = getWarrantyPrice(item);
+  const year = Number(
+    wd?.year ||
+    wd?.duration ||
+    item.selectedWarranty ||
+    (typeof item.warranty === "number" && item.warranty <= 5 ? item.warranty : 0) ||
+    0
+  );
+
+  // If neither a warranty price nor a valid year was chosen, do not show warranty
+  if (price <= 0 && year <= 0) return null;
+
+  const rawTitle = wd?.title || wd?.name;
+  const hasValidName =
+    rawTitle &&
+    typeof rawTitle === "string" &&
+    rawTitle.trim() !== "" &&
+    rawTitle.toLowerCase() !== "null" &&
+    rawTitle.toLowerCase() !== "undefined";
+
+  const title =
+    (hasValidName ? rawTitle : "") ||
+    (year > 0 ? `${year} Year Extended Warranty` : "Extended Warranty Protection");
+
+  return {
+    title,
+    duration: wd?.duration || (year > 0 ? `${year} Year` : ""),
+    price,
+    item_no: wd?.item_no || null,
+  };
+};
+
+const getItemVariations = (item) => {
+  if (!item) return [];
+  const entries = [];
+  const seenKeys = new Set();
+
+  const addEntry = (rawKey, rawVal) => {
+    if (!rawKey || rawVal == null) return;
+    const key = String(rawKey).trim();
+    if (seenKeys.has(key.toLowerCase())) return;
+
+    let val = "";
+    if (typeof rawVal === "object") {
+      val = rawVal.label || rawVal.value || rawVal.name || "";
+    } else {
+      val = String(rawVal).trim();
+    }
+    if (!val || val.toLowerCase() === "undefined" || val.toLowerCase() === "null") return;
+
+    seenKeys.add(key.toLowerCase());
+    entries.push({ key, value: val });
+  };
+
+  if (item.variantValues && typeof item.variantValues === "object") {
+    for (const [k, v] of Object.entries(item.variantValues)) {
+      addEntry(k, v);
+    }
+  }
+
+  if (item.selectedVariant && typeof item.selectedVariant === "object") {
+    for (const [k, v] of Object.entries(item.selectedVariant)) {
+      addEntry(k, v);
+    }
+  }
+
+  if (item.color) {
+    addEntry("Color", item.color);
+  }
+
+  if (Array.isArray(item.attributes)) {
+    item.attributes.forEach((attr) => {
+      if (attr && (attr.name || attr.key) && (attr.value || attr.val)) {
+        addEntry(attr.name || attr.key, attr.value || attr.val);
+      }
+    });
+  }
+
+  return entries;
+};
+
 const features = [
   { icon: "🚗", title: "Free Shipping", description: "Free shipping all over the US" },
   { icon: "🔒", title: "100% Satisfaction", description: "Guaranteed satisfaction with every order" },
@@ -1272,8 +1373,13 @@ const calculateSubtotal = () => {
   if (!cartData) return 0;
   return cartData.items.reduce((sum, item) => {
     const itemPrice = item.price > 0 ? item.price : item.actual_price;
-    return sum + (itemPrice * item.quantity) + (item.warranty || 0) + (item.extendedWarranty || 0);
+    return sum + (itemPrice * item.quantity) + getWarrantyPrice(item);
   }, 0);
+};
+
+const calculateTotalWarranty = () => {
+  if (!cartData || !cartData.items) return 0;
+  return cartData.items.reduce((sum, item) => sum + getWarrantyPrice(item), 0);
 };
 
   const calculateDiscount = () => {
@@ -1334,7 +1440,10 @@ const calculateSubtotal = () => {
         discount: item.discount || 0,
 
         image: item.image,
-         warrantyData: item.warrantyData || null,
+        warrantyData: item.warrantyData || null,
+        variantValues: item.variantValues || null,
+        selectedVariant: item.selectedVariant || null,
+        color: item.color || null,
 
       }))
 
@@ -1664,6 +1773,8 @@ return (
               const originalPrice = item.actual_price > 0 ? item.actual_price : item.price;
               const specialPrice = item.price;
               const { discountPercent, showDiscount } = getDiscountInfo(originalPrice, specialPrice);
+              const itemVariations = getItemVariations(item);
+              const itemWarranty = getItemWarranty(item);
 
               const prodIdStr =
                 (typeof item.productId === "object" && item.productId?._id
@@ -1698,6 +1809,38 @@ return (
                           {item.name}
                         </h3>
                       </Link>
+
+                      {/* Dynamic Variations (Color, Storage, Size, etc.) */}
+                      {itemVariations.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                          {itemVariations.map((v, vIdx) => (
+                            <span
+                              key={vIdx}
+                              className="inline-flex items-center gap-1 bg-gray-100/90 border border-gray-200/90 text-gray-800 text-[11px] sm:text-xs font-medium px-2 py-0.5 rounded-md"
+                            >
+                              <span className="text-gray-500 font-normal">{v.key}:</span>
+                              <span className="font-semibold text-gray-900">{v.value}</span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Extended Warranty Badge / Protection Sub-row */}
+                      {itemWarranty && (
+                        <div className="inline-flex items-center gap-2 bg-amber-50/90 border border-amber-200 text-amber-900 rounded-lg px-2.5 py-1 text-xs mt-0.5 w-fit shadow-2xs">
+                          <div className="flex items-center gap-1.5 font-medium">
+                            <svg className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" />
+                            </svg>
+                            <span className="font-semibold text-amber-950">{itemWarranty.title}</span>
+                          </div>
+                          {itemWarranty.price > 0 && (
+                            <span className="bg-amber-100/90 text-amber-900 font-bold px-1.5 py-0.5 rounded text-[11px] border border-amber-200">
+                              +₹{Number(itemWarranty.price).toLocaleString("en-IN")}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {item.item_code && (
                         <p className="text-xs text-gray-400 font-normal">SKU: {item.item_code}</p>
@@ -1932,6 +2075,20 @@ return (
                   -₹{Number(calculateTotalDiscounts()).toLocaleString("en-IN")}
                 </span>
               </div>
+
+              {calculateTotalWarranty() > 0 && (
+                <div className="flex justify-between items-center text-amber-800 font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" />
+                    </svg>
+                    Extended Warranty Protection
+                  </span>
+                  <span className="font-semibold text-gray-900">
+                    +₹{Number(calculateTotalWarranty()).toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
 
               <div className="border-t border-dashed border-gray-200 pt-3.5 flex justify-between items-center text-base font-extrabold text-gray-900">
                 <span>Total Amount Payable</span>
