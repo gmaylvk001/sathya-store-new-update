@@ -43,19 +43,19 @@ export async function GET(request, context) {
       }
     }
 
-    let product = await Product.findOne({
+    const product = await Product.findOne({
       slug,
-      status: "Active" // ✅ Only return active products
+      status: "Active",
     }).lean();
 
     if (!product) {
-      product = await Product.findOne({ slug }).lean();
-    }
-
-    if (!product) {
-      return new Response(JSON.stringify({ message: "Product not found" }), {
-        status: 404,
-      });
+      return new Response(
+        JSON.stringify({ message: "Product not found or inactive" }),
+        {
+          status: 404,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
 
     let ownerProduct = null;

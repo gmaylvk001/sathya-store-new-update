@@ -1173,13 +1173,17 @@ export default function ProductClient() {
         );
 
         if (!response.ok) {
+          if (response.status === 404) {
+            router.push("/404");
+            return;
+          }
           setErrorMessage("Content not loading. Please try again later.");
           setShowGoHome(true);
           return;
         }
 
         const data = await response.json();
-        if (data.status !== "Active") {
+        if (!data || data.status !== "Active") {
           router.push("/404");
           return;
         }

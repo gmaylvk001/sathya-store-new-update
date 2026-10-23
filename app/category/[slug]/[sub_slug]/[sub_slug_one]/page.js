@@ -1,6 +1,7 @@
 import ProductClient from "@/app/product/[slug]/ProductClient";
 import dbConnect from "@/lib/db";
 import Product from "@/models/product";
+import { notFound } from "next/navigation";
 
 export async function generateMetadata({ params }) {
   const awaitedParams = await params;
@@ -11,7 +12,7 @@ export async function generateMetadata({ params }) {
 
   try {
     await dbConnect();
-    const product = await Product.findOne({ slug: sub_slug_one })
+    const product = await Product.findOne({ slug: sub_slug_one, status: "Active" })
       .select("name meta_title meta_description description images search_keywords")
       .lean();
 
@@ -62,6 +63,22 @@ export async function generateMetadata({ params }) {
   }
 }
 
-export default function ProductPage() {
+export default async function ProductPage({ params }) {
+  const awaitedParams = await params;
+  const sub_slug_one = awaitedParams?.sub_slug_one;
+
+  if (!sub_slug_one) {
+    notFound();
+  }
+
+  await dbConnect();
+  const product = await Product.findOne({ slug: sub_slug_one, status: "Active" })
+    .select("_id")
+    .lean();
+
+  if (!product) {
+    notFound();
+  }
+
   return <ProductClient />;
 }
