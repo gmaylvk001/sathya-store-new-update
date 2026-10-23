@@ -48,6 +48,13 @@ const menuItems = [
       { icon: 'mdi:cancel', label: 'Cancel Orders', id: 'exist-sales-cancel-orders', link: 'sathya-exist-cancel-orders', dotColor: 'bg-yellow-500' },
     ]
   },
+  {
+    icon: 'mdi:chart-pie',
+    label: 'Reports',
+    submenu: [
+      { icon: 'mdi:card-account-phone-outline', label: 'Contacts', id: 'admin-contact', link: 'contact' },
+    ]
+  },
   // { icon: 'mdi:note-text-outline', label: 'Blog', link: 'blog' },
   {
     icon: 'mdi:post-outline',
@@ -375,7 +382,7 @@ function SidebarItemWithDropdown({
                       onClick={() => {
                         setActiveMenu(sub.id || sub.label);
                         setIsHovered(false);
-                        router.push(`/admin/${sub.link}`);
+                        if (sub.link) router.push(`/admin/${sub.link}`);
                       }}
                       className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
                         activeMenu === (sub.id || sub.label)
@@ -402,7 +409,7 @@ function SidebarItemWithDropdown({
               <button
                 onClick={() => {
                   setActiveMenu(sub.id || sub.label);
-                  router.push(`/admin/${sub.link}`);
+                  if (sub.link) router.push(`/admin/${sub.link}`);
                 }}
                 className={`w-full flex items-center px-3 py-2 rounded text-sm space-x-3 ${
                   activeMenu === (sub.id || sub.label)
