@@ -11,6 +11,13 @@ export async function GET(req) {
     let stores = await Store.find({}).lean();
     stores = await attachFeaturedProductsToStores(stores);
 
+    stores = stores.map((s) => ({
+      ...s,
+      name: s.name || s.organisation_name || s.title || "",
+      title: s.title || s.organisation_name || s.name || "",
+      store_name: s.store_name || s.organisation_name || s.name || "",
+    }));
+
     if (storeType === "multi-brand" || storeType === "multi brand store") {
       stores = stores.filter((s) => s.multibrandstore === true);
     } else if (storeType === "executive" || storeType === "executive store") {

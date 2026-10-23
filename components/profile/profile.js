@@ -10,10 +10,28 @@ import { HiShoppingBag } from "react-icons/hi2";
 import { FaHeart } from "react-icons/fa6";
 import { useHeaderdetails } from '@/context/HeaderContext';
 
+function getStoreDisplayName(store) {
+  if (!store) return "";
+  const rawName =
+    store.title ||
+    store.organisation_name ||
+    store.name ||
+    store.store_name ||
+    "Store";
+  // Clean up long marketing suffixes like " - Electronics Store - Buy Latest Mobiles..."
+  const cleanName =
+    rawName.split(/\s*-\s*(?:Electronics|Buy|Ref|LED|Mobile|Home|Air)/i)[0].trim() || rawName;
+  if (store.city && !cleanName.toLowerCase().includes(store.city.toLowerCase())) {
+    return `${cleanName} - ${store.city}`;
+  }
+  return cleanName;
+}
+
 export default function Profile() {
   const pathname = usePathname();
   const { userData, updateHeaderdetails } = useHeaderdetails();
   const [stores, setStores] = useState([]);
+  const [loadingStores, setLoadingStores] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -27,32 +45,70 @@ export default function Profile() {
   });
 
   useEffect(() => {
-    // Fetch stores
+    let cancelled = false;
     const fetchStores = async () => {
       try {
+        setLoadingStores(true);
         const res = await fetch('/api/stores');
         const data = await res.json();
-        if (data.success) {
-          setStores(data.data);
+        let list = [];
+        if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
+          list = data.data;
+        } else {
+          // Fallback to store listings API
+          const fallbackRes = await fetch('/api/store_listings/get');
+          const fallbackData = await fallbackRes.json();
+          if (Array.isArray(fallbackData) && fallbackData.length > 0) {
+            list = fallbackData;
+          }
+        }
+        if (!cancelled) {
+          const activeList = list.filter((s) => !s.status || s.status.toLowerCase() === 'active');
+          setStores(activeList.length > 0 ? activeList : list);
         }
       } catch (err) {
         console.error("Failed to fetch stores", err);
+      } finally {
+        if (!cancelled) setLoadingStores(false);
       }
     };
     fetchStores();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     if (userData) {
-      setProfileData({
+      setProfileData(prev => ({
+        ...prev,
         firstName: userData.name || '',
         lastName: userData.last_name || '',
         email: userData.email || '',
         mobile: userData.phone || userData.mobile || '',
         store: userData.store_id || ''
-      });
+      }));
     }
   }, [userData]);
+
+  useEffect(() => {
+    if (userData?.store_id && stores.length > 0) {
+      const currentStoreVal = String(userData.store_id).trim();
+      if (currentStoreVal) {
+        const found = stores.find(
+          (s) =>
+            String(s._id) === currentStoreVal ||
+            String(s.location_id) === currentStoreVal ||
+            String(s.branch_code) === currentStoreVal ||
+            String(s.exist_id) === currentStoreVal ||
+            String(s.slug) === currentStoreVal
+        );
+        if (found) {
+          setProfileData(prev => ({ ...prev, store: String(found._id) }));
+        }
+      }
+    }
+  }, [userData, stores]);
 
   // Profile functions
   const handleProfileSave = async (e) => {
@@ -243,14 +299,19 @@ export default function Profile() {
                       name="store"
                       value={profileData.store}
                       onChange={handleProfileChange}
-                      className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-[#d72828] transition-all duration-200 bg-white"
+                      disabled={loadingStores}
+                      className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-[#d72828] transition-all duration-200 bg-white disabled:bg-gray-50 disabled:cursor-not-allowed"
                     >
-                      <option value="">Select Store Near You</option>
-                      {stores.map(store => (
-                        <option key={store._id} value={store.store_id || store._id}>
-                          {store.name || store.store_name}
-                        </option>
-                      ))}
+                      <option value="">
+                        {loadingStores ? "Loading stores..." : "Select Store Near You"}
+                      </option>
+                      {[...stores]
+                        .sort((a, b) => getStoreDisplayName(a).localeCompare(getStoreDisplayName(b)))
+                        .map((store) => (
+                          <option key={store._id} value={String(store._id)}>
+                            {getStoreDisplayName(store)}
+                          </option>
+                        ))}
                     </select>
                   </div>
                 </div>

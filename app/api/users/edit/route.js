@@ -48,10 +48,12 @@ export async function PUT(req) {
       );
     }
 
-    // Non-admins cannot change status or store assignment
+    // Profile fields that can be updated by customer; status is admin-only
     const update = { name, last_name, mobile, email };
+    if (store_id !== undefined) {
+      update.store_id = store_id || null;
+    }
     if (adminUserId) {
-      if (store_id !== undefined) update.store_id = store_id;
       if (status !== undefined) update.status = status;
     }
 
