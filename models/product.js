@@ -83,6 +83,8 @@ warranty_ids: {
   updatedAt: { type: Date, default: Date.now },
 });
 
+ProductSchema.index({ slug: 1, status: 1 });
+ProductSchema.index({ slug: 1 });
 ProductSchema.index({ createdAt: -1, _id: -1 });
 ProductSchema.index({ status: 1, brand: 1 });
 ProductSchema.index({ status: 1, name: 1 });
