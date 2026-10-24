@@ -60,7 +60,6 @@ const ShareModal = dynamic(() => import("@/components/ShareModal"), {
   loading: () => null,
 });
 import CompareButton from "@/components/CompareButton";
-import EmiOfferBanner from "@/components/product/EmiOfferBanner";
 const EmiModal = dynamic(() => import("@/components/product/EmiModal"), {
   ssr: false,
   loading: () => null,
@@ -1666,12 +1665,6 @@ export default function ProductClient({ initialProduct = null }) {
               )}
             </div>
 
-            {/* Production-Ready Isolated EMI Plans Banner (Mobile) */}
-            <EmiOfferBanner
-              price={effectivePrice}
-              onOpenModal={() => setIsEmiModalOpen(true)}
-            />
-
             {/* Stock */}
             <div className="mt-2">
               {isInStock ? (
@@ -1872,6 +1865,8 @@ export default function ProductClient({ initialProduct = null }) {
               <div className="mt-4">
                 <PaymentOffers
                   product={product}
+                  price={effectivePrice}
+                  onOpenEmiModal={() => setIsEmiModalOpen(true)}
                   externalShowEmiModal={showEMIModal}
                   onExternalCloseEmiModal={() => setShowEMIModal(false)}
                   onAvailabilityChange={setHasPaymentOffers}
@@ -2294,15 +2289,11 @@ export default function ProductClient({ initialProduct = null }) {
                   <p className="text-[11px] text-gray-500 mt-0.5">Inclusive of all taxes</p>
                 </div>
 
-                {/* Production-Ready Isolated EMI Plans Banner (Desktop) */}
-                <EmiOfferBanner
-                  price={effectivePrice}
-                  onOpenModal={() => setIsEmiModalOpen(true)}
-                />
-
-                {/* Available Offers Component */}
+                {/* Payment Offers & Integrated EMI Component */}
                 <PaymentOffers
                   product={product}
+                  price={effectivePrice}
+                  onOpenEmiModal={() => setIsEmiModalOpen(true)}
                   externalShowEmiModal={showEMIModal}
                   onExternalCloseEmiModal={() => setShowEMIModal(false)}
                   onAvailabilityChange={setHasPaymentOffers}
