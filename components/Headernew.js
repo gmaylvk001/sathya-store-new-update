@@ -8,6 +8,9 @@ import {
   HiOutlineShoppingBag,
   HiOutlinePhone,
   HiOutlineBuildingStorefront,
+  HiOutlineBars3,
+  HiOutlineGift,
+  HiOutlineTag,
 } from "react-icons/hi2";
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -303,6 +306,25 @@ const Header = () => {
   const profileDropdownRef = useRef(null);
   const profileButtonRef = useRef(null);
   const mobileProfileButtonRef = useRef(null);
+  const moreMenuRef = useRef(null);
+  const moreMenuTimeoutRef = useRef(null);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+
+  const handleMenuMouseEnter = () => {
+    if (moreMenuTimeoutRef.current) {
+      clearTimeout(moreMenuTimeoutRef.current);
+    }
+    setIsMoreMenuOpen(true);
+  };
+
+  const handleMenuMouseLeave = () => {
+    if (moreMenuTimeoutRef.current) {
+      clearTimeout(moreMenuTimeoutRef.current);
+    }
+    moreMenuTimeoutRef.current = setTimeout(() => {
+      setIsMoreMenuOpen(false);
+    }, 150);
+  };
   const [activeTab, setActiveTab] = useState('login');
   // const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -698,7 +720,7 @@ const Header = () => {
             fetchFreshCategories();
           }
         };
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const handleStorageChange = (e) => {
@@ -713,7 +735,7 @@ const Header = () => {
     return () => {
       mounted = false;
       if (syncChannel) {
-        try { syncChannel.close(); } catch (_) {}
+        try { syncChannel.close(); } catch (_) { }
       }
       if (typeof window !== "undefined") {
         window.removeEventListener("storage", handleStorageChange);
@@ -1018,6 +1040,10 @@ const Header = () => {
     if (!inProfileDropdown && !inProfileButton && !inMobileProfileButton) {
       setDropdownOpen(false);
     }
+
+    if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
+      setIsMoreMenuOpen(false);
+    }
   };
 
   useEffect(() => {
@@ -1025,8 +1051,18 @@ const Header = () => {
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      if (moreMenuTimeoutRef.current) clearTimeout(moreMenuTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isMoreMenuOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setIsMoreMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMoreMenuOpen]);
 
   useLayoutEffect(() => {
     if (!dropdownOpen) {
@@ -2448,6 +2484,65 @@ const Header = () => {
                 <span className={`text-[10px] ${HEADER_ACTION_LABEL_CLASS}`}>Cart</span>
               </Link>
 
+              {/* More Menu Dropdown (Loyalty & All Brands) */}
+              <div
+                className="relative hidden sm:block"
+                ref={moreMenuRef}
+                onMouseEnter={handleMenuMouseEnter}
+                onMouseLeave={handleMenuMouseLeave}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsMoreMenuOpen((prev) => !prev)}
+                  className={`${HEADER_ACTION_LINK_CLASS} min-w-[40px] focus:outline-none cursor-pointer`}
+                  aria-label="Menu"
+                  aria-expanded={isMoreMenuOpen}
+                  aria-haspopup="true"
+                  title="Menu"
+                >
+                  <div
+                    className={`${HEADER_ACTION_ICON_WRAP_CLASS} ${
+                      isMoreMenuOpen ? "!border-[#ED1C24] !bg-[#FFF200] !text-[#C4161D] shadow-[0_4px_10px_rgba(215,40,40,0.18)]" : ""
+                    }`}
+                  >
+                    <HiOutlineBars3 size={19} strokeWidth={1.75} />
+                  </div>
+                </button>
+
+                {isMoreMenuOpen && (
+                  <div
+                    className="absolute right-0 top-full pt-2 z-50 transition-all duration-200"
+                    style={{ minWidth: "185px" }}
+                  >
+                    <div className="w-48 bg-white rounded-xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.1)] border border-gray-100 py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                      <Link
+                        href="/loyalty"
+                        onClick={() => setIsMoreMenuOpen(false)}
+                        className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                          <HiOutlineGift size={16} strokeWidth={1.8} />
+                        </span>
+                        <span className="text-[13px] font-medium">Loyalty</span>
+                      </Link>
+
+                      <div className="h-px bg-gray-100 my-1 mx-2" />
+
+                      <Link
+                        href="/brands"
+                        onClick={() => setIsMoreMenuOpen(false)}
+                        className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                          <HiOutlineTag size={16} strokeWidth={1.8} />
+                        </span>
+                        <span className="text-[13px] font-medium">All Brands</span>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* User Account */}
               <div className="relative">
                 {userData ? (
@@ -2531,6 +2626,26 @@ const Header = () => {
                   </span>
                   <span className="text-[11px] font-semibold">Store</span>
                 </a>
+                <Link
+                  href="/loyalty"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
+                    <HiOutlineGift size={18} strokeWidth={1.75} />
+                  </span>
+                  <span className="text-[11px] font-semibold">Loyalty</span>
+                </Link>
+                <Link
+                  href="/brands"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
+                    <HiOutlineTag size={18} strokeWidth={1.75} />
+                  </span>
+                  <span className="text-[11px] font-semibold">All Brands</span>
+                </Link>
               </div>
             </div>
           )}
@@ -3232,7 +3347,7 @@ const Header = () => {
                                           marginBottom: '8px', paddingBottom: '6px',
                                           borderBottom: 'none',
                                           whiteSpace: 'normal',
-                                           lineHeight: 1.35,
+                                          lineHeight: 1.35,
                                         }}
                                       >
                                         {splitByNearestSpace(sub.category_name, 24)}
