@@ -4,7 +4,19 @@ const cartItemSchema = new mongoose.Schema({
   productId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product',
-    required: true
+    required: function() {
+      return !this.isCombo && !this.comboId;
+    },
+    default: null
+  },
+  isCombo: {
+    type: Boolean,
+    default: false
+  },
+  comboId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'comboOffer',
+    default: null
   },
   quantity: {
     type: Number,
