@@ -52,7 +52,7 @@ async function getCategoryTree(parentId, productCategoryIds = null) {
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
 
-  const query = (searchParams.get("query") || "").trim();
+  const query = (searchParams.get("query") || searchParams.get("q") || "").trim();
   const category = (searchParams.get("category") || "").trim();
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const limit = Math.max(1, Number(searchParams.get("limit")) || 12);
@@ -107,93 +107,174 @@ export async function GET(req) {
       }
     }
 
-    /* ---------------- CATEGORY MAPPING ---------------- */
-    if (category && category !== "All Categories" && category !== "All Category") {
-      const categoryDoc = await Category.findOne({
-        category_name: category,
-        status: "Active",
-      }).select("_id md5_cat_name");
-
-      if (!categoryDoc) {
-        return NextResponse.json({
-          products: [],
-          pagination: { total: 0, currentPage: page, totalPages: 0 },
-          brandSummary: [],
-          filterSummary: [],
-          filterDefs: [],
-        });
-      }
-
-      searchFilter.sub_category_new = {
-        $regex: categoryDoc.md5_cat_name,
-        $options: "i",
-      };
-    }
-
     /* ---------------- BRAND FILTER ---------------- */
     if (brands.length > 0) {
       searchFilter.brand = { $in: brands };
     }
 
-    /* --- CATEGORY IDS FILTER --- */
-
-    const categoryIds = (searchParams.get("categoryIds") || "")
+    /* ---------------- CATEGORY & COMPOUND FILTERING ---------------- */
+    const isAllCat =
+      !category ||
+      category === "All Categories" ||
+      category === "All Category";
+    const categoryIdsRaw = (searchParams.get("categoryIds") || "")
       .split(",")
-      .filter((v) => mongoose.Types.ObjectId.isValid(v));
-    const subcategoryIds = (searchParams.get("subcategoryIds") || "")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const subcategoryIdsRaw = (searchParams.get("subcategoryIds") || "")
       .split(",")
-      .filter((v) => mongoose.Types.ObjectId.isValid(v));
+      .map((s) => s.trim())
+      .filter(Boolean);
 
-const getAllChildIds = async (parentId) => {
-  const children = await Category.find({ parentid: parentId }).lean();
-  let ids = [new mongoose.Types.ObjectId(parentId.toString())];
-  for (const child of children) {
-    const childIds = await getAllChildIds(child._id);
-    ids = ids.concat(childIds);
-  }
-  return ids;
-};
+    const hasCategoryConstraint =
+      !isAllCat || categoryIdsRaw.length > 0 || subcategoryIdsRaw.length > 0;
+    let targetCatDocs = [];
+    let explicitCategoryUnmatched = false;
 
-if (subcategoryIds.length > 0) {
-  const subCatDocs = await Category.find({
-    _id: { $in: subcategoryIds.map(id => new mongoose.Types.ObjectId(id)) }
-  }).lean();
+    if (!isAllCat) {
+      let catDoc = null;
+      if (mongoose.Types.ObjectId.isValid(category)) {
+        catDoc = await Category.findOne({ _id: category, status: "Active" }).lean();
+      }
+      if (!catDoc) {
+        catDoc = await Category.findOne({ category_slug: category, status: "Active" }).lean();
+      }
+      if (!catDoc) {
+        catDoc = await Category.findOne({
+          category_name: {
+            $regex: new RegExp(
+              `^${category.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`,
+              "i"
+            ),
+          },
+          status: "Active",
+        }).lean();
+      }
+      if (!catDoc) {
+        const cleanSlug = category
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "");
+        catDoc = await Category.findOne({
+          $or: [
+            { category_slug: cleanSlug },
+            { category_slug: { $regex: cleanSlug.replace(/-/g, ".*"), $options: "i" } },
+            { category_name: { $regex: cleanSlug.replace(/-/g, ".*"), $options: "i" } },
+          ],
+          status: "Active",
+        }).lean();
+      }
+      if (!catDoc && /personal/i.test(category) && (/care/i.test(category) || /health/i.test(category))) {
+        catDoc = await Category.findOne({
+          $or: [
+            { category_slug: "personal-care-appliances" },
+            { category_name: /personal care/i },
+          ],
+          status: "Active",
+        }).lean();
+      }
+      if (catDoc) {
+        targetCatDocs.push(catDoc);
+      } else {
+        explicitCategoryUnmatched = true;
+      }
+    }
 
-  let allIds = [];
-  for (const doc of subCatDocs) {
-    const ids = await getAllChildIds(doc._id);
-    allIds = allIds.concat(ids);
-  }
+    if (subcategoryIdsRaw.length > 0) {
+      const validSubIds = subcategoryIdsRaw.filter((id) =>
+        mongoose.Types.ObjectId.isValid(id)
+      );
+      if (validSubIds.length > 0) {
+        const subDocs = await Category.find({
+          _id: { $in: validSubIds.map((id) => new mongoose.Types.ObjectId(id)) },
+        }).lean();
+        targetCatDocs.push(...subDocs);
+      }
+    } else if (categoryIdsRaw.length > 0) {
+      const validCatIds = categoryIdsRaw.filter((id) =>
+        mongoose.Types.ObjectId.isValid(id)
+      );
+      if (validCatIds.length > 0) {
+        const pDocs = await Category.find({
+          _id: { $in: validCatIds.map((id) => new mongoose.Types.ObjectId(id)) },
+        }).lean();
+        targetCatDocs.push(...pDocs);
+      }
+    }
 
-  const uniqueIds = [...new Map(allIds.map(id => [id.toString(), id])).values()];
+    let categoryConditions = [];
+    if (hasCategoryConstraint) {
+      if (explicitCategoryUnmatched && targetCatDocs.length === 0) {
+        return NextResponse.json({
+          products: [],
+          pagination: {
+            total: 0,
+            currentPage: page,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false,
+          },
+          brandSummary: [],
+          filterSummary: [],
+          filterDefs: [],
+          categories: [],
+        });
+      }
 
-  if (uniqueIds.length > 0) {
-    searchFilter.$or = [
-      { category: { $in: uniqueIds } },
-      { sub_category: { $in: uniqueIds } },
-    ];
-  }
+      const getAllChildDocs = async (parentId) => {
+        const children = await Category.find({ parentid: parentId }).lean();
+        let docs = [];
+        for (const child of children) {
+          docs.push(child);
+          const grandChildren = await getAllChildDocs(child._id);
+          docs.push(...grandChildren);
+        }
+        return docs;
+      };
 
-} else if (categoryIds.length > 0) {
-  const parentDocs = await Category.find({
-    _id: { $in: categoryIds.map(id => new mongoose.Types.ObjectId(id)) }
-  }).lean();
+      const allCategoryDocs = [...targetCatDocs];
+      for (const doc of targetCatDocs) {
+        const childDocs = await getAllChildDocs(doc._id);
+        allCategoryDocs.push(...childDocs);
+      }
 
-  let allIds = [];
-  for (const doc of parentDocs) {
-    const ids = await getAllChildIds(doc._id);
-    allIds = allIds.concat(ids);
-  }
+      const targetIdStrings = new Set();
+      const targetObjIds = [];
+      const targetMd5s = new Set();
 
-  const uniqueIds = [...new Map(allIds.map(id => [id.toString(), id])).values()];
+      for (const c of allCategoryDocs) {
+        const idStr = c._id.toString();
+        if (!targetIdStrings.has(idStr)) {
+          targetIdStrings.add(idStr);
+          targetObjIds.push(new mongoose.Types.ObjectId(idStr));
+        }
+        if (c.md5_cat_name) {
+          targetMd5s.add(c.md5_cat_name);
+        }
+      }
 
-  if (uniqueIds.length > 0) {
-    searchFilter.$or = [
-      { category: { $in: uniqueIds } },
-      { sub_category: { $in: uniqueIds } },
-    ];
-  }
-}
+      const allCategoryInValues = [
+        ...Array.from(targetIdStrings),
+        ...targetObjIds,
+      ];
+
+      categoryConditions = [
+        { category: { $in: allCategoryInValues } },
+        { sub_category: { $in: allCategoryInValues } },
+      ];
+      if (targetMd5s.size > 0) {
+        categoryConditions.push(
+          ...Array.from(targetMd5s).map((md5) => ({
+            sub_category_new: { $regex: md5, $options: "i" },
+          }))
+        );
+      }
+
+      searchFilter.$and = [
+        ...(searchFilter.$and || []),
+        { $or: categoryConditions },
+      ];
+    }
     /* ---------------- PRICE FILTER ---------------- */
     if (hasPriceFilter) {
 searchFilter.$and = [
@@ -402,6 +483,12 @@ if (query) {
     categoryOnlyFilter.$or = buildSearchOrConditions(query, allBrands);
   }
 }
+if (hasCategoryConstraint && categoryConditions.length > 0) {
+  categoryOnlyFilter.$and = [
+    ...(categoryOnlyFilter.$and || []),
+    { $or: categoryConditions },
+  ];
+}
 
 // Search results products-ல இருக்க category/sub_category IDs 
 const productsForCat = await Product.find(
@@ -476,6 +563,32 @@ if (productCategoryIds.size > 0) {
     const node = toNode(cat);
     if (node) categoryTree.push(node);
   }
+}
+
+if (categoryTree.length === 0 && targetCatDocs.length > 0) {
+  const allCategories = await Category.find().lean();
+  const byId = new Map(allCategories.map((c) => [String(c._id), c]));
+  const childrenByParent = new Map();
+  for (const cat of allCategories) {
+    const parentKey =
+      cat.parentid && cat.parentid !== "none" ? String(cat.parentid) : "none";
+    if (!childrenByParent.has(parentKey)) childrenByParent.set(parentKey, []);
+    childrenByParent.get(parentKey).push(cat);
+  }
+  const toFallbackNode = (cat) => {
+    const name = humanLabel(cat.category_name, cat.name);
+    if (!name) return null;
+    const kids = (childrenByParent.get(String(cat._id)) || [])
+      .map(toFallbackNode)
+      .filter(Boolean);
+    return {
+      _id: String(cat._id),
+      category_name: name,
+      category_slug: cat.category_slug || "",
+      subCategories: kids,
+    };
+  };
+  categoryTree = targetCatDocs.map(toFallbackNode).filter(Boolean);
 }
     /* ---------------- RETURN ---------------- */
     return NextResponse.json({
