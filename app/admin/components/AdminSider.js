@@ -52,6 +52,7 @@ const menuItems = [
     icon: 'mdi:chart-pie',
     label: 'Reports',
     submenu: [
+      { icon: 'mdi:chart-bar', label: 'Sales Report', id: 'sales-report', link: 'reports/sales' },
       { icon: 'mdi:card-account-phone-outline', label: 'Contacts', id: 'admin-contact', link: 'contact' },
     ]
   },
