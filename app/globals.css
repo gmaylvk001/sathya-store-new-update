@@ -547,8 +547,14 @@ body::-webkit-scrollbar {
 
 /* Compare & Mobile Toast Notification Responsive Styling */
 @media (max-width: 768px) {
-  .Toastify__toast-container--top-center {
-    top: 12px !important;
+  .Toastify__toast-container,
+  .Toastify__toast-container--top-center,
+  .Toastify__toast-container--top-right,
+  .Toastify__toast-container--bottom-center,
+  .Toastify__toast-container--bottom-left,
+  .Toastify__toast-container--bottom-right {
+    top: 72px !important;
+    bottom: auto !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     width: calc(100vw - 24px) !important;
@@ -558,6 +564,7 @@ body::-webkit-scrollbar {
     z-index: 99999 !important;
   }
 
+  .Toastify__toast-container .Toastify__toast,
   .Toastify__toast-container--top-center .Toastify__toast {
     border-radius: 12px !important;
     margin-bottom: 8px !important;
@@ -567,6 +574,7 @@ body::-webkit-scrollbar {
     line-height: 1.4 !important;
   }
 
+  .Toastify__toast-container .Toastify__close-button,
   .Toastify__toast-container--top-center .Toastify__close-button {
     align-self: flex-start !important;
     padding: 4px !important;

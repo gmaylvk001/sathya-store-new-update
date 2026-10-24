@@ -27,6 +27,8 @@ import {
   useCallback,
   useRef,
 } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Check, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   trackCompareAdd,
@@ -64,6 +66,9 @@ const CompareContext = createContext({
   cancelCategorySwitch: () => {},
   syncOnLogin: async () => {},
   fetchFromDB: async () => {},
+  showCompareToast: () => {},
+  dismissCompareToast: () => {},
+  compareToast: null,
 });
 
 export const CompareProvider = ({ children }) => {
@@ -76,6 +81,39 @@ export const CompareProvider = ({ children }) => {
 
   // Debounce ref to prevent rapid-fire API calls
   const debounceRef = useRef({});
+
+  // ── Compare Toast Notification State & Timer ──────────────────────────────
+  const [compareToast, setCompareToast] = useState(null);
+  const toastTimerRef = useRef(null);
+
+  const dismissCompareToast = useCallback(() => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+      toastTimerRef.current = null;
+    }
+    setCompareToast(null);
+  }, []);
+
+  const showCompareToast = useCallback(
+    (productName) => {
+      // Clear any pending timer to prevent race conditions & memory leaks
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
+
+      setCompareToast({
+        id: Date.now(),
+        productName: productName || 'Product',
+      });
+
+      // Production-ready 2.5s (2500ms) auto-dismiss timer
+      toastTimerRef.current = setTimeout(() => {
+        dismissCompareToast();
+      }, 2500);
+    },
+    [dismissCompareToast]
+  );
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -151,6 +189,11 @@ export const CompareProvider = ({ children }) => {
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      // Clean up toast notification timer
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = null;
+      }
       // Clean up all pending debounce timers to avoid memory leaks / stale state updates
       if (debounceRef.current) {
         Object.values(debounceRef.current).forEach((timer) => clearTimeout(timer));
@@ -272,7 +315,7 @@ export const CompareProvider = ({ children }) => {
         const newList = [...currentList, { productId, category_slug, category_id, category_name: displayCategory, productData: previewData }];
         writeLocalList(newList);
         setCompareList(newList);
-        notifyCompareSuccess(product.name);
+        showCompareToast(product.name);
         trackCompareAdd({ productId, productName: product.name, category_slug: displayCategory });
         return;
       }
@@ -287,6 +330,7 @@ export const CompareProvider = ({ children }) => {
       } else {
         setCompareList((prev) => [...prev, optimisticItem]);
       }
+      showCompareToast(product.name);
 
       // Debounce rapid clicks
       clearTimeout(debounceRef.current[productId]);
@@ -320,7 +364,6 @@ export const CompareProvider = ({ children }) => {
 
           // Sync with server-confirmed list
           setCompareList(data.items || [optimisticItem]);
-          notifyCompareSuccess(product.name);
           trackCompareAdd({ productId, productName: product.name, category_slug });
 
         } catch (err) {
@@ -490,9 +533,47 @@ export const CompareProvider = ({ children }) => {
         cancelCategorySwitch,
         syncOnLogin,
         fetchFromDB,
+        showCompareToast,
+        dismissCompareToast,
+        compareToast,
       }}
     >
       {children}
+
+      {/* Production-Ready Isolated Compare Toast Notification */}
+      <AnimatePresence>
+        {compareToast && (
+          <motion.div
+            key={compareToast.id}
+            initial={{ opacity: 0, y: -20, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -16, scale: 0.96 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+            role="status"
+            aria-live="polite"
+            className="fixed z-[99999] pointer-events-auto
+                       top-16 sm:top-20 left-1/2 -translate-x-1/2 w-[calc(100vw-24px)] max-w-md
+                       md:top-20 md:right-6 md:left-auto md:translate-x-0 md:w-auto md:max-w-md"
+          >
+            <div className="flex items-center gap-3 bg-white text-gray-800 px-4 py-3 rounded-xl shadow-2xl border border-gray-100 backdrop-blur-md">
+              <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <Check size={14} strokeWidth={3} />
+              </div>
+              <p className="text-xs sm:text-sm font-medium leading-snug flex-1 line-clamp-2">
+                <span className="font-semibold text-gray-900">"{compareToast.productName}"</span> added to compare!
+              </p>
+              <button
+                type="button"
+                onClick={dismissCompareToast}
+                aria-label="Close notification"
+                className="p-1 -mr-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors cursor-pointer shrink-0"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Category Mismatch Confirmation Dialog */}
       {categoryMismatchPrompt && (

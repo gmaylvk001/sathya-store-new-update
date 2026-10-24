@@ -55,8 +55,13 @@ const ProductInstallationWarrantySection = dynamic(
   () => import("@/components/ProductInstallationWarrantySection"),
   { ssr: false, loading: () => null }
 );
-import CompareButton from "@/components/CompareButton";
 const ShareModal = dynamic(() => import("@/components/ShareModal"), {
+  ssr: false,
+  loading: () => null,
+});
+import CompareButton from "@/components/CompareButton";
+import EmiOfferBanner from "@/components/product/EmiOfferBanner";
+const EmiModal = dynamic(() => import("@/components/product/EmiModal"), {
   ssr: false,
   loading: () => null,
 });
@@ -272,7 +277,14 @@ export default function ProductClient({ initialProduct = null }) {
   const [hasExchangeOffers, setHasExchangeOffers] = useState(false);
   const [hasPaymentOffers, setHasPaymentOffers] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isEmiModalOpen, setIsEmiModalOpen] = useState(false);
   const { setSimilarProducts } = useCompare();
+
+  const effectivePrice = useMemo(() => {
+    const base = product?.special_price > 0 ? product.special_price : product?.price || 0;
+    const warranty = isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0;
+    return Number(base + warranty);
+  }, [product?.special_price, product?.price, selectedWarrantyAmount, product]);
 
   const mainDiscountInfo = useMemo(
     () => getDiscountInfo(product?.price, product?.special_price),
@@ -1654,6 +1666,12 @@ export default function ProductClient({ initialProduct = null }) {
               )}
             </div>
 
+            {/* Production-Ready Isolated EMI Plans Banner (Mobile) */}
+            <EmiOfferBanner
+              price={effectivePrice}
+              onOpenModal={() => setIsEmiModalOpen(true)}
+            />
+
             {/* Stock */}
             <div className="mt-2">
               {isInStock ? (
@@ -2276,6 +2294,12 @@ export default function ProductClient({ initialProduct = null }) {
                   <p className="text-[11px] text-gray-500 mt-0.5">Inclusive of all taxes</p>
                 </div>
 
+                {/* Production-Ready Isolated EMI Plans Banner (Desktop) */}
+                <EmiOfferBanner
+                  price={effectivePrice}
+                  onOpenModal={() => setIsEmiModalOpen(true)}
+                />
+
                 {/* Available Offers Component */}
                 <PaymentOffers
                   product={product}
@@ -2706,6 +2730,14 @@ export default function ProductClient({ initialProduct = null }) {
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         product={product}
+      />
+
+      {/* Lazy-Loaded Isolated EMI Options Modal (Razorpay Style) */}
+      <EmiModal
+        isOpen={isEmiModalOpen}
+        onClose={() => setIsEmiModalOpen(false)}
+        price={effectivePrice}
+        productName={product?.name}
       />
     </div>
   );
