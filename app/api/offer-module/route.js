@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import OfferModule from "@/models/OfferModule";
-import { ensureDefaultOffersExist } from "@/lib/offersHelper";
 
 export async function GET(req) {
   try {
     await dbConnect();
-    await ensureDefaultOffersExist();
 
     const { searchParams } = new URL(req.url);
     const onlyActive = searchParams.get("active") === "true";

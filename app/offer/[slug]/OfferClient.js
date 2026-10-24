@@ -133,7 +133,6 @@ export default function OfferClient({ offer, products }) {
         <div className="flex justify-between items-center mb-6 border-b pb-4">
           <h1 className="text-2xl font-bold text-red-600 uppercase">{offer.offerName}</h1>
           <div className="flex gap-2">
-            <span className="bg-yellow-400 font-bold px-4 py-2 text-sm">BIG DISCOUNT</span>
             <button 
               onClick={() => handleOpenModal("")}
               className="bg-red-600 text-white font-bold px-4 py-2 text-sm hover:bg-red-700 transition"

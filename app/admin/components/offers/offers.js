@@ -293,18 +293,16 @@ export default function OffersComponent() {
         setSuccessMessage("Offer Deleted Successfully");
         setShowSuccessModal(true);
         fetchOffers();
-      } else if (result.hasProducts) {
-        setSuccessMessage(result.error);
-        setShowSuccessModal(true);
+        setTimeout(() => setShowSuccessModal(false), 2000);
       } else {
-        alert(result.error || "Failed to delete offer");
+        alert(result.error || result.message || "Failed to delete offer");
       }
     } catch (error) {
       console.error("Error:", error);
+      alert("Error deleting offer. Please try again.");
     } finally {
       setShowConfirmationModal(false);
       setOfferToDelete(null);
-      setTimeout(() => setShowSuccessModal(false), 2000);
     }
   };
 

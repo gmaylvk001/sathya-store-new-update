@@ -37,11 +37,7 @@ const POLICY_LINKS = [
   { label: "Terms & Conditions", href: "/terms-and-conditions" },
 ];
 
-const OFFER_LINKS = [
-  { label: "Weekend Offers", href: "/offers/weekend-offers" },
-  { label: "Big Discounts", href: "/offers/big-discounts" },
-  { label: "Bundle Offer", href: "/offers/bundle-offer" },
-];
+const OFFER_LINKS = [];
 
 const SOCIAL_LINKS = [
   {
@@ -157,7 +153,7 @@ const Footer = () => {
     })();
   }, []);
 
-  const [footerOffers, setFooterOffers] = useState(OFFER_LINKS);
+  const [footerOffers, setFooterOffers] = useState(OFFER_LINKS); // filled from OfferModule only
 
   useEffect(() => {
     let isMounted = true;
@@ -167,11 +163,15 @@ const Footer = () => {
         if (res.ok) {
           const data = await res.json();
           if (isMounted && data?.success && Array.isArray(data.data) && data.data.length > 0) {
-            const dynamicLinks = data.data.map((o) => ({
-              label: o.offerName,
-              href: `/offers/${o.slug}`,
-            }));
-            setFooterOffers(dynamicLinks);
+            const dynamicLinks = data.data
+              .filter((o) => o?.slug && o?.offerName)
+              .map((o) => ({
+                label: o.offerName,
+                href: `/offer/${o.slug}`,
+              }));
+            if (dynamicLinks.length > 0) {
+              setFooterOffers(dynamicLinks);
+            }
           }
         }
       } catch (err) {
