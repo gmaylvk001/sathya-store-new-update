@@ -2,6 +2,12 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import {
+  canLoginAs,
+  establishSession,
+  clearBrowserAuth,
+  AUTH_CONFLICT_MESSAGE,
+} from '@/lib/clientAuthSession';
 
 const AuthContext = createContext();
 
@@ -31,7 +37,7 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Auth check failed:", error);
-      localStorage.removeItem('token');
+      clearBrowserAuth();
     } finally {
       setLoading(false);
     }
@@ -53,7 +59,18 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.message || 'Login failed');
       }
 
-      localStorage.setItem('token', data.token);
+      const incomingUserId = data.user?.userId || data.user?._id;
+      const gate = canLoginAs(incomingUserId);
+      if (!gate.ok) {
+        throw new Error(gate.message || AUTH_CONFLICT_MESSAGE);
+      }
+
+      establishSession({
+        token: data.token,
+        userId: incomingUserId,
+        role: data.user?.role || data.user?.user_type || 'user',
+        source: 'store',
+      });
       setUser(data.user);
       setIsAuthenticated(true);
       return { success: true };
@@ -63,7 +80,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    clearBrowserAuth();
     setUser(null);
     setIsAuthenticated(false);
   };

@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
 import Link from "next/link";
 import Image from "next/image";
-import { FaSpinner, FaSlidersH } from "react-icons/fa";
+import { FaSpinner, FaSlidersH, FaSearch } from "react-icons/fa";
 import Addtocart from "@/components/AddToCart";
 import ProductCard from "@/components/ProductCard";
 import SharedProductCard from "@/components/product/ProductCard";
@@ -17,6 +17,7 @@ import {
   hasActiveFilterParams,
   buildFilterGroupsFromList,
   selectionKey,
+  slugifyFilter,
 } from "@/lib/filterUrl";
 import { CATEGORY_PAGE_SHELL_CLASS } from "@/lib/categoryPageComponents/layout";
 import { humanLabel } from "@/lib/humanLabel";
@@ -26,7 +27,7 @@ import { useRegion } from "@/context/RegionContext";
 export default function SearchPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const searchQuery = params.get("query") || "";
+  const searchQuery = params.get("query") || params.get("q") || "";
   const { region, isInitialized } = useRegion();
 
   useEffect(() => {
@@ -49,6 +50,11 @@ export default function SearchPage() {
   const skipNextFilterFetch = useRef(true);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedSubCategory, setSelectedSubCategory] = useState("");
+  const [searchInput, setSearchInput] = useState(searchQuery);
+
+  useEffect(() => {
+    setSearchInput(searchQuery);
+  }, [searchQuery]);
 
   const [selectedFilters, setSelectedFilters] = useState({
     categories: [],
@@ -70,7 +76,7 @@ export default function SearchPage() {
     priceRange,
     enabled: true,
     ready: filterUrlReady && !!filterCatalog,
-    keepParams: ["query"],
+    keepParams: ["query", "q", "category", "categoryIds", "subcategoryIds"],
     onApplyUrlFilters: (hydratedFilters) => {
       fetchResults(1, false, hydratedFilters);
     },
@@ -108,12 +114,23 @@ export default function SearchPage() {
   const handleSelectCategory = (name) => {
     setSelectedCategory(name || "");
     setSelectedSubCategory("");
-    if (!name) {
+    if (!name || name === "All Categories" || name === "All Category") {
       setSelectedFilters((prev) => ({
         ...prev,
         categories: [],
         subcategories: [],
       }));
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("category");
+        url.searchParams.delete("categoryIds");
+        url.searchParams.delete("subcategoryIds");
+        window.history.replaceState(
+          window.history.state,
+          "",
+          url.pathname + (url.search ? url.search : "")
+        );
+      }
       return;
     }
     const node = findCategoryNode(
@@ -131,6 +148,15 @@ export default function SearchPage() {
     setSelectedSubCategory(name || "");
     if (!name) {
       setSelectedFilters((prev) => ({ ...prev, subcategories: [] }));
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("subcategoryIds");
+        window.history.replaceState(
+          window.history.state,
+          "",
+          url.pathname + (url.search ? url.search : "")
+        );
+      }
       return;
     }
     const node = findCategoryNode(
@@ -194,6 +220,22 @@ export default function SearchPage() {
     setSelectedCategory("");
     setSelectedSubCategory("");
     setPage(1);
+
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("category");
+      url.searchParams.delete("categoryIds");
+      url.searchParams.delete("subcategoryIds");
+      url.searchParams.delete("brand");
+      url.searchParams.delete("brands");
+      url.searchParams.delete("min-price");
+      url.searchParams.delete("max-price");
+      window.history.replaceState(
+        window.history.state,
+        "",
+        url.pathname + (url.search ? url.search : "")
+      );
+    }
   };
 
   const lastFetchedFiltersKeyRef = useRef("");
@@ -212,21 +254,65 @@ export default function SearchPage() {
         qs.set("page", String(pageNum));
         qs.set("limit", "12");
         if (region) qs.set("region", region);
+
+        const urlSearch =
+          typeof window !== "undefined"
+            ? new URLSearchParams(window.location.search)
+            : params;
+        const urlCategory = urlSearch?.get("category");
+        if (
+          urlCategory &&
+          urlCategory !== "All Categories" &&
+          urlCategory !== "All Category"
+        ) {
+          qs.set("category", urlCategory);
+        }
+
+        const activeCatIds = activeFilters.categories.length
+          ? activeFilters.categories
+          : urlSearch?.get("categoryIds")
+          ? urlSearch.get("categoryIds").split(",").filter(Boolean)
+          : [];
+        if (activeCatIds.length) {
+          qs.set("categoryIds", activeCatIds.join(","));
+        }
+
+        const activeSubCatIds = activeFilters.subcategories.length
+          ? activeFilters.subcategories
+          : urlSearch?.get("subcategoryIds")
+          ? urlSearch.get("subcategoryIds").split(",").filter(Boolean)
+          : [];
+        if (activeSubCatIds.length) {
+          qs.set("subcategoryIds", activeSubCatIds.join(","));
+        }
+
+        if (activeFilters.brands.length) {
+          qs.set("brands", activeFilters.brands.join(","));
+        } else if (
+          bootstrap &&
+          (urlSearch?.get("brands") || urlSearch?.get("brand"))
+        ) {
+          qs.set("brands", urlSearch.get("brands") || urlSearch.get("brand"));
+        }
+
+        if (activeFilters.filters.length) {
+          qs.set("filters", activeFilters.filters.join(","));
+        }
+
         if (!bootstrap || filtersOverride) {
-          if (activeFilters.brands.length) {
-            qs.set("brands", activeFilters.brands.join(","));
-          }
-          if (activeFilters.filters.length) {
-            qs.set("filters", activeFilters.filters.join(","));
-          }
-          if (activeFilters.categories.length) {
-            qs.set("categoryIds", activeFilters.categories.join(","));
-          }
-          if (activeFilters.subcategories.length) {
-            qs.set("subcategoryIds", activeFilters.subcategories.join(","));
-          }
           qs.set("minPrice", String(activeFilters.price.min));
           qs.set("maxPrice", String(activeFilters.price.max));
+        } else if (urlSearch?.get("min-price") || urlSearch?.get("minPrice")) {
+          qs.set(
+            "minPrice",
+            urlSearch.get("min-price") || urlSearch.get("minPrice")
+          );
+          if (urlSearch.get("max-price") || urlSearch.get("maxPrice")) {
+            qs.set(
+              "maxPrice",
+              urlSearch.get("max-price") || urlSearch.get("maxPrice")
+            );
+          }
         }
 
         const { data } = await axios.get(`/api/search?${qs}`);
@@ -439,11 +525,55 @@ export default function SearchPage() {
     );
   };
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    const trimmed = (searchInput || "").trim();
+    if (!trimmed) return;
+    const currentParams =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams();
+    currentParams.set("query", trimmed);
+    currentParams.delete("q");
+    currentParams.set("page", "1");
+    if (
+      selectedCategory &&
+      selectedCategory !== "All Categories" &&
+      selectedCategory !== "All Category"
+    ) {
+      currentParams.set("category", slugifyFilter(selectedCategory));
+    }
+    router.push(`/search?${currentParams.toString()}`);
+  };
+
   return (
     <div className={`${CATEGORY_PAGE_SHELL_CLASS} py-4`}>
-      <h1 className="text-3xl font-bold mb-3 text-gray-600">
-        Search Results {searchQuery && `for '${searchQuery}'`}
-      </h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+          Search Results {searchQuery && <span>for &lsquo;{searchQuery}&rsquo;</span>}
+          {selectedCategory && (
+            <span className="text-sm md:text-base font-normal text-gray-500 block sm:inline sm:ml-2">
+              in <strong className="text-red-600 font-semibold">{selectedCategory}</strong>
+            </span>
+          )}
+        </h1>
+        <form onSubmit={handleSearchSubmit} className="relative flex items-center w-full sm:w-80">
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search products..."
+            className="w-full h-10 pl-4 pr-10 text-sm text-gray-900 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+          />
+          <button
+            type="submit"
+            className="absolute right-2 p-1.5 text-gray-500 hover:text-red-600"
+            aria-label="Submit search"
+          >
+            <FaSearch className="w-4 h-4" />
+          </button>
+        </form>
+      </div>
 
       <div className="flex border-b border-gray-300 bg-gray-100 sticky top-0 z-30 lg:hidden mb-3">
         <button

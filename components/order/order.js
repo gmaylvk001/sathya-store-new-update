@@ -786,6 +786,15 @@ export default function Order() {
                     const orderWarranties = (order.order_item || [])
                       .map((item) => getItemWarranty(item))
                       .filter(Boolean);
+                    const orderExchangeTotal = (order.order_item || []).reduce((sum, item) => {
+                      const amount = Number(
+                        item.exchangeOffer?.price ||
+                          item.exchange_off_amount ||
+                          item.eo_amount ||
+                          0
+                      );
+                      return sum + amount * (Number(item.quantity) || 1);
+                    }, 0);
 
                     const formatDate = (d) => {
                       if (!d) return "N/A";
@@ -903,6 +912,17 @@ export default function Order() {
                                   )}
                                 </div>
                               ))}
+                            </div>
+                          )}
+
+                          {orderExchangeTotal > 0 && (
+                            <div className="mb-2">
+                              <div className="inline-flex items-center gap-2 bg-emerald-50/90 border border-emerald-200 text-emerald-900 rounded-lg px-2.5 py-1 text-xs w-fit shadow-2xs">
+                                <span className="font-semibold text-emerald-950">Exchange Value</span>
+                                <span className="bg-emerald-100/90 text-emerald-900 font-bold px-1.5 py-0.5 rounded text-[11px] border border-emerald-200">
+                                  −₹{Number(orderExchangeTotal).toLocaleString("en-IN")}
+                                </span>
+                              </div>
                             </div>
                           )}
 

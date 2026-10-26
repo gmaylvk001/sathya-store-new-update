@@ -157,3 +157,51 @@ test("PaymentOffers Content Visibility: Collapsing correctly conceals EMI and Ba
   const collapsedView = renderSimulatedContent(false, sampleOffers);
   assert.equal(collapsedView, null, "Collapsing must return null for offers content");
 });
+
+test("Consolidated Offers: Minimum monthly EMI syncs dynamically with base/variant price", async () => {
+  const { getStartingEmi } = await import("../lib/emiCalculator.js");
+
+  // 1. Base price ₹1,350 (Hawkins Futura Appachatty from PDP screenshot)
+  const basePrice = 1350;
+  const startingEmi1 = getStartingEmi(basePrice);
+  assert.equal(startingEmi1, 67, "₹1,350 should yield starting EMI of ₹67/month");
+
+  // 2. Dynamic price increase via variant selection (e.g., larger size ₹2,800)
+  const variantPrice = 2800;
+  const startingEmi2 = getStartingEmi(variantPrice);
+  assert.equal(startingEmi2, 136, "Variant price change to ₹2,800 should dynamically recompute starting EMI to ₹136/month");
+
+  // 3. Higher tier price ₹45,000 (TV/Appliance)
+  const appliancePrice = 45000;
+  const startingEmi3 = getStartingEmi(appliancePrice);
+  assert.equal(startingEmi3, 2193, "₹45,000 should yield ₹2,193/month");
+
+  // 4. Zero/Negative price safeguard
+  assert.equal(getStartingEmi(0), null);
+  assert.equal(getStartingEmi(-500), null);
+});
+
+test("Consolidated Offers: EMI Row accessibility attributes and trigger semantics", () => {
+  const buildEmiRowProps = (startingEmi, onTrigger) => {
+    return {
+      role: "button",
+      tabIndex: 0,
+      "aria-label": `EMI plans starting from ₹${startingEmi.toLocaleString("en-IN")}/month. View Plans.`,
+      onClick: onTrigger,
+    };
+  };
+
+  let triggered = false;
+  const triggerFn = () => {
+    triggered = true;
+  };
+
+  const row = buildEmiRowProps(67, triggerFn);
+  assert.equal(row.role, "button");
+  assert.equal(row.tabIndex, 0);
+  assert.equal(row["aria-label"], "EMI plans starting from ₹67/month. View Plans.");
+
+  row.onClick();
+  assert.equal(triggered, true);
+});
+

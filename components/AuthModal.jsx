@@ -3,6 +3,11 @@ import { useState } from 'react';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import { useHeaderdetails } from '@/context/HeaderContext';
+import {
+  canLoginAs,
+  establishSession,
+  AUTH_CONFLICT_MESSAGE,
+} from '@/lib/clientAuthSession';
 
 export const AuthModal = ({ onClose, onSuccess, error }) => {
   const { updateHeaderdetails, setIsLoggedIn, setUserData, setIsAdmin } = useHeaderdetails();
@@ -77,7 +82,19 @@ export const AuthModal = ({ onClose, onSuccess, error }) => {
       }
 
       if (data.token) {
-        localStorage.setItem('token', data.token);
+        const incomingUserId = data.user?.userId || data.user?._id;
+        const gate = canLoginAs(incomingUserId);
+        if (!gate.ok) {
+          setFormError(gate.message || AUTH_CONFLICT_MESSAGE);
+          return;
+        }
+
+        establishSession({
+          token: data.token,
+          userId: incomingUserId,
+          role: data.user?.role || 'user',
+          source: 'store',
+        });
 
         const checkRes = await fetch('/api/auth/check', {
           method: 'GET',

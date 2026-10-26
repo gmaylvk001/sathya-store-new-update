@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import BankLogo from "./BankLogo";
 import { usePaymentOffersModal } from "@/hooks/usePaymentOffersModal";
 import { EmiPlansModal, BankOffersModal } from "@/components/ProductOffersSection";
+import { getStartingEmi } from "@/lib/emiCalculator";
 import {
   getPaymentOffersAriaAttributes,
   getPaymentOffersChevronClass,
@@ -14,6 +16,11 @@ import {
   filterEligibleBankOffers,
   calculatePaymentOffersBestPrice,
 } from "@/lib/paymentOffersHelper";
+
+const RazorpayEmiModal = dynamic(() => import("@/components/product/EmiModal"), {
+  ssr: false,
+  loading: () => null,
+});
 
 export {
   getPaymentOffersAriaAttributes,
@@ -33,17 +40,28 @@ export {
  */
 export default function PaymentOffers({
   product,
+  price: propPrice,
   externalShowEmiModal,
   onExternalCloseEmiModal,
   initialExpanded = true,
   onAvailabilityChange,
+  onOpenEmiModal,
 }) {
   const [offersData, setOffersData] = useState(null);
   const [isLoading, setIsLoading] = useState(Boolean(product?._id));
   const [isExpanded, setIsExpanded] = useState(Boolean(initialExpanded));
+  const [internalEmiModalOpen, setInternalEmiModalOpen] = useState(false);
 
   const toggleExpanded = () => {
     setIsExpanded((prev) => !prev);
+  };
+
+  const handleOpenRazorpayEmi = () => {
+    if (typeof onOpenEmiModal === "function") {
+      onOpenEmiModal();
+    } else {
+      setInternalEmiModalOpen(true);
+    }
   };
 
   // Isolated interactive modal and card selection state
@@ -61,8 +79,19 @@ export default function PaymentOffers({
     onExternalCloseEmiModal,
   });
 
-  // 1. Price Coercion & Debugging
-  const price = Number(product?.special_price ?? product?.price ?? product?.sellingPrice ?? product?.finalPrice ?? 0);
+  // 1. Price Coercion & Dynamic Synchronization
+  const price = Number(
+    propPrice ??
+    product?.special_price ??
+    product?.price ??
+    product?.sellingPrice ??
+    product?.finalPrice ??
+    0
+  );
+
+  const startingEmi = useMemo(() => {
+    return getStartingEmi(price);
+  }, [price]);
 
   useEffect(() => {
     if (!product?._id) {
@@ -123,7 +152,7 @@ export default function PaymentOffers({
     });
   }
 
-  const hasOffers = Boolean(showEmi || showBankOffers);
+  const hasOffers = Boolean(startingEmi || showEmi || showBankOffers);
 
   // Synchronize availability state with parent container
   useEffect(() => {
@@ -139,10 +168,9 @@ export default function PaymentOffers({
     };
   }, [onAvailabilityChange]);
 
-  // Handle loading state: for sub-2500 products EMI cannot exist;
-  // returning null prevents layout shift / flicker.
-  if (isLoading) {
-    if (price < MIN_EMI_PRICE) {
+  // Handle loading state:
+  if (isLoading && !offersData) {
+    if (price <= 0) {
       return null;
     }
     return (
@@ -180,28 +208,48 @@ export default function PaymentOffers({
           isExpanded ? "mb-4" : "mb-0"
         }`}
       >
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="bg-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-2xs">
-            BEST PRICE
-          </span>
-          <span className="text-green-600 font-bold text-sm">
-            ₹{bestPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-            <span className="text-gray-500 font-normal">
-              with all applicable{" "}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openBankOffersModal();
-                }}
-                className="text-blue-600 font-medium hover:underline cursor-pointer focus:outline-none"
-                title="View applicable bank offers"
-              >
-                Offers
-              </button>
+        {validBankOffers.length > 0 ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="bg-pink-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-2xs">
+              BEST PRICE
             </span>
-          </span>
-        </div>
+            <span className="text-green-600 font-bold text-sm">
+              ₹{bestPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+              <span className="text-gray-500 font-normal">
+                with all applicable{" "}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openBankOffersModal();
+                  }}
+                  className="text-blue-600 font-medium hover:underline cursor-pointer focus:outline-none"
+                  title="View applicable bank offers"
+                >
+                  Offers
+                </button>
+              </span>
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-2xs">
+              PAYMENT OFFERS
+            </span>
+            {startingEmi ? (
+              <span className="text-gray-900 font-bold text-sm">
+                EMI available from{" "}
+                <span className="text-[#b91c1c] font-black">
+                  ₹{startingEmi.toLocaleString("en-IN")}/month
+                </span>
+              </span>
+            ) : (
+              <span className="text-gray-800 font-bold text-sm">
+                Flexible Payment Options
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Accordion Toggle Arrow Button */}
         <button
@@ -232,8 +280,8 @@ export default function PaymentOffers({
       {isExpanded && (
         <div id="payment-offers-collapsible-content" className="animate-fadeIn">
           {/* SECTION HEADER */}
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-4 h-4 rounded-full bg-orange-500 flex items-center justify-center shrink-0">
               <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
               </svg>
@@ -241,7 +289,57 @@ export default function PaymentOffers({
             <h3 className="font-semibold text-gray-800 text-base">Payment Offers</h3>
           </div>
 
-      <div className="space-y-6">
+          <div className="space-y-4">
+            {/* DEDICATED INTEGRATED RAZORPAY EMI STARTING ROW */}
+            {startingEmi ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={handleOpenRazorpayEmi}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleOpenRazorpayEmi();
+                  }
+                }}
+                aria-label={`EMI plans starting from ₹${startingEmi.toLocaleString("en-IN")}/month. View Plans.`}
+                className="group border border-red-200/90 hover:border-red-400 rounded-xl p-3 sm:p-3.5 bg-red-50/20 hover:bg-red-50/50 transition-all cursor-pointer flex items-center justify-between gap-2 sm:gap-4 shadow-2xs select-none focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1"
+              >
+                <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-xs sm:text-sm font-bold text-gray-900 leading-tight">
+                      EMI plans starting from{" "}
+                      <span className="text-[#b91c1c] font-black">
+                        ₹{startingEmi.toLocaleString("en-IN")}/month
+                      </span>
+                    </p>
+                    <span className="text-[10px] text-gray-400 font-medium italic whitespace-nowrap">
+                      powered by <strong className="font-semibold text-gray-600">Razorpay</strong>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center -space-x-1.5 shrink-0">
+                      <span title="RBL Bank" className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#0c2340] text-white text-[8px] sm:text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">R</span>
+                      <span title="ICICI Bank" className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#991b1b] text-white text-[8px] sm:text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">i</span>
+                      <span title="HDFC Bank" className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#004c8f] text-white text-[8px] sm:text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">H</span>
+                      <span title="SBI Card" className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#0082cb] text-white text-[8px] sm:text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">S</span>
+                      <span title="Axis Bank" className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-[#881337] text-white text-[8px] sm:text-[9px] font-black flex items-center justify-center border border-white shadow-2xs">A</span>
+                    </div>
+                    <span className="text-[10.5px] sm:text-[11px] text-gray-500 font-medium truncate">
+                      Credit &amp; Debit Cards
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 text-xs font-bold text-[#b91c1c] group-hover:translate-x-0.5 transition-transform shrink-0 pl-1">
+                  <span className="whitespace-nowrap">View Plans</span>
+                  <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            ) : null}
         {/* 3. EMI OFFERS ROW */}
         {showEmi && (
           <div>
@@ -407,6 +505,16 @@ export default function PaymentOffers({
       </div>
     </div>
   )}
+
+      {/* Fallback Internal Razorpay EMI Options Modal when no parent handler passed */}
+      {internalEmiModalOpen && (
+        <RazorpayEmiModal
+          isOpen={internalEmiModalOpen}
+          onClose={() => setInternalEmiModalOpen(false)}
+          price={price}
+          productName={product?.name}
+        />
+      )}
 
       {/* 5. REUSED EMI PLANS & DETAILS MODAL */}
       {isEmiModalOpen && (

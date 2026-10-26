@@ -16,6 +16,7 @@ import {
   sortStoresByDistrictAndName,
   filterStores,
   getDistrictsWithCounts,
+  formatStorePhone,
 } from "@/lib/storePickupHelper";
 
 const loadRazorpay = () => {
@@ -407,7 +408,7 @@ const StorePickupSelector = ({
                 const storeDistrict = getStoreDistrict(store);
                 const title = store.title || store.organisation_name || 'Store';
                 const address = store.address || store.location || '';
-                const phone = store.phone || '';
+                const phone = formatStorePhone(store.phone);
 
                 return (
                   <button
@@ -436,13 +437,21 @@ const StorePickupSelector = ({
                           {address}
                         </p>
                       )}
-                      {phone && (
+                      {phone ? (
                         <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
                           <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                               d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                           </svg>
                           {phone}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                          <svg className="w-3 h-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                          Phone: Not available
                         </p>
                       )}
                     </div>
@@ -462,11 +471,17 @@ const StorePickupSelector = ({
                   <path strokeLinecap="round" strokeLinejoin="round"
                     d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
-                <p className="text-sm font-semibold text-gray-700">No stores found</p>
+                <p className="text-sm font-semibold text-gray-700">
+                  {selectedDistrict !== 'all' && !searchQuery
+                    ? 'No stores found in this district'
+                    : 'No stores found'}
+                </p>
                 <p className="text-xs text-gray-500 mt-1">
                   {searchQuery
-                    ? `No stores matching "${searchQuery}" ${selectedDistrict !== 'all' ? 'in ' + selectedDistrict : ''}`
-                    : `No stores available in ${selectedDistrict}`}
+                    ? `No stores matching "${searchQuery}" ${selectedDistrict !== 'all' ? `in ${selectedDistrict}` : ''}`
+                    : selectedDistrict !== 'all'
+                    ? `No stores found in this district (${selectedDistrict})`
+                    : 'No pickup stores available.'}
                 </p>
                 <button
                   type="button"
@@ -502,17 +517,25 @@ const StorePickupSelector = ({
                 {currentSelectedStore.address || currentSelectedStore.location}
               </p>
             )}
-            {currentSelectedStore.phone && (
+            {formatStorePhone(currentSelectedStore.phone) ? (
               <a
-                href={`tel:${currentSelectedStore.phone}`}
+                href={`tel:${formatStorePhone(currentSelectedStore.phone)}`}
                 className="inline-flex items-center gap-1 text-xs text-gray-700 hover:text-green-700 font-medium mt-1.5"
               >
                 <svg className="w-3.5 h-3.5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round"
                     d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
-                +91 {currentSelectedStore.phone}
+                +91 {formatStorePhone(currentSelectedStore.phone)}
               </a>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                Phone: Not available
+              </p>
             )}
           </div>
           {!disabled && (
@@ -696,6 +719,14 @@ const DeliveryOptions = ({
               setPincodeError('');
               toast.success('Delivery method saved');
               setIsDeliverySaved(true);
+              if (typeof window !== 'undefined') {
+                setTimeout(() => {
+                  const el = document.getElementById('payment-method-section');
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                }, 100);
+              }
             }}
             className="mt-4 bg-red-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-red-700 transition cursor-pointer"
           >
@@ -1171,6 +1202,26 @@ export default function CheckoutPage() {
   const [shippingMethod, setShippingMethod] = useState('standard');
   const [ownerAvailability, setOwnerAvailability] = useState({ loading: false, missing: [], failed: false });
   const [removingProductId, setRemovingProductId] = useState(null);
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleFocusIn = (e) => {
+      const tag = e.target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+        setIsKeyboardOpen(true);
+      }
+    };
+    const handleFocusOut = () => {
+      setIsKeyboardOpen(false);
+    };
+    window.addEventListener('focusin', handleFocusIn);
+    window.addEventListener('focusout', handleFocusOut);
+    return () => {
+      window.removeEventListener('focusin', handleFocusIn);
+      window.removeEventListener('focusout', handleFocusOut);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -1355,8 +1406,16 @@ export default function CheckoutPage() {
   }, [hasPincodeMismatch, isDeliverySaved]);
 
   const resolveCartProductId = (item) => {
-    const raw = item?.productId || item?.id || item?._id || item?.product_id || item?.item_code || "";
-    if (raw && typeof raw === "object") return String(raw._id || raw.id || "");
+    const raw =
+      item?.productId ||
+      item?.comboId ||
+      item?.id ||
+      item?._id ||
+      item?.product_id ||
+      item?.item_code ||
+      item?.name ||
+      "";
+    if (raw && typeof raw === "object") return String(raw._id || raw.id || raw.comboId || "");
     return String(raw || "");
   };
 
@@ -1758,13 +1817,20 @@ export default function CheckoutPage() {
     setRemovingProductId(productId);
     try {
       const token = localStorage.getItem("token");
+      const guestCartId = localStorage.getItem("guestCartId");
       const res = await fetch("/api/cart", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(guestCartId ? { guestCartId } : {}),
         },
-        body: JSON.stringify({ productId }),
+        body: JSON.stringify({
+          productId,
+          comboId: item?.comboId ? String(item.comboId) : undefined,
+          name: item?.name || undefined,
+          guestCartId: guestCartId || undefined,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -1772,7 +1838,13 @@ export default function CheckoutPage() {
         return;
       }
 
-      const nextItems = cartItems.filter((row) => resolveCartProductId(row) !== productId);
+      const nextItems = cartItems.filter((row) => {
+        const rowId = resolveCartProductId(row);
+        if (rowId && rowId === productId) return false;
+        if (item.comboId && row.comboId && String(row.comboId) === String(item.comboId)) return false;
+        if (item.name && row.name && row.name.toLowerCase() === item.name.toLowerCase()) return false;
+        return true;
+      });
       const nextSubtotal = nextItems.reduce((sum, row) => {
         const itemPrice = row.price > 0 ? row.price : row.actual_price || 0;
         return sum + (itemPrice * (row.quantity || 1)) + (row.warranty || 0) + (row.extendedWarranty || 0);
@@ -1905,7 +1977,8 @@ export default function CheckoutPage() {
         const unit = Number(item.price > 0 ? item.price : item.actual_price) || 0;
         const qty = Number(item.quantity) || 1;
         const lineDiscount = Number(item.discount) || 0;
-        return sum + unit * qty + lineWarrantyAmount(item) - lineDiscount;
+        const lineExchange = Number(item.exchangeOffer?.price || 0) * qty;
+        return sum + unit * qty + lineWarrantyAmount(item) - lineDiscount - lineExchange;
       }, 0);
       const totalAmount = Math.max(
         0,
@@ -2020,6 +2093,14 @@ export default function CheckoutPage() {
                 selectedVariant: item.selectedVariant || item.variantValues || null,
                 color: item.color || null,
                 attributes: item.attributes || null,
+                is_exchange_offer: Number(item.exchangeOffer?.price) > 0 ? 1 : 0,
+                exchange_off_type: item.exchangeOffer?.type || null,
+                exchange_off_brand: item.exchangeOffer?.brand || null,
+                exchange_off_cond: item.exchangeOffer?.condition || null,
+                exchange_off_pin: item.exchangeOffer?.zone ? Number(item.exchangeOffer.zone) || null : null,
+                exchange_off_amount: Number(item.exchangeOffer?.price) || 0,
+                eo_amount: Number(item.exchangeOffer?.price) || 0,
+                exchangeOffer: item.exchangeOffer || null,
               })),
             }),
           });
@@ -2127,6 +2208,14 @@ export default function CheckoutPage() {
             selectedVariant: item.selectedVariant || item.variantValues || null,
             color: item.color || null,
             attributes: item.attributes || null,
+            is_exchange_offer: Number(item.exchangeOffer?.price) > 0 ? 1 : 0,
+            exchange_off_type: item.exchangeOffer?.type || null,
+            exchange_off_brand: item.exchangeOffer?.brand || null,
+            exchange_off_cond: item.exchangeOffer?.condition || null,
+            exchange_off_pin: item.exchangeOffer?.zone ? Number(item.exchangeOffer.zone) || null : null,
+            exchange_off_amount: Number(item.exchangeOffer?.price) || 0,
+            eo_amount: Number(item.exchangeOffer?.price) || 0,
+            exchangeOffer: item.exchangeOffer || null,
           })),
         }),
       });
@@ -2176,7 +2265,8 @@ export default function CheckoutPage() {
   // ─── Price summary helpers ─────────────────────────────────────────────────
   const productPrice = orderSummary.subtotal + orderSummary.discount;
   const shippingCost = shippingMethod === 'express' ? 299 : 0;
-  const finalTotal = orderSummary.total + shippingCost;
+  // orderSummary.total / cart totalPrice already net of exchange when present
+  const finalTotal = Math.max(0, orderSummary.total + shippingCost);
 
   const handleAddressSaved = async (newOrUpdatedAddr) => {
     if (addressModalType === 'edit') {
@@ -2201,7 +2291,7 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/40 text-gray-900 font-sans pb-16">
+    <div className="min-h-screen bg-gray-50/40 text-gray-900 font-sans pb-28 md:pb-16">
       {/* ── Top Step Progress Header ────────────────────────────────────────── */}
       <div className="bg-white border-b border-gray-200/80 mb-6 py-4 px-4 sm:px-6 shadow-2xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -2264,7 +2354,7 @@ export default function CheckoutPage() {
             </section>
 
             {/* 2. Delivery Options */}
-            <section className="mb-8">
+            <section id="delivery-options-section" className="mb-8 scroll-mt-20">
               <h2 className="text-base font-semibold text-gray-800 mb-1 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold">2</span>
                 Delivery options
@@ -2394,6 +2484,49 @@ export default function CheckoutPage() {
                 </div>
               )}
 
+              {/* Mobile-only Action Container right below Address Box when saved */}
+              {isDeliverySaved && (
+                <div className="lg:hidden mt-4 p-4 rounded-xl border border-green-200 bg-gradient-to-r from-green-50/90 to-emerald-50/90 shadow-xs flex flex-col gap-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-green-800 text-xs sm:text-sm font-bold">
+                      <span className="w-5 h-5 rounded-full bg-green-600 text-white flex items-center justify-center text-xs">✓</span>
+                      <span>Delivery details confirmed</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsDeliverySaved(false)}
+                      className="text-xs text-gray-500 hover:text-red-600 underline font-medium cursor-pointer"
+                    >
+                      Change
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || loading || cartItems.length === 0 || karnatakaOrderBlocked || hasPincodeMismatch}
+                    className={`w-full h-11 rounded-lg text-sm font-extrabold flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] cursor-pointer ${
+                      isSubmitting || loading || cartItems.length === 0 || karnatakaOrderBlocked || hasPincodeMismatch
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
+                        : 'bg-[#d72828] text-white hover:bg-red-700'
+                    }`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Processing…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Proceed to Payment (₹{finalTotal.toLocaleString('en-IN')})</span>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
 
               {/* GST invoice (optional) — after delivery address inputs */}
               <div className="mt-4">
@@ -2481,7 +2614,7 @@ export default function CheckoutPage() {
             </section>
 
             {/* 4. Payment Method */}
-            <section className="mb-8">
+            <section id="payment-method-section" className="mb-8 scroll-mt-20">
               <h2 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-red-600 text-white text-xs flex items-center justify-center font-bold">4</span>
                 Payment method
@@ -2622,23 +2755,26 @@ export default function CheckoutPage() {
                   return (
                     <div
                       key={`oi-${productId || item.name}`}
-                      className={`relative flex items-center gap-3.5 p-3 rounded-xl bg-white border shadow-2xs transition-all duration-200 group ${
-                        unavailableInKarnataka ? "pr-8 border-red-300" : "border-gray-200/80 hover:border-red-200/80 hover:shadow-xs"
+                      className={`relative flex items-center gap-3.5 p-3 rounded-xl bg-white border shadow-2xs transition-all duration-200 group pr-8 ${
+                        unavailableInKarnataka ? "border-red-300 bg-red-50/20" : "border-gray-200/80 hover:border-red-200/80 hover:shadow-xs"
                       }`}
                     >
-                      {unavailableInKarnataka && (
                       <button
                         type="button"
                         aria-label={`Remove ${item.name || "item"} from cart`}
                         disabled={isRemoving}
                         onClick={() => handleRemoveCartItem(item)}
-                        className="absolute top-2 right-2 w-5 h-5 rounded-full border border-gray-200 text-gray-400 hover:text-white hover:bg-[#d72828] hover:border-[#d72828] flex items-center justify-center disabled:opacity-50"
+                        className={`absolute top-2 right-2 w-5 h-5 rounded-full border flex items-center justify-center disabled:opacity-50 transition-colors ${
+                          unavailableInKarnataka
+                            ? "border-red-300 text-red-600 bg-red-50 hover:text-white hover:bg-[#d72828] hover:border-[#d72828]"
+                            : "border-gray-200 text-gray-400 hover:text-white hover:bg-[#d72828] hover:border-[#d72828]"
+                        }`}
+                        title="Remove item from order"
                       >
                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
-                      )}
                       {/* Image Frame */}
                       <div className="relative w-16 h-16 flex-shrink-0 border border-gray-200/80 rounded-lg overflow-hidden bg-white p-1.5 flex items-center justify-center">
                         <img
@@ -2947,27 +3083,72 @@ export default function CheckoutPage() {
       </div>
 
       {/* Mobile sticky CTA */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-30">
+      <div
+        className={`lg:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-4 pt-3 z-40 transition-transform duration-200 ${
+          isKeyboardOpen ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+        }`}
+        style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom, 12px))' }}
+      >
         {isHeaderKarnataka && ownerAvailability.missing.length > 0 && (
           <p className="mb-2 text-[11px] text-red-600 leading-snug">
             Not available for Karnataka: {ownerAvailability.missing.map((item) => item.name).join(", ")}. Remove {ownerAvailability.missing.length === 1 ? "it" : "them"} to continue.
           </p>
         )}
-        <div className="flex items-center gap-3">
-        <div className="flex-1">
-          <p className="text-xs text-gray-500">Total payable</p>
-          <p className="text-base font-bold text-gray-900">₹{finalTotal.toLocaleString('en-IN')}</p>
-        </div>
-        <button
-          onClick={handleSubmit}
-          disabled={isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || karnatakaOrderBlocked}
-          className={`px-6 h-11 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all
-            ${isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || karnatakaOrderBlocked
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              : 'bg-red-600 text-white hover:bg-red-700'}`}
-        >
-          {isSubmitting ? 'Processing…' : 'Place order →'}
-        </button>
+        {hasPincodeMismatch && (
+          <p className="mb-2 text-[11px] text-red-600 leading-snug font-medium">
+            Delivery pincode ({normDeliveryPin}) does not match location pincode ({normHeaderPin}).
+          </p>
+        )}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex-shrink-0">
+            <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Total Payable</p>
+            <p className="text-lg font-black text-gray-900 leading-none mt-0.5">
+              ₹{finalTotal.toLocaleString('en-IN')}
+            </p>
+          </div>
+
+          {!isDeliverySaved ? (
+            <button
+              type="button"
+              onClick={() => {
+                const el = document.getElementById('delivery-options-section');
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }}
+              className="flex-1 max-w-[220px] h-11 rounded-xl text-xs sm:text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
+            >
+              <span>Save Address to Pay</span>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting || loading || cartItems.length === 0 || karnatakaOrderBlocked || hasPincodeMismatch}
+              className={`flex-1 max-w-[240px] h-11 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98] cursor-pointer ${
+                isSubmitting || loading || cartItems.length === 0 || karnatakaOrderBlocked || hasPincodeMismatch
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed shadow-none'
+                  : 'bg-[#d72828] text-white hover:bg-red-700 shadow-red-500/25'
+              }`}
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Processing…</span>
+                </>
+              ) : (
+                <>
+                  <span>Proceed to Payment</span>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 

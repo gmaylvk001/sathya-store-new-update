@@ -1,17 +1,15 @@
 import ProductClient from "./ProductClient";
-import dbConnect from "@/lib/db";
-import Product from "@/models/product";
+import { getProductDataCached } from "@/lib/productFetcher";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
+import { normalizeRegion } from "@/lib/regionHelper";
 
 export async function generateMetadata({ params }) {
   const awaitedParams = await params;
   const slug = awaitedParams?.slug;
 
   try {
-    await dbConnect();
-    const product = await Product.findOne({ slug, status: "Active" })
-      .select("name meta_title meta_description")
-      .lean();
+    const product = await getProductDataCached(slug, "tamilnadu");
 
     if (product) {
       const rawTitle = product.meta_title || product.name || "Product";
@@ -47,14 +45,24 @@ export default async function ProductPage({ params }) {
     notFound();
   }
 
-  await dbConnect();
-  const product = await Product.findOne({ slug, status: "Active" })
-    .select("_id")
-    .lean();
+  const cookieStore = await cookies();
+  const rawLoc = cookieStore.get("sathya_location")?.value;
+  let region = "tamilnadu";
+  if (rawLoc) {
+    try {
+      const decoded = decodeURIComponent(rawLoc);
+      const parsed = JSON.parse(decoded);
+      region = normalizeRegion(parsed.region || parsed.state || parsed.stateName);
+    } catch {
+      region = normalizeRegion(rawLoc);
+    }
+  }
+
+  const product = await getProductDataCached(slug, region);
 
   if (!product) {
     notFound();
   }
 
-  return <ProductClient />;
+  return <ProductClient initialProduct={product} />;
 }

@@ -1,9 +1,17 @@
 'use client';
 
 
-import ProductDetailsSection from "@/components/ProductDetailsSection";
+import dynamic from "next/dynamic";
+
+const ProductDetailsSection = dynamic(() => import("@/components/ProductDetailsSection"), {
+  ssr: false,
+  loading: () => <div className="h-48 w-full animate-pulse bg-gray-100 rounded-lg my-6" />,
+});
 import OfferRibbonBadge from "@/components/OfferRibbonBadge";
-import FlixMediaLoader from "@/components/FlixMediaLoader";
+const FlixMediaLoader = dynamic(() => import("@/components/FlixMediaLoader"), {
+  ssr: false,
+  loading: () => null,
+});
 import ProductSkeleton from "@/components/ProductSkeleton";
 import ProductVariantSelector from "@/components/ProductVariantSelector";
 import ExchangeOfferSection from "@/components/ExchangeOfferSection";
@@ -30,13 +38,32 @@ import ProductAddtoCart from "@/components/ProductAddtoCart"
 import AddToWishlistButton from "@/components/ProductCard";
 
 import ProductBreadcrumb from "@/components/ProductBreadcrumb";
-import RecentlyViewedProducts from '@/components/RecentlyViewedProducts';
-import RelatedProducts from "@/components/RelatedProducts";
+const RecentlyViewedProducts = dynamic(() => import("@/components/RecentlyViewedProducts"), {
+  ssr: false,
+  loading: () => null,
+});
+const RelatedProducts = dynamic(() => import("@/components/RelatedProducts"), {
+  ssr: false,
+  loading: () => <div className="h-40 w-full animate-pulse bg-gray-100 rounded-lg my-6" />,
+});
 import PaymentOffers from "@/components/product/PaymentOffers";
-import CompetitorPriceTracker from "@/components/CompetitorPriceTracker";
-import ProductInstallationWarrantySection from "@/components/ProductInstallationWarrantySection";
+const CompetitorPriceTracker = dynamic(() => import("@/components/CompetitorPriceTracker"), {
+  ssr: false,
+  loading: () => null,
+});
+const ProductInstallationWarrantySection = dynamic(
+  () => import("@/components/ProductInstallationWarrantySection"),
+  { ssr: false, loading: () => null }
+);
+const ShareModal = dynamic(() => import("@/components/ShareModal"), {
+  ssr: false,
+  loading: () => null,
+});
 import CompareButton from "@/components/CompareButton";
-import ShareModal from "@/components/ShareModal";
+const EmiModal = dynamic(() => import("@/components/product/EmiModal"), {
+  ssr: false,
+  loading: () => null,
+});
 import { useCompare } from "@/context/CompareContext";
 import WarrantyBadge from "@/components/WarrantyBadge";
 import BestPriceStrip from "@/components/product/BestPriceStrip";
@@ -189,7 +216,20 @@ function ThumbnailStrip({ images, selectedImageIndex, onSelect, resolveImagePath
   );
 }
 
-export default function ProductClient() {
+let sharedBrandPromise = null;
+const getSharedBrandData = () => {
+  if (!sharedBrandPromise) {
+    sharedBrandPromise = fetch("/api/brand")
+      .then((res) => res.json())
+      .catch((err) => {
+        sharedBrandPromise = null;
+        throw err;
+      });
+  }
+  return sharedBrandPromise;
+};
+
+export default function ProductClient({ initialProduct = null }) {
   const router = useRouter();
   const params = useParams();
   const slug = params?.sub_slug_one || params?.slug;
@@ -207,10 +247,10 @@ export default function ProductClient() {
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
   const [showHighlights, setShowHighlights] = useState(false);
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [product, setProduct] = useState(initialProduct);
+  const [loading, setLoading] = useState(!initialProduct);
   const variantCacheRef = useRef({});
-  const productRef = useRef(null);
+  const productRef = useRef(initialProduct);
   const applyingVariantRef = useRef(false);
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
@@ -234,9 +274,17 @@ export default function ProductClient() {
   productRef.current = product;
   const [highlightOffer, setHighlightOffer] = useState(null);
   const [hasExchangeOffers, setHasExchangeOffers] = useState(false);
+  const [appliedExchangeOffer, setAppliedExchangeOffer] = useState(null);
   const [hasPaymentOffers, setHasPaymentOffers] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isEmiModalOpen, setIsEmiModalOpen] = useState(false);
   const { setSimilarProducts } = useCompare();
+
+  const effectivePrice = useMemo(() => {
+    const base = product?.special_price > 0 ? product.special_price : product?.price || 0;
+    const warranty = isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0;
+    return Number(base + warranty);
+  }, [product?.special_price, product?.price, selectedWarrantyAmount, product]);
 
   const mainDiscountInfo = useMemo(
     () => getDiscountInfo(product?.price, product?.special_price),
@@ -518,8 +566,7 @@ export default function ProductClient() {
 
       // Step 3: fetch brands and map
       try {
-        const response = await fetch("/api/brand");
-        const result = await response.json();
+        const result = await getSharedBrandData();
 
         if (!result.error) {
           const brandMap = {};
@@ -613,22 +660,28 @@ export default function ProductClient() {
 
     if (!isInStock || !isMovementAllowed) return;
 
-    // Only accept genuine plain exchangeOffer objects (no DOM elements or event wrappers)
+    // Prefer offer passed in (legacy), else the offer applied on this PDP
     let exchangeOffer = null;
-    if (
+    const offerSource =
       e &&
       typeof e === 'object' &&
       !('nativeEvent' in e) &&
       !('target' in e) &&
       !('currentTarget' in e) &&
       typeof e.preventDefault !== 'function'
-    ) {
+        ? e
+        : appliedExchangeOffer;
+
+    if (offerSource && typeof offerSource === 'object') {
       exchangeOffer = {
-        id: e._id || e.id || null,
-        title: e.title || e.name || e.product_name || null,
-        price: Number(e.price || e.discount || e.value || 0),
-        brand: typeof e.brand === 'string' ? e.brand : (e.brand?.name || null),
-        model: e.model || null,
+        id: offerSource._id || offerSource.id || null,
+        title: offerSource.title || offerSource.name || offerSource.product_name || null,
+        price: Number(offerSource.price || offerSource.discount || offerSource.value || 0),
+        brand: typeof offerSource.brand === 'string' ? offerSource.brand : (offerSource.brand?.name || null),
+        type: offerSource.type || null,
+        condition: offerSource.condition || null,
+        model: offerSource.model || null,
+        zone: offerSource.zone || null,
       };
     }
 
@@ -697,6 +750,7 @@ export default function ProductClient() {
             variantValues: currentVariantValues || undefined,
             selectedVariant: currentVariantValues || undefined,
             color: currentColor || undefined,
+            ...(exchangeOffer ? { exchangeOffer } : {}),
             ...(guestCartId && { guestCartId }),
           }),
         });
@@ -764,6 +818,11 @@ export default function ProductClient() {
           id: exchangeOffer.id,
           title: exchangeOffer.title,
           price: Number(exchangeOffer.price) || 0,
+          brand: exchangeOffer.brand || null,
+          type: exchangeOffer.type || null,
+          condition: exchangeOffer.condition || null,
+          model: exchangeOffer.model || null,
+          zone: exchangeOffer.zone || null,
         } : null,
       };
 
@@ -879,9 +938,21 @@ export default function ProductClient() {
   }, []);
 
   const handleExchangeApply = (offer) => {
-    if (offer) {
-      handleBuyNow(offer);
+    if (!offer) {
+      setAppliedExchangeOffer(null);
+      return;
     }
+    // Stay on product page — only store the offer until Add to Cart / Buy Now
+    setAppliedExchangeOffer({
+      id: offer._id || offer.id || null,
+      title: offer.title || offer.name || null,
+      price: Number(offer.price || 0),
+      brand: typeof offer.brand === "string" ? offer.brand : (offer.brand?.name || null),
+      type: offer.type || null,
+      condition: offer.condition || null,
+      model: offer.model || null,
+      zone: offer.zone || null,
+    });
   };
 
   const [quantityWarning, setQuantityWarning] = useState(false);
@@ -1080,7 +1151,9 @@ export default function ProductClient() {
   };
 
 
-  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(
+    initialProduct?.images?.[0] || null
+  );
 
   useEffect(() => {
     if (product?.images?.[0]) {
@@ -1157,6 +1230,16 @@ export default function ProductClient() {
       const region = globalRegion || "tamilnadu";
       const sameProduct = Boolean(productRef.current);
 
+      // If initialProduct is already loaded for this slug and region, skip refetching
+      if (
+        productRef.current &&
+        productRef.current.slug === requestSlug &&
+        productRef.current.resolvedRegion === region
+      ) {
+        setLoading(false);
+        return;
+      }
+
       const cached = variantCacheRef.current[`${region}::${requestSlug}`];
       if (cached) {
         applyingVariantRef.current = false;
@@ -1168,8 +1251,7 @@ export default function ProductClient() {
       try {
         setLoading((currentLoading) => (sameProduct ? currentLoading : true));
         const response = await fetch(
-          `/api/product/${encodeURIComponent(requestSlug)}?region=${encodeURIComponent(region)}`,
-          { cache: "no-store" }
+          `/api/product/${encodeURIComponent(requestSlug)}?region=${encodeURIComponent(region)}`
         );
 
         if (!response.ok) {
@@ -1215,19 +1297,22 @@ export default function ProductClient() {
   useEffect(() => {
     if (!product?._id) return;
     let cancelled = false;
-    fetch(`/api/reviews/${product._id}`)
-      .then((res) => res.json())
-      .then((reviewsData) => {
-        if (cancelled || !reviewsData.success) return;
-        setReviews(reviewsData.reviews);
-        setAvgRating(reviewsData.avgRating);
-        setReviewCount(reviewsData.count);
-      })
-      .catch((error) => {
-        console.error("Error fetching reviews:", error);
-      });
+    const timer = setTimeout(() => {
+      fetch(`/api/reviews/${product._id}`)
+        .then((res) => res.json())
+        .then((reviewsData) => {
+          if (cancelled || !reviewsData.success) return;
+          setReviews(reviewsData.reviews);
+          setAvgRating(reviewsData.avgRating);
+          setReviewCount(reviewsData.count);
+        })
+        .catch((error) => {
+          console.error("Error fetching reviews:", error);
+        });
+    }, 150);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [product?._id]);
 
@@ -1278,12 +1363,11 @@ export default function ProductClient() {
 
   const fetchBrand = async () => {
     try {
-      const response = await fetch("/api/brand");
-      const result = await response.json();
+      const result = await getSharedBrandData();
       if (result.error) {
         console.error(result.error);
       } else {
-        const data = result.data;
+        const data = result.data || [];
 
         // Format for react-select
         const brandOptions = data.map((b) => ({
@@ -1307,7 +1391,10 @@ export default function ProductClient() {
   };
 
   useEffect(() => {
-    fetchBrand();
+    const timer = setTimeout(() => {
+      fetchBrand();
+    }, 200);
+    return () => clearTimeout(timer);
   }, []);
 
 
@@ -1785,6 +1872,7 @@ export default function ProductClient() {
                       variantValues={currentVariantValues}
                       selectedVariant={currentVariantValues}
                       color={currentColor}
+                      exchangeOffer={appliedExchangeOffer}
                       buttonLabel={isOpenBox ? "Enquire to Buy" : "Add to Cart"}
                       buttonClassName={addToCartOutlineClass}
                       movement={product.movement}
@@ -1803,6 +1891,8 @@ export default function ProductClient() {
               <div className="mt-4">
                 <PaymentOffers
                   product={product}
+                  price={effectivePrice}
+                  onOpenEmiModal={() => setIsEmiModalOpen(true)}
                   externalShowEmiModal={showEMIModal}
                   onExternalCloseEmiModal={() => setShowEMIModal(false)}
                   onAvailabilityChange={setHasPaymentOffers}
@@ -2025,6 +2115,7 @@ export default function ProductClient() {
                 variantValues={currentVariantValues}
                 selectedVariant={currentVariantValues}
                 color={currentColor}
+                exchangeOffer={appliedExchangeOffer}
                 buttonLabel="Add Selected to Cart"
                 buttonClassName="bg-[#d72828] text-white"
                 movement={product.movement}
@@ -2225,9 +2316,11 @@ export default function ProductClient() {
                   <p className="text-[11px] text-gray-500 mt-0.5">Inclusive of all taxes</p>
                 </div>
 
-                {/* Available Offers Component */}
+                {/* Payment Offers & Integrated EMI Component */}
                 <PaymentOffers
                   product={product}
+                  price={effectivePrice}
+                  onOpenEmiModal={() => setIsEmiModalOpen(true)}
                   externalShowEmiModal={showEMIModal}
                   onExternalCloseEmiModal={() => setShowEMIModal(false)}
                   onAvailabilityChange={setHasPaymentOffers}
@@ -2529,6 +2622,7 @@ export default function ProductClient() {
                             variantValues={currentVariantValues}
                             selectedVariant={currentVariantValues}
                             color={currentColor}
+                            exchangeOffer={appliedExchangeOffer}
                             buttonLabel={isOpenBox ? "Enquire to Buy" : "Add To Cart"}
                             buttonClassName="w-full border-2 border-[#d72828] text-[#d72828] hover:bg-red-50 font-bold py-2.5 rounded-lg text-sm transition-all shadow-none"
                             movement={product.movement}
@@ -2655,6 +2749,14 @@ export default function ProductClient() {
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
         product={product}
+      />
+
+      {/* Lazy-Loaded Isolated EMI Options Modal (Razorpay Style) */}
+      <EmiModal
+        isOpen={isEmiModalOpen}
+        onClose={() => setIsEmiModalOpen(false)}
+        price={effectivePrice}
+        productName={product?.name}
       />
     </div>
   );

@@ -13,6 +13,7 @@ import { HeaderProvider } from "@/context/HeaderContext";
 import { RegionProvider } from "@/context/RegionContext";
 import { CompareProvider } from "@/context/CompareContext";
 import CompareBar from "@/components/CompareBar";
+import AuthSessionSync from "@/components/AuthSessionSync";
 
 export default function ClientLayout({ children }) {
   const pathname = usePathname();
@@ -33,6 +34,7 @@ export default function ClientLayout({ children }) {
                 {/* CompareProvider lives inside AuthProvider so syncOnLogin()
                     can access the token set by login() */}
                 <CompareProvider>
+                  <AuthSessionSync />
                   <div className="flex flex-col min-h-screen">
                     {!pathname?.startsWith("/admin") && <CustomHeader />}
                     <main className="relative flex-grow min-h-[calc(100vh-280px)]">{children}</main>

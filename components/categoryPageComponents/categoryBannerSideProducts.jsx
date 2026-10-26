@@ -206,7 +206,7 @@ function ProductRow({ products, seeAllHref, name }) {
   if (!products.length) return null;
 
   return (
-    <div className="w-full sm:flex-1 min-w-0">
+    <div className="w-full md:flex-1 min-w-0">
       <div className="flex items-center justify-between gap-2 mb-2 px-0.5">
         <h2 className="text-base sm:text-lg md:text-xl font-bold text-[#d72828] tracking-tight truncate">
           {name}
@@ -281,13 +281,13 @@ export default function CategoryBannerSideProducts({ config }) {
   const sideBlock = (
     <BannerLink
       href={sideHref}
-      className="flex sm:block justify-center items-center w-full sm:w-[28%] lg:w-[24%] shrink-0 overflow-hidden rounded-sm"
+      className="hidden md:block md:w-[28%] lg:w-[24%] shrink-0 overflow-hidden rounded-sm"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={sideImage}
         alt=""
-        className="w-auto h-auto max-h-[160px] sm:max-h-none sm:w-full sm:h-full sm:min-h-[280px] object-contain sm:object-cover rounded-sm"
+        className="w-full h-full min-h-[280px] object-cover rounded-sm"
       />
     </BannerLink>
   );
@@ -310,8 +310,8 @@ export default function CategoryBannerSideProducts({ config }) {
         </BannerLink>
 
         <div
-          className={`flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch ${
-            sidePosition === "right" ? "sm:flex-row-reverse" : ""
+          className={`flex flex-col md:flex-row gap-3 sm:gap-4 items-stretch ${
+            sidePosition === "right" ? "md:flex-row-reverse" : ""
           }`}
         >
           {sideBlock}

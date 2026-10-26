@@ -8,6 +8,9 @@ import {
   HiOutlineShoppingBag,
   HiOutlinePhone,
   HiOutlineBuildingStorefront,
+  HiOutlineBars3,
+  HiOutlineGift,
+  HiOutlineTag,
 } from "react-icons/hi2";
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -33,6 +36,14 @@ import {
   hasOverviewAvailability as categoryHasOverviewDesign,
   pageTypeFromLevel,
 } from '@/lib/categoryPageComponents/categoryHref';
+import { toast } from 'react-toastify';
+import {
+  canLoginAs,
+  establishSession,
+  clearBrowserAuth,
+  readStoredSession,
+  AUTH_CONFLICT_MESSAGE,
+} from '@/lib/clientAuthSession';
 
 // ADD: alphaSortString - case-insensitive, null-safe string comparator
 const alphaSortString = (a, b) => {
@@ -119,8 +130,6 @@ const HEADER_ACTION_BADGE_SM_CLASS =
 
 const Header = () => {
   const router = useRouter();
-  // REMOVED: unused pathname
-  // const pathname = usePathname();
   const [category, setCategory] = useState('All Category');
   const [activeSubCategory, setActiveSubCategory] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -303,6 +312,25 @@ const Header = () => {
   const profileDropdownRef = useRef(null);
   const profileButtonRef = useRef(null);
   const mobileProfileButtonRef = useRef(null);
+  const moreMenuRef = useRef(null);
+  const moreMenuTimeoutRef = useRef(null);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+
+  const handleMenuMouseEnter = () => {
+    if (moreMenuTimeoutRef.current) {
+      clearTimeout(moreMenuTimeoutRef.current);
+    }
+    setIsMoreMenuOpen(true);
+  };
+
+  const handleMenuMouseLeave = () => {
+    if (moreMenuTimeoutRef.current) {
+      clearTimeout(moreMenuTimeoutRef.current);
+    }
+    moreMenuTimeoutRef.current = setTimeout(() => {
+      setIsMoreMenuOpen(false);
+    }, 150);
+  };
   const [activeTab, setActiveTab] = useState('login');
   // const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -604,6 +632,11 @@ const Header = () => {
 
       if (response.ok) {
         const data = await response.json();
+        if (!data.loggedIn) {
+          clearBrowserAuth();
+          setIsLoggedIn(false);
+          return;
+        }
         setIsLoggedIn(true);
         if (data.role == "admin") {
           setIsAdmin(true);
@@ -611,8 +644,26 @@ const Header = () => {
           setIsAdmin(false);
         }
         setUserData(data.user);
+        // Ensure session lock exists once (avoid rewriting sessionId on every load)
+        const uid = data.userId || data.user?.userId || data.user?._id;
+        const hasLock = Boolean(localStorage.getItem("sathya_auth_session"));
+        const existingSession = readStoredSession();
+        if (
+          uid &&
+          token &&
+          (!hasLock ||
+            !existingSession?.userId ||
+            String(existingSession.userId) !== String(uid))
+        ) {
+          establishSession({
+            token,
+            userId: uid,
+            role: data.role || "user",
+            source: data.role === "admin" ? "admin" : "store",
+          });
+        }
       } else {
-        localStorage.removeItem('token');
+        clearBrowserAuth();
         setIsLoggedIn(false);
         setShowAuthModal(true);
       }
@@ -698,7 +749,7 @@ const Header = () => {
             fetchFreshCategories();
           }
         };
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const handleStorageChange = (e) => {
@@ -713,7 +764,7 @@ const Header = () => {
     return () => {
       mounted = false;
       if (syncChannel) {
-        try { syncChannel.close(); } catch (_) {}
+        try { syncChannel.close(); } catch (_) { }
       }
       if (typeof window !== "undefined") {
         window.removeEventListener("storage", handleStorageChange);
@@ -898,14 +949,12 @@ const Header = () => {
     };
   }, [categories, collectAvailabilityRequests]);
 
-  const overviewAvailabilityKey = useMemo(() => {
-    const keys = Object.keys(overviewAvailability || {}).filter(
-      (k) => overviewAvailability[k]
-    );
-    return keys.sort().join('|');
-  }, [overviewAvailability]);
   const [sortOption, setSortOption] = useState('');
   const [hoveredCategory, setHoveredCategory] = useState(null);
+
+  // Keep a ref so hover brand-availability fetch does not re-run on every map update
+  const overviewAvailabilityRef = useRef(overviewAvailability);
+  overviewAvailabilityRef.current = overviewAvailability;
 
   useEffect(() => {
     if (!hoveredCategory?._id) return;
@@ -931,10 +980,11 @@ const Header = () => {
       });
     }
     if (!pages.length) return;
+    const avail = overviewAvailabilityRef.current || {};
     const missing = pages.filter(
       (p) =>
-        overviewAvailability[`${p.categoryId}:${PAGE_TYPES.BRAND}`] === undefined &&
-        (!p.slug || overviewAvailability[`${p.slug}:${PAGE_TYPES.BRAND}`] === undefined)
+        avail[`${p.categoryId}:${PAGE_TYPES.BRAND}`] === undefined &&
+        (!p.slug || avail[`${p.slug}:${PAGE_TYPES.BRAND}`] === undefined)
     );
     if (!missing.length) return;
 
@@ -961,7 +1011,7 @@ const Header = () => {
     return () => {
       cancelled = true;
     };
-  }, [hoveredCategory, overviewAvailability]);
+  }, [hoveredCategory]);
   const [dropdownLeft, setDropdownLeft] = useState(0);
   const [dropdownTop, setDropdownTop] = useState(0);
   const [dropdownCenterX, setDropdownCenterX] = useState(null);
@@ -1018,6 +1068,10 @@ const Header = () => {
     if (!inProfileDropdown && !inProfileButton && !inMobileProfileButton) {
       setDropdownOpen(false);
     }
+
+    if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
+      setIsMoreMenuOpen(false);
+    }
   };
 
   useEffect(() => {
@@ -1025,8 +1079,18 @@ const Header = () => {
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      if (moreMenuTimeoutRef.current) clearTimeout(moreMenuTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isMoreMenuOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') setIsMoreMenuOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMoreMenuOpen]);
 
   useLayoutEffect(() => {
     if (!dropdownOpen) {
@@ -1063,10 +1127,13 @@ const Header = () => {
   const handleSearch = (e) => {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-    if (!searchQuery.trim() && (selectedCategory === "All Category" || selectedCategory === "All Categories")) return;
+    if (!searchQuery.trim()) {
+      toast.info("Please enter a search term");
+      return;
+    }
     setSearchDropdownVisible(false);
     const params = new URLSearchParams();
-    if (searchQuery.trim()) params.append("query", searchQuery.trim());
+    params.append("query", searchQuery.trim());
     if (selectedCategory && selectedCategory !== "All Category" && selectedCategory !== "All Categories") {
       params.append("category", selectedCategory);
     }
@@ -1372,7 +1439,19 @@ const Header = () => {
       }
 
       if (data.token) {
-        localStorage.setItem("token", data.token);
+        const incomingUserId = data.user?.userId || data.user?._id;
+        const gate = canLoginAs(incomingUserId);
+        if (!gate.ok) {
+          setOtpError(gate.message || AUTH_CONFLICT_MESSAGE);
+          return;
+        }
+
+        establishSession({
+          token: data.token,
+          userId: incomingUserId,
+          role: data.user?.role || "user",
+          source: "store",
+        });
         setIsLoggedIn(true);
         setIsAdmin(data.user.role === "admin");
         setUserData(data.user);
@@ -1416,9 +1495,10 @@ const Header = () => {
     setHasMounted(true);
   }, []);
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    clearBrowserAuth();
     setIsLoggedIn(false);
     setUserData(null);
+    setIsAdmin(false);
     // CHANGE: broadcast clear to all tabs
     setCartCountSynced(0);
     // ADD: clear cartData everywhere
@@ -2448,6 +2528,65 @@ const Header = () => {
                 <span className={`text-[10px] ${HEADER_ACTION_LABEL_CLASS}`}>Cart</span>
               </Link>
 
+              {/* More Menu Dropdown (Loyalty & All Brands) */}
+              <div
+                className="relative hidden sm:block"
+                ref={moreMenuRef}
+                onMouseEnter={handleMenuMouseEnter}
+                onMouseLeave={handleMenuMouseLeave}
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsMoreMenuOpen((prev) => !prev)}
+                  className={`${HEADER_ACTION_LINK_CLASS} min-w-[40px] focus:outline-none cursor-pointer`}
+                  aria-label="Menu"
+                  aria-expanded={isMoreMenuOpen}
+                  aria-haspopup="true"
+                  title="Menu"
+                >
+                  <div
+                    className={`${HEADER_ACTION_ICON_WRAP_CLASS} ${
+                      isMoreMenuOpen ? "!border-[#ED1C24] !bg-[#FFF200] !text-[#C4161D] shadow-[0_4px_10px_rgba(215,40,40,0.18)]" : ""
+                    }`}
+                  >
+                    <HiOutlineBars3 size={19} strokeWidth={1.75} />
+                  </div>
+                </button>
+
+                {isMoreMenuOpen && (
+                  <div
+                    className="absolute right-0 top-full pt-2 z-50 transition-all duration-200"
+                    style={{ minWidth: "185px" }}
+                  >
+                    <div className="w-48 bg-white rounded-xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.1)] border border-gray-100 py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                      <Link
+                        href="/loyalty"
+                        onClick={() => setIsMoreMenuOpen(false)}
+                        className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                          <HiOutlineGift size={16} strokeWidth={1.8} />
+                        </span>
+                        <span className="text-[13px] font-medium">Loyalty</span>
+                      </Link>
+
+                      <div className="h-px bg-gray-100 my-1 mx-2" />
+
+                      <Link
+                        href="/brands"
+                        onClick={() => setIsMoreMenuOpen(false)}
+                        className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                          <HiOutlineTag size={16} strokeWidth={1.8} />
+                        </span>
+                        <span className="text-[13px] font-medium">All Brands</span>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* User Account */}
               <div className="relative">
                 {userData ? (
@@ -2531,6 +2670,26 @@ const Header = () => {
                   </span>
                   <span className="text-[11px] font-semibold">Store</span>
                 </a>
+                <Link
+                  href="/loyalty"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
+                    <HiOutlineGift size={18} strokeWidth={1.75} />
+                  </span>
+                  <span className="text-[11px] font-semibold">Loyalty</span>
+                </Link>
+                <Link
+                  href="/brands"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
+                    <HiOutlineTag size={18} strokeWidth={1.75} />
+                  </span>
+                  <span className="text-[11px] font-semibold">All Brands</span>
+                </Link>
               </div>
             </div>
           )}
@@ -2795,7 +2954,6 @@ const Header = () => {
             <div className="relative">
               <div className="flex justify-center overflow-x-auto scrollbar-hide">
                 <Swiper
-                  key={`cat-bar-${overviewAvailabilityKey || 'pending'}`}
                   modules={[Navigation]}
                   navigation={{ prevEl: ".custom-swiper-prev", nextEl: ".custom-swiper-next" }}
                   spaceBetween={20}
@@ -2813,6 +2971,12 @@ const Header = () => {
                           onClick={(e) => {
                             // Ensure latest availability is used even if Swiper cached the slide href.
                             e.preventDefault();
+                            if (hideTimeout.current) {
+                              clearTimeout(hideTimeout.current);
+                              hideTimeout.current = null;
+                            }
+                            setHoveredCategory(null);
+                            setActiveSubCategory(null);
                             handleCategoryClick(
                               category.category_slug,
                               category.category_name,
@@ -3232,7 +3396,7 @@ const Header = () => {
                                           marginBottom: '8px', paddingBottom: '6px',
                                           borderBottom: 'none',
                                           whiteSpace: 'normal',
-                                           lineHeight: 1.35,
+                                          lineHeight: 1.35,
                                         }}
                                       >
                                         {splitByNearestSpace(sub.category_name, 24)}

@@ -268,6 +268,16 @@ export async function GET(req) {
           savedOrderItems[i] ||
           {};
 
+        const exchangeAmount =
+          Number(
+            itemObj.exchange_off_amount ??
+              itemObj.eo_amount ??
+              fromOrderItem.exchange_off_amount ??
+              fromOrderItem.eo_amount ??
+              fromOrderItem.exchangeOffer?.price ??
+              0
+          ) || 0;
+
         itemsWithSlug.push({
           ...itemObj,
           product_id: finalProductId,
@@ -291,6 +301,42 @@ export async function GET(req) {
             null,
           color: itemObj.color || fromOrderItem.color || null,
           attributes: itemObj.attributes || fromOrderItem.attributes || null,
+          exchange_off_amount: exchangeAmount,
+          eo_amount: exchangeAmount,
+          exchange_off_type:
+            itemObj.exchange_off_type ||
+            fromOrderItem.exchange_off_type ||
+            fromOrderItem.exchangeOffer?.type ||
+            null,
+          exchange_off_brand:
+            itemObj.exchange_off_brand ||
+            fromOrderItem.exchange_off_brand ||
+            fromOrderItem.exchangeOffer?.brand ||
+            null,
+          exchange_off_cond:
+            itemObj.exchange_off_cond ||
+            fromOrderItem.exchange_off_cond ||
+            fromOrderItem.exchangeOffer?.condition ||
+            null,
+          exchangeOffer:
+            fromOrderItem.exchangeOffer ||
+            (exchangeAmount > 0
+              ? {
+                  price: exchangeAmount,
+                  brand:
+                    itemObj.exchange_off_brand ||
+                    fromOrderItem.exchange_off_brand ||
+                    null,
+                  type:
+                    itemObj.exchange_off_type ||
+                    fromOrderItem.exchange_off_type ||
+                    null,
+                  condition:
+                    itemObj.exchange_off_cond ||
+                    fromOrderItem.exchange_off_cond ||
+                    null,
+                }
+              : null),
           is_reviewed: Boolean(
             finalProductId && userReviewedProductIds.has(String(finalProductId))
           ),

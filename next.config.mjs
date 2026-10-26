@@ -39,6 +39,19 @@ const nextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        source: "/api/product/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization, X-Requested-With, sathya_location" },
+          { key: "Access-Control-Max-Age", value: "86400" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     return {
       fallback: [
@@ -107,14 +120,25 @@ const nextConfig = {
         destination: "/sitemap.xml",
         permanent: true,
       },
+      // Offer pages use /offer/{slug} (same as footer). Do not send these to /deals-offer.
       {
-        source: "/weekend-offer",
-        destination: "/deals-offer",
+        source: "/offers/:slug",
+        destination: "/offer/:slug",
         permanent: true,
       },
       {
-        source: "/offer/weekend-offer",
-        destination: "/deals-offer",
+        source: "/weekend-offer",
+        destination: "/offer/weekend-offer",
+        permanent: true,
+      },
+      {
+        source: "/weekend-offers",
+        destination: "/offer/weekend-offers",
+        permanent: true,
+      },
+      {
+        source: "/big-discounts",
+        destination: "/offer/big-discounts",
         permanent: true,
       },
       {
@@ -130,11 +154,6 @@ const nextConfig = {
       {
         source: "/combo-offers",
         destination: "/category/combo-offers",
-        permanent: true,
-      },
-      {
-        source: "/big-discounts",
-        destination: "/deals-offer",
         permanent: true,
       },
       {

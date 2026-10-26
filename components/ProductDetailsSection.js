@@ -364,6 +364,13 @@ export default function ProductDetailsSection({
 
   // TAB 1: FROM THE MANUFACTURER
   const showFlixInManufacturer = flixInstanceActive && flixInpageAvailable === true;
+  const isEmptyManufacturerValue = (value) => {
+    if (value == null) return true;
+    const text = String(value).trim();
+    if (!text) return true;
+    const lower = text.toLowerCase();
+    return lower === "null" || lower === "undefined" || lower === "n/a" || lower === "-";
+  };
 
   const customManufacturerRichContent = (() => {
     if (product?.manufacturer_content && typeof product.manufacturer_content === "string" && product.manufacturer_content.trim()) {
@@ -374,6 +381,38 @@ export default function ProductDetailsSection({
     }
     return null;
   })();
+
+  const hasBrandManufacturerInfo = Boolean(
+    (manufacturerName && !isEmptyManufacturerValue(manufacturerName)) ||
+    (manufacturerAddress && !isEmptyManufacturerValue(manufacturerAddress)) ||
+    (brandName && !isEmptyManufacturerValue(brandName))
+  );
+
+  const brandManufacturerCard = hasBrandManufacturerInfo ? (
+    <div className={showFlixInManufacturer || customManufacturerRichContent ? "mt-6 pt-2" : "pt-2"}>
+      <h2 className="text-sm font-bold text-left mb-3">Manufacturer Information</h2>
+      <div className="border border-gray-200 rounded-xl bg-gray-50 p-4 sm:p-5 max-w-3xl space-y-3">
+        {manufacturerName && !isEmptyManufacturerValue(manufacturerName) && (
+          <div className="grid grid-cols-[140px,1fr] sm:grid-cols-[200px,1fr] gap-2 items-start text-xs sm:text-sm">
+            <span className="font-semibold text-gray-800">Manufacturer:</span>
+            <span className="text-gray-700 font-medium">{manufacturerName}</span>
+          </div>
+        )}
+        {manufacturerAddress && !isEmptyManufacturerValue(manufacturerAddress) && (
+          <div className="grid grid-cols-[140px,1fr] sm:grid-cols-[200px,1fr] gap-2 items-start text-xs sm:text-sm">
+            <span className="font-semibold text-gray-800">Registered Office Address:</span>
+            <span className="text-gray-700">{manufacturerAddress}</span>
+          </div>
+        )}
+        {brandName && !isEmptyManufacturerValue(brandName) && (
+          <div className="grid grid-cols-[140px,1fr] sm:grid-cols-[200px,1fr] gap-2 items-start text-xs sm:text-sm">
+            <span className="font-semibold text-gray-800">Brand:</span>
+            <span className="text-gray-700">{brandName}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  ) : null;
 
   const manufacturerContent = (
     <div className="w-full text-left" id="manufacturer-tab">
@@ -398,8 +437,11 @@ export default function ProductDetailsSection({
         />
       ) : null}
 
-      {/* Fallback when no manufacturer rich content */}
-      {!showFlixInManufacturer && !customManufacturerRichContent && (
+      {/* Brand manufacturer details (from ecom_brand_info) */}
+      {!showFlixInManufacturer ? brandManufacturerCard : null}
+
+      {/* Fallback when no Flix, A+, or brand manufacturer fields */}
+      {!showFlixInManufacturer && !customManufacturerRichContent && !hasBrandManufacturerInfo && (
         <p className="text-sm text-gray-700 leading-relaxed py-2">
           There is no manufacturer content to show for this product. Explore the Details &amp; Specs section to learn more.
         </p>

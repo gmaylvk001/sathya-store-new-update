@@ -745,42 +745,65 @@ export default function CartComponent() {
       const token = typeof window !== "undefined" ? localStorage.getItem('token') : null;
       let response = null;
 
-      if (token) {
-        response = await fetch('/api/cart', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          method: "GET",
-          cache: "no-store",
-        });
-      } else {
-        const guestCartId = typeof window !== "undefined" ? (localStorage.getItem("guestCartId") || uuidv4()) : null;
-        if (guestCartId && typeof window !== "undefined") {
-          localStorage.setItem("guestCartId", guestCartId);
-        }
-        response = await fetch('/api/cart', {
-          headers: {
-            ...(guestCartId ? { 'guestCartId': guestCartId } : {})
-          },
-          method: "GET",
-          cache: "no-store",
-        });
+      const guestCartId = typeof window !== "undefined" ? (localStorage.getItem("guestCartId") || uuidv4()) : null;
+      if (guestCartId && typeof window !== "undefined") {
+        localStorage.setItem("guestCartId", guestCartId);
       }
+
+      const headers = {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(guestCartId ? { 'guestCartId': guestCartId } : {}),
+      };
+
+      response = await fetch('/api/cart', {
+        headers,
+        method: "GET",
+        cache: "no-store",
+      });
+
+      // Safely read response JSON stream exactly once
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        const datares = await response.json().catch(() => ({}));
+        const errMessage = data?.error || data?.message || '';
+        // If auth failure / token expired
         if (
-          datares.error === "Token has expired" ||
-          datares.error === "Invalid token" ||
-          datares.error === "Authorization token required"
+          response.status === 401 ||
+          response.status === 403 ||
+          errMessage === "Token has expired" ||
+          errMessage === "Invalid token" ||
+          errMessage === "Authorization token required" ||
+          (typeof errMessage === 'string' && (
+            errMessage.toLowerCase().includes("token") ||
+            errMessage.toLowerCase().includes("jwt") ||
+            errMessage.toLowerCase().includes("unauthorized")
+          ))
         ) {
-          localStorage.removeItem("token");
-          window.location.reload();
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("token");
+            window.location.reload();
+          }
           return;
         }
+
+        // If cart is not found (404), fallback to empty cart state gracefully
+        if (response.status === 404) {
+          const emptyCart = { items: [], totalItems: 0, totalPrice: 0 };
+          setCartData(emptyCart);
+          saveCartState(emptyCart);
+          return;
+        }
+
+        throw new Error(errMessage || `Failed to fetch cart (${response.status})`);
       }
 
-      const data = await response.json();
+      if (!data || !data.cart) {
+        const emptyCart = { items: [], totalItems: 0, totalPrice: 0 };
+        setCartData(emptyCart);
+        saveCartState(emptyCart);
+        return;
+      }
+
       const rawItems = data?.cart?.items || [];
       const itemsWithDiscount = rawItems.map(item => ({
         ...item,
@@ -1099,27 +1122,45 @@ export default function CartComponent() {
         ...(guestCartId && { 'guestCartId': guestCartId }),
       };
 
+      const selectedItem = cartData?.items?.find((i) => {
+        const pId = typeof i.productId === "object" ? i.productId?._id?.toString() : i.productId?.toString();
+        return (
+          (pId && pId === productToDelete) ||
+          (i.comboId && i.comboId?.toString() === productToDelete) ||
+          (i._id && i._id?.toString() === productToDelete) ||
+          (i.item_code && i.item_code === productToDelete) ||
+          (i.name && i.name === productToDelete)
+        );
+      });
+
       response = await fetch('/api/cart', {
         method: 'DELETE',
         headers,
         body: JSON.stringify({
           productId: productToDelete,
+          comboId: selectedItem?.comboId ? String(selectedItem.comboId) : undefined,
+          name: selectedItem?.name || undefined,
           guestCartId: guestCartId || undefined,
         })
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        const errMsg = errData.error || 'Failed to remove item';
+        const errMsg = data?.error || 'Failed to remove item';
         toast.error(errMsg);
         throw new Error(errMsg);
       }
 
-      const updatedCart = await response.json();
+      const updatedCart = data;
 
-      // Merge existing details
-      const itemsMerged = updatedCart.cart.items.map(item => {
-        const existingItem = cartData.items.find(i => i.productId === item.productId);
+      // Merge existing details safely
+      const itemsMerged = (updatedCart?.cart?.items || []).map(item => {
+        const existingItem = cartData?.items?.find(i => {
+          if (item.productId && i.productId) return String(i.productId) === String(item.productId);
+          if (item.comboId && i.comboId) return String(i.comboId) === String(item.comboId);
+          if (item.name && i.name) return i.name.toLowerCase() === item.name.toLowerCase();
+          return false;
+        });
         return {
           ...item,
           discount: existingItem ? existingItem.discount : 0
@@ -1307,9 +1348,10 @@ updateWishlist(wishlistData.items, wishlistData.count);
       body: JSON.stringify({ productId })
     });
 
-    if (!response.ok) throw new Error('Failed to remove from cart');
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || 'Failed to remove from cart');
 
-    const updatedCart = await response.json();
+    const updatedCart = data;
     const itemsMerged = updatedCart.cart.items.map(item => {
       const existingItem = cartData.items.find(i => i.productId === item.productId);
       return { ...item, discount: existingItem ? existingItem.discount : 0 };
@@ -1382,6 +1424,13 @@ const calculateTotalWarranty = () => {
   return cartData.items.reduce((sum, item) => sum + getWarrantyPrice(item), 0);
 };
 
+const calculateTotalExchange = () => {
+  if (!cartData || !cartData.items) return 0;
+  return cartData.items.reduce((sum, item) => {
+    return sum + (Number(item.exchangeOffer?.price || 0) * (item.quantity || 1));
+  }, 0);
+};
+
   const calculateDiscount = () => {
     if (!appliedCoupon || !cartData) return 0;
 
@@ -1391,7 +1440,8 @@ const calculateTotalWarranty = () => {
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
     const discount = calculateDiscount();
-    return subtotal - discount;
+    const exchange = calculateTotalExchange();
+    return Math.max(0, subtotal - discount - exchange);
   };
 
   const calculateTotalMRP = () => calculateMRP();
@@ -1444,6 +1494,7 @@ const calculateTotalWarranty = () => {
         variantValues: item.variantValues || null,
         selectedVariant: item.selectedVariant || null,
         color: item.color || null,
+        exchangeOffer: item.exchangeOffer || null,
 
       }))
 
@@ -1782,19 +1833,30 @@ return (
                   : typeof item.productId === "string" && item.productId
                   ? item.productId
                   : null) ||
+                (typeof item.comboId === "string" ? item.comboId : item.comboId?.toString()) ||
+                (typeof item._id === "string" ? item._id : item._id?.toString()) ||
                 item.item_code ||
                 `cart-item-${index}`;
 
               const itemKey = item._id ? String(item._id) : `${prodIdStr}-${index}`;
+              const productUrl = item.isCombo
+                ? (item.slug ? `/combo-offers/${item.slug}` : `/combo-offers`)
+                : `/product/${item.slug || prodIdStr}`;
 
               return (
                 <div key={itemKey} className="p-4 sm:p-6 flex flex-col gap-4 group transition-colors hover:bg-gray-50/40">
                   <div className="flex gap-4 sm:gap-6 items-start">
                     {/* Left Product Image */}
                     <div className="w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0 bg-white border border-gray-200/70 rounded-lg p-2 flex items-center justify-center relative overflow-hidden group-hover:border-red-200 transition-colors">
-                      <Link href={`/product/${item.slug || prodIdStr}`} className="w-full h-full block relative">
+                      <Link href={productUrl} className="w-full h-full block relative">
                         <img
-                          src={item.image ? (item.image.startsWith("http") ? item.image : `/uploads/products/${item.image}`) : "/uploads/sathyalogo.webp"}
+                          src={
+                            item.image
+                              ? (item.image.startsWith("http") || item.image.startsWith("/")
+                                  ? item.image
+                                  : `/uploads/products/${item.image}`)
+                              : "/uploads/sathyalogo.webp"
+                          }
                           alt={item.name}
                           className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
                           onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/uploads/sathyalogo.webp"; }}
@@ -1804,7 +1866,7 @@ return (
 
                     {/* Middle Info Details */}
                     <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                      <Link href={`/product/${item.slug || prodIdStr}`} className="group-hover/title:text-[#d72828]">
+                      <Link href={productUrl} className="group-hover/title:text-[#d72828]">
                         <h3 className="text-sm sm:text-base font-semibold text-gray-900 line-clamp-2 leading-snug hover:text-[#d72828] transition-colors">
                           {item.name}
                         </h3>
@@ -1839,6 +1901,15 @@ return (
                               +₹{Number(itemWarranty.price).toLocaleString("en-IN")}
                             </span>
                           )}
+                        </div>
+                      )}
+
+                      {Number(item.exchangeOffer?.price) > 0 && (
+                        <div className="inline-flex items-center gap-2 bg-emerald-50/90 border border-emerald-200 text-emerald-900 rounded-lg px-2.5 py-1 text-xs mt-0.5 w-fit shadow-2xs">
+                          <span className="font-semibold text-emerald-950">Exchange Value</span>
+                          <span className="bg-emerald-100/90 text-emerald-900 font-bold px-1.5 py-0.5 rounded text-[11px] border border-emerald-200">
+                            −₹{Number(item.exchangeOffer.price).toLocaleString("en-IN")}
+                          </span>
                         </div>
                       )}
 
@@ -2086,6 +2157,15 @@ return (
                   </span>
                   <span className="font-semibold text-gray-900">
                     +₹{Number(calculateTotalWarranty()).toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
+
+              {calculateTotalExchange() > 0 && (
+                <div className="flex justify-between items-center text-emerald-700 font-medium">
+                  <span>Exchange Value</span>
+                  <span className="font-semibold text-emerald-600">
+                    −₹{Number(calculateTotalExchange()).toLocaleString("en-IN")}
                   </span>
                 </div>
               )}
