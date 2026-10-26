@@ -41,10 +41,14 @@ export default function BulkUploadPage() {
   const sap_featuresFormRef = useRef(null);
   const product_nameRef = useRef(null);
   const product_descriptionRef = useRef(null);
+  const product_metaRef = useRef(null);
+  const category_metaRef = useRef(null);
   const dynamic_filter_uploadRef = useRef(null);
   const [sap_features, setSap_features] = useState(null);
   const [product_name, setProduct_name] = useState(null);
   const [product_description, setProduct_description] = useState(null);
+  const [product_meta, setProduct_meta] = useState(null);
+  const [category_meta, setCategory_meta] = useState(null);
   const [dynamic_filter_upload, setDynamic_filter_upload] = useState(null);
   const [warrantyFile, setWarrantyFile] = useState(null);
   const [isWarrantyUploadLoading, setIsWarrantyUploadLoading] = useState(false);
@@ -81,6 +85,8 @@ export default function BulkUploadPage() {
     setSap_features(null);
     setProduct_name(null);
     setProduct_description(null);
+    setProduct_meta(null);
+    setCategory_meta(null);
     setDynamic_filter_upload(null);
     setCategoryUpload(null);
     setImageZip(null);
@@ -1232,6 +1238,100 @@ export default function BulkUploadPage() {
         setIsLoading(false);
         setActiveUploadType(null);
       }
+    } else if (uploadType == "product_meta") {
+      console.log('Processing product_meta upload...');
+
+      if (!product_meta || !validateFile(product_meta, ['.xlsx', '.csv'])) {
+        showToast("error", "Please upload a valid Excel (.xlsx) or CSV (.csv) file.");
+
+        const fileInput = document.getElementById('product_meta');
+        if (fileInput) fileInput.value = "";
+
+        setProduct_meta(null);
+        return;
+      }
+
+      setIsLoading(true);
+      setActiveUploadType(uploadType);
+      setMessage(null);
+
+      const formData = new FormData();
+      formData.append("excel", product_meta);
+
+      try {
+        const response = await fetch('/api/product/bulk-upload/meta', {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json();
+        resetUploadForm();
+
+        if (response.ok) {
+          showToast("success", data.message || "Product meta data uploaded successfully ✅");
+        } else {
+          showToast("error", data.error || "Upload failed ❌");
+        }
+
+      } catch (error) {
+        console.error("Upload error:", error);
+        showToast("error", error?.message || "Upload failed ❌");
+      } finally {
+        const fileInput = document.getElementById('product_meta');
+        if (fileInput) fileInput.value = "";
+
+        setProduct_meta(null);
+        resetUploadForm();
+        setIsLoading(false);
+        setActiveUploadType(null);
+      }
+    } else if (uploadType == "category_meta") {
+      console.log('Processing category_meta upload...');
+
+      if (!category_meta || !validateFile(category_meta, ['.xlsx', '.csv'])) {
+        showToast("error", "Please upload a valid Excel (.xlsx) or CSV (.csv) file.");
+
+        const fileInput = document.getElementById('category_meta');
+        if (fileInput) fileInput.value = "";
+
+        setCategory_meta(null);
+        return;
+      }
+
+      setIsLoading(true);
+      setActiveUploadType(uploadType);
+      setMessage(null);
+
+      const formData = new FormData();
+      formData.append("excel", category_meta);
+
+      try {
+        const response = await fetch('/api/categories/bulk-upload-meta', {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json();
+        resetUploadForm();
+
+        if (response.ok) {
+          showToast("success", data.message || "Category meta data uploaded successfully ✅");
+        } else {
+          showToast("error", data.error || data.message || "Upload failed ❌");
+        }
+
+      } catch (error) {
+        console.error("Upload error:", error);
+        showToast("error", error?.message || "Upload failed ❌");
+      } finally {
+        const fileInput = document.getElementById('category_meta');
+        if (fileInput) fileInput.value = "";
+
+        setCategory_meta(null);
+        resetUploadForm();
+        setIsLoading(false);
+        setActiveUploadType(null);
+      }
     } else if (uploadType == "dynamic_filter_upload") {
       console.log('Processing dynamic_filter_upload...');
 
@@ -1391,6 +1491,32 @@ export default function BulkUploadPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDownloadProduct_meta_File = () => {
+    const XLSX = require("xlsx");
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["item_code", "meta_title", "meta_description", "meta_keywords"],
+      ["SAMPLE001", "Samsung 55 Inch 4K Smart TV", "Buy Samsung 55 Inch 4K Smart TV at best price in Sathya...", "samsung tv, 4k smart tv, 55 inch tv"],
+      ["SAMPLE002", "", "LG 1.5 Ton 5 Star Split AC with inverter compressor...", ""],
+      ["SAMPLE003", "Whirlpool 265L Frost Free Double Door Refrigerator", "", "whirlpool fridge, double door refrigerator"],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Product Meta Template");
+    XLSX.writeFile(wb, "item_code_meta_bulk_upload_sample.xlsx");
+  };
+
+  const handleDownloadCategory_meta_File = () => {
+    const XLSX = require("xlsx");
+    const ws = XLSX.utils.aoa_to_sheet([
+      ["category_name", "category_slug", "title", "description", "keywords"],
+      ["Smart TVs", "smart-tvs", "Best Smart TVs Online at Sathya Store", "Explore latest Smart TVs with 4K resolution, HDR, and best offers at Sathya...", "smart tv, 4k tv, led tv, android tv"],
+      ["Air Conditioners", "air-conditioners", "", "Shop Split, Window & Inverter Air Conditioners at affordable prices...", ""],
+      ["Refrigerators", "", "Double Door & Single Door Refrigerators Online", "", "refrigerators, double door fridge, single door fridge"],
+    ]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Category Meta Template");
+    XLSX.writeFile(wb, "category_meta_bulk_upload_sample.xlsx");
   };
 
   const handleDownloadDynamicFilterFile = () => {
@@ -1650,6 +1776,8 @@ export default function BulkUploadPage() {
     { id: "Key-Features", label: "Key Features", image: "/uploads/files/Key features.jpg" },
     { id: "product_name", label: "Product name only", image: "/uploads/files/Product Name.png" },
     { id: "product_description", label: "Product Description", image: "/uploads/files/product_description.png" },
+    { id: "product_meta", label: "Product Meta Data (Title, Description, Keywords)", image: "/uploads/files/Product Name.png" },
+    { id: "category_meta", label: "Category Meta Data (Title, Description, Keywords)", image: "/uploads/files/Category_filter_upload_sixth_box_image.png" },
     { id: "dynamic_filter_upload", label: "Dynamic Filter Upload", image: "/uploads/files/dynamic_filter.png" },
     { id: "product-added-bulk-addons-frequentlybought-relatedproducts", label: "Add Frequently Addons and Related Products", image: "/uploads/files/bulk_upload_for_product_rightside_datas.png" },
     { id: "itemcode-product-bulk-upload-delete-filters", label: "Delete Filters For Product", image: "/uploads/files/delete_filters_for_product_bulk_upload.png" },
@@ -3117,6 +3245,128 @@ export default function BulkUploadPage() {
                       </span>
                     ) : (
                       'Upload Product Descriptions'
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {selectedSection === "product_meta" && (
+              <form id="product_meta" ref={product_metaRef} onSubmit={(e) => handleSubmit(e, "product_meta")} className="bg-white rounded-xl shadow-lg overflow-hidden p-6 space-y-8">
+                <div className="border border-gray-200 rounded-lg p-6 hover:border-[#d72828] transition-colors">
+                  <div className="mb-4">
+                    <h2 className="text-md font-semibold text-[#d72828] mb-6 border-b pb-2">Product Meta Data Bulk Upload</h2>
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-[#d72828]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Excel/CSV File
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Columns: <span className="font-mono text-gray-700 font-semibold">item_code, meta_title, meta_description, meta_keywords</span>
+                    </p>
+                    <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2.5 mt-2">
+                      💡 <strong>Cell Skipping Rule:</strong> For Meta Title, Meta Description, and Meta Keywords — if a cell has a value, it will be uploaded. If a cell is empty or not provided, that cell will be skipped and the existing product data will remain intact.
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    <input
+                      id="product_meta"
+                      type="file"
+                      accept=".xlsx,.csv"
+                      onChange={(e) => setProduct_meta(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-[#d72828] hover:file:bg-red-100"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadProduct_meta_File}
+                    className="inline-flex items-center pt-5 text-sm text-[#d72828] hover:text-[#d72828] transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download Sample Format
+                  </button>
+                </div>
+                <div className="flex mt-5 justify-between">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="bg-[#d72828] hover:bg-[#d72828] text-white px-3 py-2 rounded-md flex items-center gap-2"
+                  >
+                    {isLoading && activeUploadType == "product_meta" ? (
+                      <span className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Uploading...
+                      </span>
+                    ) : (
+                      'Upload Product Meta Values'
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {selectedSection === "category_meta" && (
+              <form id="category_meta" ref={category_metaRef} onSubmit={(e) => handleSubmit(e, "category_meta")} className="bg-white rounded-xl shadow-lg overflow-hidden p-6 space-y-8">
+                <div className="border border-gray-200 rounded-lg p-6 hover:border-[#d72828] transition-colors">
+                  <div className="mb-4">
+                    <h2 className="text-md font-semibold text-[#d72828] mb-6 border-b pb-2">Category Meta Data Bulk Upload</h2>
+                    <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-[#d72828]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Excel/CSV File
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Columns: <span className="font-mono text-gray-700 font-semibold">category_name, title, description, keywords</span>
+                    </p>
+                    <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2.5 mt-2">
+                      💡 <strong>Cell Skipping Rule:</strong> For Title, Description, and Keywords — if a cell has a value, it will be uploaded. If a cell is empty or not provided, that cell will be skipped and the existing category data will remain intact.
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    <input
+                      id="category_meta"
+                      type="file"
+                      accept=".xlsx,.csv"
+                      onChange={(e) => setCategory_meta(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-[#d72828] hover:file:bg-red-100"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDownloadCategory_meta_File}
+                    className="inline-flex items-center pt-5 text-sm text-[#d72828] hover:text-[#d72828] transition-colors"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Download Sample Format
+                  </button>
+                </div>
+                <div className="flex mt-5 justify-between">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="bg-[#d72828] hover:bg-[#d72828] text-white px-3 py-2 rounded-md flex items-center gap-2"
+                  >
+                    {isLoading && activeUploadType == "category_meta" ? (
+                      <span className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Uploading...
+                      </span>
+                    ) : (
+                      'Upload Category Meta Values'
                     )}
                   </button>
                 </div>
