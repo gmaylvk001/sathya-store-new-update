@@ -3,12 +3,11 @@ import dbConnect from "@/lib/db";
 import OfferModule from "@/models/OfferModule";
 import { generateSlug } from "@/lib/offersHelper";
 
-async function uniqueSlug(baseSlug, excludeId = null) {
+async function uniqueSlug(baseSlug) {
   let slug = baseSlug;
   let n = 2;
   while (true) {
-    const query = excludeId ? { slug, _id: { $ne: excludeId } } : { slug };
-    const existing = await OfferModule.findOne(query);
+    const existing = await OfferModule.findOne({ slug });
     if (!existing) return slug;
     slug = `${baseSlug}-${n++}`;
   }
@@ -20,10 +19,6 @@ export async function POST(req) {
     const data = await req.json();
     const offerName = data.offerName?.trim();
     const requestedSlug = data.slug?.trim();
-    const description = data.description?.trim() || "";
-    const banner = data.banner?.trim() || "";
-    const isActive = data.isActive !== undefined ? Boolean(data.isActive) : true;
-    const products = Array.isArray(data.products) ? data.products : [];
 
     if (!offerName) {
       return NextResponse.json({ success: false, error: "Offer name is required" }, { status: 400 });
@@ -34,7 +29,6 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: "Invalid offer name or slug" }, { status: 400 });
     }
 
-    // Check if the exact requested slug already exists
     if (requestedSlug) {
       const existing = await OfferModule.findOne({ slug: baseSlug });
       if (existing) {
@@ -46,14 +40,9 @@ export async function POST(req) {
     }
 
     const finalSlug = await uniqueSlug(baseSlug);
-
     const newOffer = new OfferModule({
       offerName,
       slug: finalSlug,
-      description,
-      banner,
-      isActive,
-      products,
     });
 
     await newOffer.save();
