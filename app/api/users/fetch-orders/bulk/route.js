@@ -7,7 +7,8 @@ export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 /**
- * POST /api/users/fetch-orders/bulk  { afterId?, limit? }
+ * POST /api/users/fetch-orders/bulk  { afterId?, limit?, mode? }
+ * mode: "pending" (default) = not yet fetched | "refetch" = already fetched (check new exist orders)
  * Bulk exist orders fetch for customer users (Users page).
  */
 export async function POST(req) {
@@ -17,7 +18,13 @@ export async function POST(req) {
   try {
     await dbConnect();
     const body = await req.json().catch(() => ({}));
-    const result = await bulkFetchExistOrders({ userType: "user", afterId: body?.afterId, limit: body?.limit });
+    const mode = body?.mode === "refetch" ? "refetch" : "pending";
+    const result = await bulkFetchExistOrders({
+      userType: "user",
+      afterId: body?.afterId,
+      limit: body?.limit,
+      mode,
+    });
     return NextResponse.json(result);
   } catch (error) {
     console.error("Bulk exist orders fetch error:", error);

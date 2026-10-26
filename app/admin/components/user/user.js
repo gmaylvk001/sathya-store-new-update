@@ -34,6 +34,7 @@ export default function UserComponent() {
   const [fetchingOrdersUserId, setFetchingOrdersUserId] = useState(null);
   const [bulkFetchBatch, setBulkFetchBatch] = useState(1000);
   const [isBulkFetching, setIsBulkFetching] = useState(false);
+  const [bulkFetchMode, setBulkFetchMode] = useState(null); // "pending" | "refetch"
   const [bulkFetchProgress, setBulkFetchProgress] = useState(null);
   const stopBulkFetchRef = useRef(false);
 
@@ -132,16 +133,20 @@ export default function UserComponent() {
     }
   };
 
-  const handleBulkFetchOrders = async () => {
+  const handleBulkFetchOrders = async (mode = "pending") => {
+    const isRefetch = mode === "refetch";
     const confirmed = window.confirm(
-      `Fetch exist orders for all pending exist users (${bulkFetchBatch} users per batch)? Already-copied order numbers will be skipped. This can take a long time.`
+      isRefetch
+        ? `Re-check exist orders for already-fetched users (${bulkFetchBatch} per batch)? New exist orders will be inserted; already-copied order numbers will be skipped. This can take a long time.`
+        : `Fetch exist orders for all pending exist users (${bulkFetchBatch} users per batch)? Already-copied order numbers will be skipped. This can take a long time.`
     );
     if (!confirmed) return;
 
     stopBulkFetchRef.current = false;
     setIsBulkFetching(true);
+    setBulkFetchMode(mode);
     const totals = { batches: 0, processed: 0, fetchedUsers: 0, noOrders: 0, failed: 0, inserted: 0, skipped: 0, remaining: null };
-    setBulkFetchProgress({ ...totals });
+    setBulkFetchProgress({ ...totals, mode });
 
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
@@ -151,7 +156,7 @@ export default function UserComponent() {
       while (!stopBulkFetchRef.current) {
         const { data } = await axios.post(
           "/api/users/fetch-orders/bulk",
-          { afterId, limit: bulkFetchBatch },
+          { afterId, limit: bulkFetchBatch, mode },
           { headers, timeout: 310000 }
         );
         totals.batches += 1;
@@ -159,7 +164,7 @@ export default function UserComponent() {
           totals[key] += data[key] || 0;
         });
         totals.remaining = data.remaining;
-        setBulkFetchProgress({ ...totals });
+        setBulkFetchProgress({ ...totals, mode });
         afterId = data.lastId;
         if (data.done || !data.processed) break;
       }
@@ -167,11 +172,13 @@ export default function UserComponent() {
       errorText = error.response?.data?.error || error.message || "Bulk fetch failed";
     } finally {
       setIsBulkFetching(false);
+      setBulkFetchMode(null);
       const stopped = stopBulkFetchRef.current ? " (stopped)" : "";
+      const label = isRefetch ? "Bulk re-fetch" : "Bulk fetch";
       setAlertMessage(
         errorText
           ? `❌ ${errorText}. Done so far: ${totals.processed} users, ${totals.inserted} orders inserted.`
-          : `✅ Bulk fetch finished${stopped}: ${totals.processed} users processed, ${totals.fetchedUsers} fetched, ${totals.noOrders} without orders, ${totals.failed} failed. Orders inserted: ${totals.inserted}, already existed: ${totals.skipped}.`
+          : `✅ ${label} finished${stopped}: ${totals.processed} users processed, ${totals.fetchedUsers} with work, ${totals.noOrders} without orders, ${totals.failed} failed. Orders inserted: ${totals.inserted}, already existed: ${totals.skipped}.`
       );
       setShowAlert(true);
       setTimeout(() => setShowAlert(false), 8000);
@@ -365,6 +372,9 @@ export default function UserComponent() {
   const existUsersCount = users.filter((user) => String(user.exist_id || "").trim()).length;
   const pendingOrdersFetchCount = users.filter(
     (user) => String(user.exist_id || "").trim() && Number(user.orders_fetched) !== 1
+  ).length;
+  const alreadyFetchedOrdersCount = users.filter(
+    (user) => String(user.exist_id || "").trim() && Number(user.orders_fetched) === 1
   ).length;
 
   // Pagination calculations
@@ -587,14 +597,26 @@ export default function UserComponent() {
                     Stop after this batch
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={handleBulkFetchOrders}
-                    disabled={pendingOrdersFetchCount === 0 || isBulkDeleting || Boolean(fetchingOrdersUserId)}
-                    className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition text-sm disabled:opacity-50"
-                  >
-                    Bulk Fetch Orders ({pendingOrdersFetchCount} pending)
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkFetchOrders("pending")}
+                      disabled={pendingOrdersFetchCount === 0 || isBulkDeleting || Boolean(fetchingOrdersUserId)}
+                      className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition text-sm disabled:opacity-50"
+                      title="Fetch exist orders for users not yet marked as fetched"
+                    >
+                      Bulk Fetch Orders ({pendingOrdersFetchCount} pending)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBulkFetchOrders("refetch")}
+                      disabled={alreadyFetchedOrdersCount === 0 || isBulkDeleting || Boolean(fetchingOrdersUserId)}
+                      className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition text-sm disabled:opacity-50"
+                      title="Re-check already-fetched users for new exist orders"
+                    >
+                      Bulk Re-Fetch Orders ({alreadyFetchedOrdersCount} fetched)
+                    </button>
+                  </>
                 )}
                 <span
                   className="inline-flex items-center rounded px-2 py-1 text-xs font-semibold text-yellow-900"
@@ -606,7 +628,9 @@ export default function UserComponent() {
             </div>
             {bulkFetchProgress && (
               <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
-                {isBulkFetching ? "Bulk fetching orders… " : "Last bulk fetch: "}
+                {isBulkFetching
+                  ? `Bulk ${bulkFetchMode === "refetch" ? "re-fetching" : "fetching"} orders… `
+                  : `Last bulk ${bulkFetchProgress.mode === "refetch" ? "re-fetch" : "fetch"}: `}
                 batches {bulkFetchProgress.batches}, users processed {bulkFetchProgress.processed}, fetched {bulkFetchProgress.fetchedUsers},
                 no orders {bulkFetchProgress.noOrders}, failed {bulkFetchProgress.failed} · orders inserted {bulkFetchProgress.inserted},
                 already existed {bulkFetchProgress.skipped}
