@@ -1424,6 +1424,13 @@ const calculateTotalWarranty = () => {
   return cartData.items.reduce((sum, item) => sum + getWarrantyPrice(item), 0);
 };
 
+const calculateTotalExchange = () => {
+  if (!cartData || !cartData.items) return 0;
+  return cartData.items.reduce((sum, item) => {
+    return sum + (Number(item.exchangeOffer?.price || 0) * (item.quantity || 1));
+  }, 0);
+};
+
   const calculateDiscount = () => {
     if (!appliedCoupon || !cartData) return 0;
 
@@ -1433,7 +1440,8 @@ const calculateTotalWarranty = () => {
   const calculateTotal = () => {
     const subtotal = calculateSubtotal();
     const discount = calculateDiscount();
-    return subtotal - discount;
+    const exchange = calculateTotalExchange();
+    return Math.max(0, subtotal - discount - exchange);
   };
 
   const calculateTotalMRP = () => calculateMRP();
@@ -1486,6 +1494,7 @@ const calculateTotalWarranty = () => {
         variantValues: item.variantValues || null,
         selectedVariant: item.selectedVariant || null,
         color: item.color || null,
+        exchangeOffer: item.exchangeOffer || null,
 
       }))
 
@@ -1895,6 +1904,15 @@ return (
                         </div>
                       )}
 
+                      {Number(item.exchangeOffer?.price) > 0 && (
+                        <div className="inline-flex items-center gap-2 bg-emerald-50/90 border border-emerald-200 text-emerald-900 rounded-lg px-2.5 py-1 text-xs mt-0.5 w-fit shadow-2xs">
+                          <span className="font-semibold text-emerald-950">Exchange Value</span>
+                          <span className="bg-emerald-100/90 text-emerald-900 font-bold px-1.5 py-0.5 rounded text-[11px] border border-emerald-200">
+                            −₹{Number(item.exchangeOffer.price).toLocaleString("en-IN")}
+                          </span>
+                        </div>
+                      )}
+
                       {item.item_code && (
                         <p className="text-xs text-gray-400 font-normal">SKU: {item.item_code}</p>
                       )}
@@ -2139,6 +2157,15 @@ return (
                   </span>
                   <span className="font-semibold text-gray-900">
                     +₹{Number(calculateTotalWarranty()).toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
+
+              {calculateTotalExchange() > 0 && (
+                <div className="flex justify-between items-center text-emerald-700 font-medium">
+                  <span>Exchange Value</span>
+                  <span className="font-semibold text-emerald-600">
+                    −₹{Number(calculateTotalExchange()).toLocaleString("en-IN")}
                   </span>
                 </div>
               )}

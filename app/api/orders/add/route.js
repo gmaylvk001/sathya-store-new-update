@@ -77,13 +77,23 @@ function resolveItemWarrantyAmount(item) {
   return legacy > 10 ? legacy : 0;
 }
 
+function resolveExchangeAmount(item) {
+  return (
+    toNumber(item?.exchangeOffer?.price, 0) ||
+    toNumber(item?.exchange_off_amount, 0) ||
+    toNumber(item?.eo_amount, 0) ||
+    0
+  );
+}
+
 function lineAmount(item) {
   const price = toNumber(item.price ?? item.product_price, 0) || 0;
   const qty = toNumber(item.quantity, 1) || 1;
   const discount = toNumber(item.discount, 0) || 0;
   const warranty = resolveItemWarrantyAmount(item);
-  const total = price * qty - discount + warranty;
-  return Number.isFinite(total) && total > 0 ? total : price * qty;
+  const exchange = resolveExchangeAmount(item) * qty;
+  const total = price * qty - discount + warranty - exchange;
+  return Number.isFinite(total) && total > 0 ? total : Math.max(0, price * qty - exchange);
 }
 
 function buildOrderDetailRows(order_item, order_details, savedOrder, userId) {
@@ -136,6 +146,53 @@ function buildOrderDetailRows(order_item, order_details, savedOrder, userId) {
       attributes: row.attributes || fromItem.attributes || null,
       coupondetails: row.coupondetails ?? fromItem.coupondetails ?? null,
       type: stringify(row.type || fromItem.type) || "online",
+      is_exchange_offer: toNumber(
+        row.is_exchange_offer ??
+          fromItem.is_exchange_offer ??
+          (fromItem.exchangeOffer?.price || row.exchangeOffer?.price ? 1 : 0),
+        0
+      ),
+      eo_amount: toNumber(
+        row.eo_amount ??
+          fromItem.eo_amount ??
+          row.exchange_off_amount ??
+          fromItem.exchange_off_amount ??
+          row.exchangeOffer?.price ??
+          fromItem.exchangeOffer?.price,
+        0
+      ),
+      exchange_off_type: stringify(
+        row.exchange_off_type ||
+          fromItem.exchange_off_type ||
+          row.exchangeOffer?.type ||
+          fromItem.exchangeOffer?.type
+      ),
+      exchange_off_brand: stringify(
+        row.exchange_off_brand ||
+          fromItem.exchange_off_brand ||
+          row.exchangeOffer?.brand ||
+          fromItem.exchangeOffer?.brand
+      ),
+      exchange_off_cond: stringify(
+        row.exchange_off_cond ||
+          fromItem.exchange_off_cond ||
+          row.exchangeOffer?.condition ||
+          fromItem.exchangeOffer?.condition
+      ),
+      exchange_off_pin: toNumber(
+        row.exchange_off_pin ??
+          fromItem.exchange_off_pin ??
+          row.exchangeOffer?.zone ??
+          fromItem.exchangeOffer?.zone,
+        null
+      ),
+      exchange_off_amount: toNumber(
+        row.exchange_off_amount ??
+          fromItem.exchange_off_amount ??
+          row.exchangeOffer?.price ??
+          fromItem.exchangeOffer?.price,
+        0
+      ),
     };
   }).filter((row) => row.product_name || row.item_code || row.product_id);
 }
@@ -348,8 +405,9 @@ export async function POST(req) {
       const warranty =
         warrantyFromData || resolveItemWarrantyAmount(item);
       const discount = Math.max(0, toNumber(item.discount, 0) || 0);
-      const lineTotal = price * qty - discount + warranty;
-      serverTotal += lineTotal > 0 ? lineTotal : price * qty;
+      const exchange = resolveExchangeAmount(item) * qty;
+      const lineTotal = price * qty - discount + warranty - exchange;
+      serverTotal += lineTotal > 0 ? lineTotal : Math.max(0, price * qty - exchange);
       pricedItems.push({
         ...item,
         quantity: qty,

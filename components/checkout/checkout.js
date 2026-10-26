@@ -1977,7 +1977,8 @@ export default function CheckoutPage() {
         const unit = Number(item.price > 0 ? item.price : item.actual_price) || 0;
         const qty = Number(item.quantity) || 1;
         const lineDiscount = Number(item.discount) || 0;
-        return sum + unit * qty + lineWarrantyAmount(item) - lineDiscount;
+        const lineExchange = Number(item.exchangeOffer?.price || 0) * qty;
+        return sum + unit * qty + lineWarrantyAmount(item) - lineDiscount - lineExchange;
       }, 0);
       const totalAmount = Math.max(
         0,
@@ -2092,6 +2093,14 @@ export default function CheckoutPage() {
                 selectedVariant: item.selectedVariant || item.variantValues || null,
                 color: item.color || null,
                 attributes: item.attributes || null,
+                is_exchange_offer: Number(item.exchangeOffer?.price) > 0 ? 1 : 0,
+                exchange_off_type: item.exchangeOffer?.type || null,
+                exchange_off_brand: item.exchangeOffer?.brand || null,
+                exchange_off_cond: item.exchangeOffer?.condition || null,
+                exchange_off_pin: item.exchangeOffer?.zone ? Number(item.exchangeOffer.zone) || null : null,
+                exchange_off_amount: Number(item.exchangeOffer?.price) || 0,
+                eo_amount: Number(item.exchangeOffer?.price) || 0,
+                exchangeOffer: item.exchangeOffer || null,
               })),
             }),
           });
@@ -2199,6 +2208,14 @@ export default function CheckoutPage() {
             selectedVariant: item.selectedVariant || item.variantValues || null,
             color: item.color || null,
             attributes: item.attributes || null,
+            is_exchange_offer: Number(item.exchangeOffer?.price) > 0 ? 1 : 0,
+            exchange_off_type: item.exchangeOffer?.type || null,
+            exchange_off_brand: item.exchangeOffer?.brand || null,
+            exchange_off_cond: item.exchangeOffer?.condition || null,
+            exchange_off_pin: item.exchangeOffer?.zone ? Number(item.exchangeOffer.zone) || null : null,
+            exchange_off_amount: Number(item.exchangeOffer?.price) || 0,
+            eo_amount: Number(item.exchangeOffer?.price) || 0,
+            exchangeOffer: item.exchangeOffer || null,
           })),
         }),
       });
@@ -2248,7 +2265,8 @@ export default function CheckoutPage() {
   // ─── Price summary helpers ─────────────────────────────────────────────────
   const productPrice = orderSummary.subtotal + orderSummary.discount;
   const shippingCost = shippingMethod === 'express' ? 299 : 0;
-  const finalTotal = orderSummary.total + shippingCost;
+  // orderSummary.total / cart totalPrice already net of exchange when present
+  const finalTotal = Math.max(0, orderSummary.total + shippingCost);
 
   const handleAddressSaved = async (newOrUpdatedAddr) => {
     if (addressModalType === 'edit') {

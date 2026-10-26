@@ -60,6 +60,25 @@ const getCartIdentifier = (req, body = {}) => {
   return { userId: null, guestId };
 };
 
+const normalizeExchangeOffer = (offer) => {
+  if (!offer || typeof offer !== "object") return null;
+  const price = Number(offer.price || offer.exchange_off_amount || 0);
+  if (!(price > 0)) return null;
+  return {
+    id: offer._id || offer.id || null,
+    title: offer.title || offer.name || null,
+    price,
+    brand:
+      typeof offer.brand === "string"
+        ? offer.brand
+        : offer.brand?.name || offer.exchange_off_brand || null,
+    type: offer.type || offer.exchange_off_type || null,
+    condition: offer.condition || offer.exchange_off_cond || null,
+    model: offer.model || null,
+    zone: offer.zone || offer.exchange_off_pin || null,
+  };
+};
+
 const calculateCartTotals = (items = []) => {
   let totalItems = 0;
   let totalPrice = 0;
@@ -74,12 +93,13 @@ const calculateCartTotals = (items = []) => {
       0
     );
     const upsells = item.upsells?.reduce((uSum, u) => uSum + (u.price || 0), 0) || 0;
+    const exchange = Number(item.exchangeOffer?.price || 0) * (item.quantity || 1);
 
     totalItems += item.quantity || 1;
-    totalPrice += base + warranty + extended + upsells;
+    totalPrice += base + warranty + extended + upsells - exchange;
   }
 
-  return { totalItems, totalPrice };
+  return { totalItems, totalPrice: Math.max(0, totalPrice) };
 };
 
 async function getQuantity(item_code) {
@@ -104,9 +124,11 @@ export async function POST(req) {
       selectedVariant = null,
       variantValues = null,
       color = null,
+      exchangeOffer = null,
       region: reqRegion,
       pincode: reqPincode,
     } = body;
+    const normalizedExchangeOffer = normalizeExchangeOffer(exchangeOffer);
 
     if (!productId) {
       return NextResponse.json({ error: "Product ID is required" }, { status: 400 });
@@ -248,6 +270,9 @@ export async function POST(req) {
       cart.items[existingItemIndex].variantValues = resolvedVariantValues;
       cart.items[existingItemIndex].selectedVariant = resolvedVariantValues;
       cart.items[existingItemIndex].color = resolvedColor;
+      if (normalizedExchangeOffer) {
+        cart.items[existingItemIndex].exchangeOffer = normalizedExchangeOffer;
+      }
     } else {
       const isWarrantyEligible = Boolean(warrantyData) || Number(selectedExtendedWarranty || 0) > 0 || Number(selectedWarranty || 0) > 0 || isExtendedWarrantyEligible(product);
       const effectiveExtendedWarranty = isWarrantyEligible
@@ -316,6 +341,7 @@ export async function POST(req) {
         selectedVariant: resolvedVariantValues,
         color: resolvedColor,
         actual_price: priceInfo.price,
+        ...(normalizedExchangeOffer ? { exchangeOffer: normalizedExchangeOffer } : {}),
       });
     }
 
@@ -525,6 +551,7 @@ export async function GET(req) {
           slug: prodDoc?.slug || "",
           isCombo: Boolean(item.isCombo),
           comboId: item.comboId ? item.comboId.toString() : null,
+          exchangeOffer: normalizeExchangeOffer(item.exchangeOffer),
         };
       })
     );
@@ -707,6 +734,7 @@ export async function PUT(req) {
         color: item.color || null,
         slug: item.slug || item.productId?.slug || "",
         original_quantity: item.original_quantity ?? null,
+        exchangeOffer: normalizeExchangeOffer(item.exchangeOffer),
       };
     });
 

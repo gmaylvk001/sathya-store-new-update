@@ -196,7 +196,7 @@ const Footer = () => {
       subs.forEach((sub) => {
         links.push({
           label: sub.category_name,
-          href: `/category/${main.category_slug}/${sub.category_slug}`,
+          href: `/category/${sub.category_slug}`,
           id: sub._id,
         });
       });
@@ -224,11 +224,11 @@ const Footer = () => {
 
         rows.push({
           title: sub.category_name,
-          href: `/category/${main.category_slug}/${sub.category_slug}`,
+          href: `/category/${sub.category_slug}`,
           id: sub._id,
           children: children.map((child) => ({
             label: child.category_name,
-            href: `/category/${main.category_slug}/${sub.category_slug}/${child.category_slug}`,
+            href: `/category/${sub.category_slug}/${child.category_slug}`,
           })),
         });
       });

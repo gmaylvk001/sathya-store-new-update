@@ -13,7 +13,7 @@ import OpenBoxPopup from "@/components/OpenBoxPopup";
 
 import { v4 as uuidv4 } from "uuid";
 
-const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts = [], extendedWarranty, selectedFrequentProducts = [], stockQuantity = 1, special_price, onSuccess, buttonLabel, buttonClassName, movement, productName, productSlug, warrantyData, variantValues, selectedVariant, color }) => {
+const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts = [], extendedWarranty, selectedFrequentProducts = [], stockQuantity = 1, special_price, onSuccess, buttonLabel, buttonClassName, movement, productName, productSlug, warrantyData, variantValues, selectedVariant, color, exchangeOffer = null }) => {
   const { openAuthModal } = useModal();
   const { updateHeaderdetails, setIsLoggedIn, setUserData, setIsAdmin, userData } = useHeaderdetails();
   const [isLoading, setIsLoading] = useState(false);
@@ -84,6 +84,7 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
             variantValues: variantValues || selectedVariant || undefined,
             selectedVariant: selectedVariant || variantValues || undefined,
             color: color || undefined,
+            ...(exchangeOffer ? { exchangeOffer } : {}),
             guestCartId: guestCartId || undefined,
           }),
         });

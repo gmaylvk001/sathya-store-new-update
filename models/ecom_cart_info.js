@@ -71,6 +71,16 @@ const cartItemSchema = new mongoose.Schema({
       price: Number,
     },
   ],
+  exchangeOffer: {
+    id: { type: String, default: null },
+    title: { type: String, default: null },
+    price: { type: Number, default: 0 },
+    brand: { type: String, default: null },
+    type: { type: String, default: null },
+    condition: { type: String, default: null },
+    model: { type: String, default: null },
+    zone: { type: mongoose.Schema.Types.Mixed, default: null },
+  },
 }, { _id: false, strict: false });
 
 const cartSchema = new mongoose.Schema({
@@ -146,7 +156,8 @@ cartSchema.pre('save', function(next) {
       0
     );
     const upsells = item.upsells?.reduce((uSum, u) => uSum + (u.price || 0), 0) || 0;
-    return sum + base + warranty + extended + upsells;
+    const exchange = Number(item.exchangeOffer?.price || 0) * (item.quantity || 1);
+    return sum + base + warranty + extended + upsells - exchange;
   }, 0);
   this.updatedAt = Date.now();
   next();

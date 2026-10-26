@@ -274,6 +274,7 @@ export default function ProductClient({ initialProduct = null }) {
   productRef.current = product;
   const [highlightOffer, setHighlightOffer] = useState(null);
   const [hasExchangeOffers, setHasExchangeOffers] = useState(false);
+  const [appliedExchangeOffer, setAppliedExchangeOffer] = useState(null);
   const [hasPaymentOffers, setHasPaymentOffers] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isEmiModalOpen, setIsEmiModalOpen] = useState(false);
@@ -659,22 +660,28 @@ export default function ProductClient({ initialProduct = null }) {
 
     if (!isInStock || !isMovementAllowed) return;
 
-    // Only accept genuine plain exchangeOffer objects (no DOM elements or event wrappers)
+    // Prefer offer passed in (legacy), else the offer applied on this PDP
     let exchangeOffer = null;
-    if (
+    const offerSource =
       e &&
       typeof e === 'object' &&
       !('nativeEvent' in e) &&
       !('target' in e) &&
       !('currentTarget' in e) &&
       typeof e.preventDefault !== 'function'
-    ) {
+        ? e
+        : appliedExchangeOffer;
+
+    if (offerSource && typeof offerSource === 'object') {
       exchangeOffer = {
-        id: e._id || e.id || null,
-        title: e.title || e.name || e.product_name || null,
-        price: Number(e.price || e.discount || e.value || 0),
-        brand: typeof e.brand === 'string' ? e.brand : (e.brand?.name || null),
-        model: e.model || null,
+        id: offerSource._id || offerSource.id || null,
+        title: offerSource.title || offerSource.name || offerSource.product_name || null,
+        price: Number(offerSource.price || offerSource.discount || offerSource.value || 0),
+        brand: typeof offerSource.brand === 'string' ? offerSource.brand : (offerSource.brand?.name || null),
+        type: offerSource.type || null,
+        condition: offerSource.condition || null,
+        model: offerSource.model || null,
+        zone: offerSource.zone || null,
       };
     }
 
@@ -743,6 +750,7 @@ export default function ProductClient({ initialProduct = null }) {
             variantValues: currentVariantValues || undefined,
             selectedVariant: currentVariantValues || undefined,
             color: currentColor || undefined,
+            ...(exchangeOffer ? { exchangeOffer } : {}),
             ...(guestCartId && { guestCartId }),
           }),
         });
@@ -810,6 +818,11 @@ export default function ProductClient({ initialProduct = null }) {
           id: exchangeOffer.id,
           title: exchangeOffer.title,
           price: Number(exchangeOffer.price) || 0,
+          brand: exchangeOffer.brand || null,
+          type: exchangeOffer.type || null,
+          condition: exchangeOffer.condition || null,
+          model: exchangeOffer.model || null,
+          zone: exchangeOffer.zone || null,
         } : null,
       };
 
@@ -925,9 +938,21 @@ export default function ProductClient({ initialProduct = null }) {
   }, []);
 
   const handleExchangeApply = (offer) => {
-    if (offer) {
-      handleBuyNow(offer);
+    if (!offer) {
+      setAppliedExchangeOffer(null);
+      return;
     }
+    // Stay on product page — only store the offer until Add to Cart / Buy Now
+    setAppliedExchangeOffer({
+      id: offer._id || offer.id || null,
+      title: offer.title || offer.name || null,
+      price: Number(offer.price || 0),
+      brand: typeof offer.brand === "string" ? offer.brand : (offer.brand?.name || null),
+      type: offer.type || null,
+      condition: offer.condition || null,
+      model: offer.model || null,
+      zone: offer.zone || null,
+    });
   };
 
   const [quantityWarning, setQuantityWarning] = useState(false);
@@ -1847,6 +1872,7 @@ export default function ProductClient({ initialProduct = null }) {
                       variantValues={currentVariantValues}
                       selectedVariant={currentVariantValues}
                       color={currentColor}
+                      exchangeOffer={appliedExchangeOffer}
                       buttonLabel={isOpenBox ? "Enquire to Buy" : "Add to Cart"}
                       buttonClassName={addToCartOutlineClass}
                       movement={product.movement}
@@ -2089,6 +2115,7 @@ export default function ProductClient({ initialProduct = null }) {
                 variantValues={currentVariantValues}
                 selectedVariant={currentVariantValues}
                 color={currentColor}
+                exchangeOffer={appliedExchangeOffer}
                 buttonLabel="Add Selected to Cart"
                 buttonClassName="bg-[#d72828] text-white"
                 movement={product.movement}
@@ -2595,6 +2622,7 @@ export default function ProductClient({ initialProduct = null }) {
                             variantValues={currentVariantValues}
                             selectedVariant={currentVariantValues}
                             color={currentColor}
+                            exchangeOffer={appliedExchangeOffer}
                             buttonLabel={isOpenBox ? "Enquire to Buy" : "Add To Cart"}
                             buttonClassName="w-full border-2 border-[#d72828] text-[#d72828] hover:bg-red-50 font-bold py-2.5 rounded-lg text-sm transition-all shadow-none"
                             movement={product.movement}

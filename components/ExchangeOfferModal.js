@@ -107,23 +107,6 @@ export default function ExchangeOfferModal({
     setIsChecking(true);
 
     try {
-      // 1. Check pickup serviceability using the existing codebase pincode serviceability endpoint
-      const serviceabilityRes = await fetch(
-        `/api/pincode/check?pincode=${encodeURIComponent(cleanPin)}`
-      );
-      let isServiceable = false;
-
-      if (serviceabilityRes.ok) {
-        const servData = await serviceabilityRes.json();
-        isServiceable = !!servData?.serviceable;
-      }
-
-      if (!isServiceable) {
-        setError("Exchange pickup is not available for this pincode.");
-        return;
-      }
-
-      // 2. Fetch exchange offer price for the selected condition & validated zone
       const res = await fetch("/api/exchange-offers-condition/check", {
         method: "POST",
         headers: {
@@ -143,6 +126,8 @@ export default function ExchangeOfferModal({
         setCheckResult(data.data);
         setIsPincodeVerified(true);
         setSuccessMessage("Exchange pickup available for this pincode");
+      } else if (data?.invalidPincode) {
+        setError(data.error || "This is not a valid Indian pincode.");
       } else {
         setError(data.error || "No matching exchange offer found for your selection.");
       }
@@ -242,7 +227,7 @@ export default function ExchangeOfferModal({
           )}
 
           <div className="space-y-1">
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 sm:gap-2 min-w-0">
               <input
                 type="text"
                 inputMode="numeric"
@@ -251,7 +236,7 @@ export default function ExchangeOfferModal({
                 placeholder="Enter 6-digit pickup pincode"
                 value={pincode}
                 onChange={handlePincodeChange}
-                className={`flex-1 border rounded p-2 text-sm focus:outline-none ${
+                className={`min-w-0 flex-1 border rounded py-2 pl-2 pr-1 sm:p-2 text-sm focus:outline-none ${
                   error
                     ? "border-red-400 focus:border-red-500"
                     : isPincodeVerified
@@ -263,7 +248,7 @@ export default function ExchangeOfferModal({
                 type="button"
                 onClick={handleCheck}
                 disabled={isChecking || pincode.length !== 6}
-                className="bg-[#d72828] text-white px-4 py-2 rounded text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="shrink-0 bg-[#d72828] text-white px-3 sm:px-4 py-2 rounded text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isChecking ? "Checking..." : "Check"}
               </button>
