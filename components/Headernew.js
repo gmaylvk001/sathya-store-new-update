@@ -123,8 +123,6 @@ const HEADER_ACTION_BADGE_SM_CLASS =
 
 const Header = () => {
   const router = useRouter();
-  // REMOVED: unused pathname
-  // const pathname = usePathname();
   const [category, setCategory] = useState('All Category');
   const [activeSubCategory, setActiveSubCategory] = useState(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -921,14 +919,12 @@ const Header = () => {
     };
   }, [categories, collectAvailabilityRequests]);
 
-  const overviewAvailabilityKey = useMemo(() => {
-    const keys = Object.keys(overviewAvailability || {}).filter(
-      (k) => overviewAvailability[k]
-    );
-    return keys.sort().join('|');
-  }, [overviewAvailability]);
   const [sortOption, setSortOption] = useState('');
   const [hoveredCategory, setHoveredCategory] = useState(null);
+
+  // Keep a ref so hover brand-availability fetch does not re-run on every map update
+  const overviewAvailabilityRef = useRef(overviewAvailability);
+  overviewAvailabilityRef.current = overviewAvailability;
 
   useEffect(() => {
     if (!hoveredCategory?._id) return;
@@ -954,10 +950,11 @@ const Header = () => {
       });
     }
     if (!pages.length) return;
+    const avail = overviewAvailabilityRef.current || {};
     const missing = pages.filter(
       (p) =>
-        overviewAvailability[`${p.categoryId}:${PAGE_TYPES.BRAND}`] === undefined &&
-        (!p.slug || overviewAvailability[`${p.slug}:${PAGE_TYPES.BRAND}`] === undefined)
+        avail[`${p.categoryId}:${PAGE_TYPES.BRAND}`] === undefined &&
+        (!p.slug || avail[`${p.slug}:${PAGE_TYPES.BRAND}`] === undefined)
     );
     if (!missing.length) return;
 
@@ -984,7 +981,7 @@ const Header = () => {
     return () => {
       cancelled = true;
     };
-  }, [hoveredCategory, overviewAvailability]);
+  }, [hoveredCategory]);
   const [dropdownLeft, setDropdownLeft] = useState(0);
   const [dropdownTop, setDropdownTop] = useState(0);
   const [dropdownCenterX, setDropdownCenterX] = useState(null);
@@ -2914,7 +2911,6 @@ const Header = () => {
             <div className="relative">
               <div className="flex justify-center overflow-x-auto scrollbar-hide">
                 <Swiper
-                  key={`cat-bar-${overviewAvailabilityKey || 'pending'}`}
                   modules={[Navigation]}
                   navigation={{ prevEl: ".custom-swiper-prev", nextEl: ".custom-swiper-next" }}
                   spaceBetween={20}
@@ -2932,6 +2928,12 @@ const Header = () => {
                           onClick={(e) => {
                             // Ensure latest availability is used even if Swiper cached the slide href.
                             e.preventDefault();
+                            if (hideTimeout.current) {
+                              clearTimeout(hideTimeout.current);
+                              hideTimeout.current = null;
+                            }
+                            setHoveredCategory(null);
+                            setActiveSubCategory(null);
                             handleCategoryClick(
                               category.category_slug,
                               category.category_name,
