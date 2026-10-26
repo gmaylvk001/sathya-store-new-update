@@ -11,7 +11,6 @@ import {
   readStoredSession,
   userIdFromToken,
   clearBrowserAuth,
-  AUTH_CONFLICT_MESSAGE,
 } from "@/lib/clientAuthSession";
 
 const schema = yup.object().shape({
@@ -25,6 +24,7 @@ export default function Login() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
@@ -36,7 +36,6 @@ export default function Login() {
     const goDashboard = (token, userId) => {
       if (redirectingRef.current) return;
       redirectingRef.current = true;
-      // Repair cookies before full navigation (avoids login↔dashboard loop)
       establishSession({
         token,
         userId,
@@ -48,8 +47,19 @@ export default function Login() {
 
     const boot = async () => {
       try {
+        // Storefront account already active → bounce away from admin login
+        const active = readStoredSession();
+        if (active?.userId && active.role !== "admin") {
+          redirectingRef.current = true;
+          window.location.replace("/");
+          return;
+        }
+
         const token = localStorage.getItem("token");
-        if (!token) return;
+        if (!token) {
+          setReady(true);
+          return;
+        }
 
         const res = await fetch("/api/auth/check", {
           headers: { Authorization: `Bearer ${token}` },
@@ -58,17 +68,25 @@ export default function Login() {
 
         if (data?.loggedIn && data?.role === "admin") {
           const uid = data.userId || userIdFromToken(token);
-          if (uid) goDashboard(token, uid);
+          if (uid) {
+            goDashboard(token, uid);
+            return;
+          }
+        }
+
+        if (data?.loggedIn && data?.role !== "admin") {
+          redirectingRef.current = true;
+          window.location.replace("/");
           return;
         }
 
-        // Stale non-admin / invalid session sitting on admin login — clear lock only if not admin
-        const existing = readStoredSession();
-        if (existing?.role === "admin" && !data?.loggedIn) {
+        if (active?.role === "admin" && !data?.loggedIn) {
           clearBrowserAuth();
         }
       } catch {
         /* ignore */
+      } finally {
+        if (!redirectingRef.current) setReady(true);
       }
     };
 
@@ -76,16 +94,16 @@ export default function Login() {
   }, [router]);
 
   const onSubmit = async (data) => {
+    const active = readStoredSession();
+    if (active?.userId && active.role !== "admin") {
+      window.location.replace("/");
+      return;
+    }
+
     setLoading(true);
     setMessage("");
 
     try {
-      // Block admin login if a different storefront account is already active
-      const active = readStoredSession();
-      if (active?.userId && active.role !== "admin") {
-        throw new Error(AUTH_CONFLICT_MESSAGE);
-      }
-
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,7 +116,8 @@ export default function Login() {
       const adminUserId = result.userId || userIdFromToken(result.token);
       const gate = canLoginAs(adminUserId);
       if (!gate.ok) {
-        throw new Error(gate.message || AUTH_CONFLICT_MESSAGE);
+        window.location.replace("/");
+        return;
       }
 
       establishSession({
@@ -110,13 +129,20 @@ export default function Login() {
 
       setMessage("Login successful! ✅");
       redirectingRef.current = true;
-      // Full navigation so middleware receives the new cookies
       window.location.replace("/admin/dashboard");
     } catch (error) {
       setMessage(error.message);
       setLoading(false);
     }
   };
+
+  if (!ready) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-red-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
