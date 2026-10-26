@@ -15,7 +15,7 @@ export async function POST(req) {
 
     await dbConnect();
     
-    const { name, mobile, email, password, status, role, admin_store_view } = await req.json();
+    const { name, mobile, email, password, status, role, admin_store_view, store_id } = await req.json();
     
     if (!name || !mobile || !email || !password || !status) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 });
@@ -24,6 +24,18 @@ export async function POST(req) {
     const storeView = admin_store_view || "sathya";
     if (!ADMIN_STORE_VIEWS.includes(storeView)) {
       return NextResponse.json({ error: "Invalid admin store view" }, { status: 400 });
+    }
+
+    const storeId = store_id != null && String(store_id).trim() !== "" ? String(store_id).trim() : null;
+    if (storeId) {
+      if (!mongoose.Types.ObjectId.isValid(storeId)) {
+        return NextResponse.json({ error: "Invalid store selected" }, { status: 400 });
+      }
+      const StoreListing = (await import("@/models/store_listings")).default;
+      const storeDoc = await StoreListing.findById(storeId).select("_id").lean();
+      if (!storeDoc) {
+        return NextResponse.json({ error: "Selected store not found" }, { status: 400 });
+      }
     }
 
     if (!/^\d{10}$/.test(mobile)) {
@@ -76,6 +88,7 @@ export async function POST(req) {
       status,
       role: roleId,
       admin_store_view: storeView,
+      store_id: storeId,
     });
 
     await newUser.save();

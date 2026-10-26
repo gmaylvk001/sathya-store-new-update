@@ -28,8 +28,10 @@ export default function SystemUsersComponent() {
     status: "Active",
     role: "",
     admin_store_view: "sathya",
+    store_id: "",
   });
   const [roles, setRoles] = useState([]);
+  const [storeListings, setStoreListings] = useState([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [loggedInName, setLoggedInName] = useState("");
@@ -46,6 +48,7 @@ export default function SystemUsersComponent() {
   useEffect(() => {
     fetchUsers();
     fetchRoles();
+    fetchStoreListings();
     fetchLoggedInName();
   }, []);
 
@@ -96,6 +99,26 @@ export default function SystemUsersComponent() {
     }
   };
 
+  const fetchStoreListings = async () => {
+    try {
+      const response = await axios.get("/api/store_listings/get", {
+        headers: getAuthHeaders(),
+      });
+      const rows = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.storeListing)
+          ? response.data.storeListing
+          : [];
+      const sorted = [...rows].sort((a, b) =>
+        String(a.title || a.name || "").localeCompare(String(b.title || b.name || ""))
+      );
+      setStoreListings(sorted);
+    } catch (error) {
+      console.error("Error fetching store listings:", error);
+      setStoreListings([]);
+    }
+  };
+
   const getRoleId = (role) => {
     if (!role) return "";
     if (typeof role === "string") return role;
@@ -109,7 +132,35 @@ export default function SystemUsersComponent() {
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      // When Admin Store View changes, keep store_id only if it still belongs to that view in store_listings.
+      if (name === "admin_store_view" && next.store_id) {
+        const selected = storeListings.find((s) => String(s._id) === String(next.store_id));
+        const owner = String(selected?.store_owner || "sathya").toLowerCase();
+        if (value === "sathya" && owner !== "sathya") next.store_id = "";
+        if (value === "unilet" && owner !== "unilet") next.store_id = "";
+      }
+      return next;
+    });
+  };
+
+  const storesForView = (() => {
+    const view = String(formData.admin_store_view || "sathya").toLowerCase();
+    if (view === "all") return storeListings;
+    return storeListings.filter(
+      (s) => String(s.store_owner || "sathya").toLowerCase() === view
+    );
+  })();
+
+  const getStoreLabel = (storeId) => {
+    if (!storeId) return "-";
+    const store = storeListings.find((s) => String(s._id) === String(storeId));
+    if (!store) return String(storeId);
+    const title = store.title || store.name || store.organisation_name || "Store";
+    const branch = store.branch_code ? ` (${store.branch_code})` : "";
+    return `${title}${branch}`;
   };
 
   const handleToggleSelect = (userId) => {
@@ -130,6 +181,7 @@ export default function SystemUsersComponent() {
       status: user.status,
       role: getRoleId(user.role),
       admin_store_view: user.admin_store_view || "sathya",
+      store_id: user.store_id ? String(user.store_id) : "",
     });
     setCurrentUserId(user._id);
     setIsEditMode(true);
@@ -347,6 +399,8 @@ export default function SystemUsersComponent() {
     }
 
     try {
+      const storeId = String(formData.store_id || "").trim() || null;
+
       if (isEditMode) {
         await axios.put(
           "/api/system_users/edit",
@@ -358,6 +412,7 @@ export default function SystemUsersComponent() {
             status: formData.status,
             role: formData.role || null,
             admin_store_view: formData.admin_store_view || "sathya",
+            store_id: storeId,
           },
           { headers: getAuthHeaders() }
         );
@@ -370,6 +425,7 @@ export default function SystemUsersComponent() {
             user_type: "admin",
             status: formData.status,
             role: formData.role || null,
+            store_id: storeId,
           },
           { headers: getAuthHeaders() }
         );
@@ -405,6 +461,7 @@ export default function SystemUsersComponent() {
       status: "Active",
       role: "",
       admin_store_view: "sathya",
+      store_id: "",
     });
     setIsEditMode(false);
     setCurrentUserId(null);
@@ -756,6 +813,7 @@ export default function SystemUsersComponent() {
                   <th className="p-2">Last Name</th>
                   <th className="p-2">Mobile Number</th>
                   <th className="p-2">Admin Store View</th>
+                  <th className="p-2">Store</th>
                   <th className="p-2">Role</th>
                   <th className="p-2">Status</th>
                   <th className="p-2">Created At</th>
@@ -783,6 +841,7 @@ export default function SystemUsersComponent() {
                       <td className="p-2">{user.last_name || '-'}</td>
                       <td className="p-2">{user.mobile || '-'}</td>
                       <td className="p-2 font-semibold capitalize">{user.admin_store_view || 'sathya'}</td>
+                      <td className="p-2 text-left text-sm">{getStoreLabel(user.store_id)}</td>
                       <td className="p-2">{getRoleName(user.role)}</td>
                       <td className="p-2">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -952,6 +1011,28 @@ export default function SystemUsersComponent() {
                 <option value="sathya">Sathya</option>
                 <option value="unilet">Unilet</option>
                 <option value="all">All (Sathya + Unilet)</option>
+              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Store <span className="text-gray-400 font-normal">(optional, from store_listings)</span>
+              </label>
+              <select
+                name="store_id"
+                value={formData.store_id}
+                onChange={handleChange}
+                className="w-full border p-2 mb-2 rounded"
+              >
+                <option value="">Select store (optional)</option>
+                {storesForView.map((store) => {
+                  const id = String(store._id);
+                  const title = store.title || store.name || store.organisation_name || "Store";
+                  const branch = store.branch_code ? ` (${store.branch_code})` : "";
+                  const owner = store.store_owner ? ` — ${store.store_owner}` : "";
+                  return (
+                    <option key={id} value={id}>
+                      {title}{branch}{owner}
+                    </option>
+                  );
+                })}
               </select>
               <button type="submit" className="bg-red-500 text-white px-4 py-2 rounded w-full mt-2">
                 {submitButtonText}

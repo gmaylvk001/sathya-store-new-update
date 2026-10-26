@@ -3,7 +3,7 @@
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
-import { FaPhoneAlt, FaStore, FaCommentDots, FaCog, FaPaperPlane } from "react-icons/fa";
+import { FaPhoneAlt, FaStore, FaCommentDots, FaCog, FaPaperPlane, FaCreditCard } from "react-icons/fa";
 import { MdDateRange } from "react-icons/md";
 import { IoWalletSharp } from "react-icons/io5";
 import { IoMdMail } from "react-icons/io";
@@ -35,6 +35,9 @@ const OrderDetails = () => {
   const [smsText, setSmsText] = useState("");
   const [sendingSms, setSendingSms] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [refundType, setRefundType] = useState("full");
+  const [refundAmount, setRefundAmount] = useState("");
+  const [submittingRefund, setSubmittingRefund] = useState(false);
   const isUniletOrder = String(order?.order_owner || "").trim().toLowerCase() === "unilet";
   const assignableStores = stores.filter((store) => {
     const owner = String(store?.store_owner || "").trim().toLowerCase();
@@ -276,20 +279,74 @@ const OrderDetails = () => {
   };
 
   const historyRows = Array.isArray(order?.order_history) ? order.order_history : [];
+
+  const refreshOrder = async () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const res = await fetch(`/api/orders_new/${orderId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    const data = await res.json();
+    if (data && !data.error) {
+      setOrder(data);
+      setAssignRoleId(data?.sales_person_role != null && data.sales_person_role !== "" ? String(data.sales_person_role) : "");
+      setAssignUserId(data?.sales_person_id != null && data.sales_person_id !== "" ? String(data.sales_person_id) : "");
+      setRemarks(data?.customer_comments != null ? String(data.customer_comments) : "");
+    }
+    return data;
+  };
+
+  const submitRefund = async () => {
+    if (!orderId) return;
+    if (refundType === "partial") {
+      const amt = Number(refundAmount);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        toast.error("Enter a valid refund amount");
+        return;
+      }
+    }
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+      toast.error("Please login again");
+      return;
+    }
+
+    setSubmittingRefund(true);
+    try {
+      const res = await fetch(`/api/orders_new/${orderId}/refund`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          refund_type: refundType,
+          refund_amount: refundType === "partial" ? Number(refundAmount) : undefined,
+          paymentid: order?.refund_payment_doc_id || null,
+          order_number: order?.order_number || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) {
+        toast.success(data.message || "Amount Refunded Successfully!");
+        setRefundType("full");
+        setRefundAmount("");
+        await refreshOrder();
+      } else {
+        toast.error(data.message || "Please try again!");
+        await refreshOrder();
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Please try again!");
+    } finally {
+      setSubmittingRefund(false);
+    }
+  };
+
   useEffect(() => {
     if (orderId) {
-      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-      fetch(`/api/orders_new/${orderId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-        .then(res => res.json())
-        .then((data) => {
-          setOrder(data);
-          setAssignRoleId(data?.sales_person_role != null && data.sales_person_role !== "" ? String(data.sales_person_role) : "");
-          setAssignUserId(data?.sales_person_id != null && data.sales_person_id !== "" ? String(data.sales_person_id) : "");
-          setRemarks(data?.customer_comments != null ? String(data.customer_comments) : "");
-        })
-        .catch(err => console.error("Fetch error:", err));
+      refreshOrder().catch((err) => console.error("Fetch error:", err));
     }
   }, [orderId]);
 
@@ -467,6 +524,15 @@ const OrderDetails = () => {
                 </tr>
               )
               }
+              {order.payment_refund?.refund_id ? (
+                <tr className="border-b">
+                  <td className="p-2 flex items-center gap-2 font-semibold text-gray-700">
+                    <FaCreditCard className="bg-red-500 text-white p-1 rounded-md w-6 h-6" />
+                    Refund ID :
+                  </td>
+                  <td className="p-2">{order.payment_refund.refund_id}</td>
+                </tr>
+              ) : null}
               <tr className="border-b">
                 <td className="p-2 flex items-center gap-2 font-semibold text-gray-700">
                   <MdDateRange className="bg-red-500 text-white p-1 rounded-md w-6 h-6" />
@@ -593,6 +659,74 @@ const OrderDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Exist Refund panel — only when Online + paid + Cancelled + never refunded */}
+      {order.show_refund === "yes" ? (
+        <div className="border border-gray-200 rounded overflow-hidden bg-white max-w-xl">
+          <div className="bg-gray-100 border-b border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 flex items-center gap-2">
+            <FaCreditCard className="text-gray-600 w-4 h-4" />
+            Refund
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <span className="text-sm font-semibold text-gray-700 sm:w-32 shrink-0">Refund Type</span>
+              <div className="flex items-center gap-6 text-sm text-gray-700">
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <span>Partial</span>
+                  <input
+                    type="radio"
+                    name="refund_type"
+                    value="partial"
+                    checked={refundType === "partial"}
+                    onChange={() => setRefundType("partial")}
+                    className="accent-blue-600"
+                  />
+                </label>
+                <label className="inline-flex items-center gap-2 cursor-pointer">
+                  <span>Full</span>
+                  <input
+                    type="radio"
+                    name="refund_type"
+                    value="full"
+                    checked={refundType === "full"}
+                    onChange={() => setRefundType("full")}
+                    className="accent-blue-600"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {refundType === "partial" ? (
+              <div id="refund_amnt_div" className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <span className="text-sm font-semibold text-gray-700 sm:w-32 shrink-0">Enter Amount</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={refundAmount}
+                  onChange={(e) => setRefundAmount(e.target.value)}
+                  placeholder={`Max ${order.order_amount || ""}`}
+                  className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
+            ) : null}
+
+            <input type="hidden" name="paymentid" value={order.refund_payment_doc_id || ""} readOnly />
+            <input type="hidden" name="order_number" value={order.order_number || ""} readOnly />
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={submitRefund}
+                disabled={submittingRefund}
+                className="bg-[#337ab7] hover:bg-[#286090] text-white px-5 py-2 rounded text-sm font-medium disabled:opacity-60"
+              >
+                {submittingRefund ? "Processing..." : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="space-y-4">
         <div className="border border-gray-200 rounded overflow-hidden bg-white">

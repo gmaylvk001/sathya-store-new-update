@@ -14,7 +14,7 @@ export async function PUT(req) {
 
     await dbConnect();
 
-    const { userId, name, mobile, email, status, role, admin_store_view } = await req.json();
+    const { userId, name, mobile, email, status, role, admin_store_view, store_id } = await req.json();
 
     if (!userId) {
       return NextResponse.json({ error: "User ID is required" }, { status: 400 });
@@ -22,6 +22,21 @@ export async function PUT(req) {
 
     if (admin_store_view !== undefined && !ADMIN_STORE_VIEWS.includes(admin_store_view)) {
       return NextResponse.json({ error: "Invalid admin store view" }, { status: 400 });
+    }
+
+    let storeId;
+    if (store_id !== undefined) {
+      storeId = store_id != null && String(store_id).trim() !== "" ? String(store_id).trim() : null;
+      if (storeId) {
+        if (!mongoose.Types.ObjectId.isValid(storeId)) {
+          return NextResponse.json({ error: "Invalid store selected" }, { status: 400 });
+        }
+        const StoreListing = (await import("@/models/store_listings")).default;
+        const storeDoc = await StoreListing.findById(storeId).select("_id").lean();
+        if (!storeDoc) {
+          return NextResponse.json({ error: "Selected store not found" }, { status: 400 });
+        }
+      }
     }
 
     if (!/^\d{10}$/.test(mobile)) {
@@ -67,6 +82,7 @@ export async function PUT(req) {
 
     const update = { name, mobile, email, status, role: roleId };
     if (admin_store_view !== undefined) update.admin_store_view = admin_store_view;
+    if (store_id !== undefined) update.store_id = storeId;
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
