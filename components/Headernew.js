@@ -37,6 +37,13 @@ import {
   pageTypeFromLevel,
 } from '@/lib/categoryPageComponents/categoryHref';
 import { toast } from 'react-toastify';
+import {
+  canLoginAs,
+  establishSession,
+  clearBrowserAuth,
+  readStoredSession,
+  AUTH_CONFLICT_MESSAGE,
+} from '@/lib/clientAuthSession';
 
 // ADD: alphaSortString - case-insensitive, null-safe string comparator
 const alphaSortString = (a, b) => {
@@ -625,6 +632,11 @@ const Header = () => {
 
       if (response.ok) {
         const data = await response.json();
+        if (!data.loggedIn) {
+          clearBrowserAuth();
+          setIsLoggedIn(false);
+          return;
+        }
         setIsLoggedIn(true);
         if (data.role == "admin") {
           setIsAdmin(true);
@@ -632,8 +644,26 @@ const Header = () => {
           setIsAdmin(false);
         }
         setUserData(data.user);
+        // Ensure session lock exists once (avoid rewriting sessionId on every load)
+        const uid = data.userId || data.user?.userId || data.user?._id;
+        const hasLock = Boolean(localStorage.getItem("sathya_auth_session"));
+        const existingSession = readStoredSession();
+        if (
+          uid &&
+          token &&
+          (!hasLock ||
+            !existingSession?.userId ||
+            String(existingSession.userId) !== String(uid))
+        ) {
+          establishSession({
+            token,
+            userId: uid,
+            role: data.role || "user",
+            source: data.role === "admin" ? "admin" : "store",
+          });
+        }
       } else {
-        localStorage.removeItem('token');
+        clearBrowserAuth();
         setIsLoggedIn(false);
         setShowAuthModal(true);
       }
@@ -1409,7 +1439,19 @@ const Header = () => {
       }
 
       if (data.token) {
-        localStorage.setItem("token", data.token);
+        const incomingUserId = data.user?.userId || data.user?._id;
+        const gate = canLoginAs(incomingUserId);
+        if (!gate.ok) {
+          setOtpError(gate.message || AUTH_CONFLICT_MESSAGE);
+          return;
+        }
+
+        establishSession({
+          token: data.token,
+          userId: incomingUserId,
+          role: data.user?.role || "user",
+          source: "store",
+        });
         setIsLoggedIn(true);
         setIsAdmin(data.user.role === "admin");
         setUserData(data.user);
@@ -1453,9 +1495,10 @@ const Header = () => {
     setHasMounted(true);
   }, []);
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    clearBrowserAuth();
     setIsLoggedIn(false);
     setUserData(null);
+    setIsAdmin(false);
     // CHANGE: broadcast clear to all tabs
     setCartCountSynced(0);
     // ADD: clear cartData everywhere

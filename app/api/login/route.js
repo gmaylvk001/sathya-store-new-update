@@ -36,9 +36,15 @@ export async function POST(req) {
       { expiresIn: "24h" }
     );
 
-    // Send the token back to the client and set auth cookies
+    // Client still enforces single-browser session before calling this.
+    // Set cookies here too (properly encoded) so middleware accepts /admin routes.
     const response = NextResponse.json(
-      { message: "User Login", token, role: existingUser.user_type },
+      {
+        message: "User Login",
+        token,
+        role: existingUser.user_type,
+        userId: existingUser._id,
+      },
       { status: 200 }
     );
     response.cookies.set("admin_token", token, {

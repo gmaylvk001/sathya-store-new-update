@@ -35,7 +35,12 @@ export default function AuthProvider({ children }) {
         const decoded = jwtDecode(token);
         const isExpired = decoded.exp * 1000 < Date.now();
         if (isExpired) {
-          localStorage.removeItem('token');
+          try {
+            const { clearBrowserAuth } = await import('@/lib/clientAuthSession');
+            clearBrowserAuth();
+          } catch {
+            localStorage.removeItem('token');
+          }
           router.replace('/admin/login');
           setAuthStatus('unauthenticated');
           return;

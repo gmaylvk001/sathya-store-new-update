@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import OrderStatsIcons from './OrderStatsIcons';
+import { clearBrowserAuth } from '@/lib/clientAuthSession';
 
 const AdminHeader = ({ toggleSidebar, sidebarCollapsed = true, mobileOpen = false }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -91,7 +92,7 @@ const AdminHeader = ({ toggleSidebar, sidebarCollapsed = true, mobileOpen = fals
     e.preventDefault();
     try {
       document.cookie = 'session_store=; path=/; max-age=0; SameSite=Lax';
-      localStorage.clear();
+      clearBrowserAuth();
       sessionStorage.clear();
       router.push('/admin/login');
     } catch (error) {
