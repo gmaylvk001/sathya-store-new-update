@@ -36,6 +36,7 @@ import {
   hasOverviewAvailability as categoryHasOverviewDesign,
   pageTypeFromLevel,
 } from '@/lib/categoryPageComponents/categoryHref';
+import { toast } from 'react-toastify';
 
 // ADD: alphaSortString - case-insensitive, null-safe string comparator
 const alphaSortString = (a, b) => {
@@ -1099,10 +1100,13 @@ const Header = () => {
   const handleSearch = (e) => {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-    if (!searchQuery.trim() && (selectedCategory === "All Category" || selectedCategory === "All Categories")) return;
+    if (!searchQuery.trim()) {
+      toast.info("Please enter a search term");
+      return;
+    }
     setSearchDropdownVisible(false);
     const params = new URLSearchParams();
-    if (searchQuery.trim()) params.append("query", searchQuery.trim());
+    params.append("query", searchQuery.trim());
     if (selectedCategory && selectedCategory !== "All Category" && selectedCategory !== "All Categories") {
       params.append("category", selectedCategory);
     }
