@@ -30,7 +30,6 @@ import { FiShoppingCart } from "react-icons/fi";
 import { TbTruckDelivery } from "react-icons/tb";
 import { IoFastFoodOutline, IoReload, IoCardOutline, IoShieldCheckmark, IoStorefront, IoLocationOutline } from "react-icons/io5";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCart } from '@/context/CartContext';
 import { useModal } from '@/context/ModalContext';
 import { useRegion } from '@/context/RegionContext';
@@ -275,7 +274,6 @@ export default function ProductClient({ initialProduct = null }) {
   const { pincode: globalPincode, region: globalRegion, userLocation, isInitialized, setPincode } = useRegion();
   const variantKey = (id) => `${globalRegion || "tamilnadu"}::${id}`;
   productRef.current = product;
-  const router = useRouter();
 
   const effectivePincode = useMemo(() => {
     return (globalPincode || userLocation?.pincode || "").toString().replace(/\D/g, "").trim();
@@ -827,32 +825,33 @@ export default function ProductClient({ initialProduct = null }) {
       } : null;
 
       // ✅ Add main product to cart
-          const effectivePincode = globalPincode || userLocation?.pincode || "";
-          const effectiveUserState = userLocation?.stateName || userLocation?.state || (globalRegion === "karnataka" ? "Karnataka" : "Tamil Nadu");
-          const effectiveRegion = globalRegion || userLocation?.region || (effectiveUserState === "Karnataka" ? "karnataka" : "tamilnadu");
+      try {
+        const effectivePincode = globalPincode || userLocation?.pincode || "";
+        const effectiveUserState = userLocation?.stateName || userLocation?.state || (globalRegion === "karnataka" ? "Karnataka" : "Tamil Nadu");
+        const effectiveRegion = globalRegion || userLocation?.region || (effectiveUserState === "Karnataka" ? "karnataka" : "tamilnadu");
 
-          const cartResponse = await fetch("/api/cart", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(isLoggedIn && { Authorization: `Bearer ${token}` }),
-            },
-            body: JSON.stringify({
-              productId: product?._id,
-              quantity: Number(quantity) || 1,
-              selectedWarranty: Number(activeWarranty?.year || (effectiveWarrantyAmount > 0 ? 1 : 0)),
-              selectedExtendedWarranty: effectiveWarrantyAmount,
-              warrantyData: activeWarranty,
-              variantValues: currentVariantValues || undefined,
-              selectedVariant: currentVariantValues || undefined,
-              color: currentColor || undefined,
-              ...(exchangeOffer ? { exchangeOffer } : {}),
-              ...(guestCartId && { guestCartId }),
-              pincode: effectivePincode,
-              userState: effectiveUserState,
-              region: effectiveRegion,
-            }),
-          });
+        const cartResponse = await fetch("/api/cart", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(isLoggedIn && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify({
+            productId: product?._id,
+            quantity: Number(quantity) || 1,
+            selectedWarranty: Number(activeWarranty?.year || (effectiveWarrantyAmount > 0 ? 1 : 0)),
+            selectedExtendedWarranty: effectiveWarrantyAmount,
+            warrantyData: activeWarranty,
+            variantValues: currentVariantValues || undefined,
+            selectedVariant: currentVariantValues || undefined,
+            color: currentColor || undefined,
+            ...(exchangeOffer ? { exchangeOffer } : {}),
+            ...(guestCartId && { guestCartId }),
+            pincode: effectivePincode,
+            userState: effectiveUserState,
+            region: effectiveRegion,
+          }),
+        });
 
           if (!cartResponse.ok) {
             const errData = await cartResponse.json().catch(() => ({}));
