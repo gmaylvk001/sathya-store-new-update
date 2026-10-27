@@ -824,7 +824,7 @@ export default function ProductClient({ initialProduct = null }) {
         price: effectiveWarrantyAmount
       } : null;
 
-      // ✅ Add main product to cart
+      // ✅ Add main product to cart (non-fatal if sync fails — still proceed to checkout)
       try {
         const effectivePincode = globalPincode || userLocation?.pincode || "";
         const effectiveUserState = userLocation?.stateName || userLocation?.state || (globalRegion === "karnataka" ? "Karnataka" : "Tamil Nadu");
@@ -853,51 +853,51 @@ export default function ProductClient({ initialProduct = null }) {
           }),
         });
 
-          if (!cartResponse.ok) {
-            const errData = await cartResponse.json().catch(() => ({}));
-            const errMsg = errData.error || "This product is currently out of stock.";
-            toast.error(errMsg);
-            return;
-          }
-
-          const additionalProducts = [
-            ...selectedFrequentProducts.map((p) => p._id),
-            ...selectedRelatedProducts.map((p) => p._id),
-          ].filter(Boolean);
-
-          if (additionalProducts.length > 0) {
-            await Promise.all(
-              additionalProducts.map(async (id) => {
-                try {
-                  await fetch("/api/cart", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      ...(isLoggedIn && { Authorization: `Bearer ${token}` }),
-                    },
-                    body: JSON.stringify({
-                      productId: id,
-                      quantity: 1,
-                      ...(guestCartId && { guestCartId }),
-                      pincode: effectivePincode,
-                      userState: effectiveUserState,
-                      region: effectiveRegion,
-                    }),
-                  });
-                } catch (extraErr) {
-                  console.warn("Extra product cart add failed:", extraErr);
-                }
-              })
-            );
-          }
-
-          const cartData = await cartResponse.json().catch(() => ({}));
-          if (cartData?.cart?.totalItems) {
-            updateCartCount(cartData.cart.totalItems + additionalProducts.length);
-          }
-        } catch (cartApiErr) {
-          console.warn("Cart API sync warning:", cartApiErr);
+        if (!cartResponse.ok) {
+          const errData = await cartResponse.json().catch(() => ({}));
+          const errMsg = errData.error || "This product is currently out of stock.";
+          toast.error(errMsg);
+          return;
         }
+
+        const additionalProducts = [
+          ...selectedFrequentProducts.map((p) => p._id),
+          ...selectedRelatedProducts.map((p) => p._id),
+        ].filter(Boolean);
+
+        if (additionalProducts.length > 0) {
+          await Promise.all(
+            additionalProducts.map(async (id) => {
+              try {
+                await fetch("/api/cart", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(isLoggedIn && { Authorization: `Bearer ${token}` }),
+                  },
+                  body: JSON.stringify({
+                    productId: id,
+                    quantity: 1,
+                    ...(guestCartId && { guestCartId }),
+                    pincode: effectivePincode,
+                    userState: effectiveUserState,
+                    region: effectiveRegion,
+                  }),
+                });
+              } catch (extraErr) {
+                console.warn("Extra product cart add failed:", extraErr);
+              }
+            })
+          );
+        }
+
+        const cartData = await cartResponse.json().catch(() => ({}));
+        if (cartData?.cart?.totalItems) {
+          updateCartCount(cartData.cart.totalItems + additionalProducts.length);
+        }
+      } catch (cartApiErr) {
+        console.warn("Cart API sync warning:", cartApiErr);
+      }
 
       const resolvePrice = (p) =>
         p?.special_price && Number(p.special_price) > 0
