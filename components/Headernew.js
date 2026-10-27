@@ -2997,448 +2997,527 @@ const Header = () => {
           </div>
         </div>
 
-        {hoveredCategory && hoveredCategory.subcategories?.length > 0 && (
-          <div
-            ref={dropdownRef}
-            className="fixed z-50 bg-white"
-            style={{
-              top: `${dropdownTop}px`,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              width: 'fit-content',
-              minWidth: '800px',
-              maxWidth: '96vw',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
-              border: '1px solid #e5e7eb',
-              overflow: 'hidden',
-              minHeight: '420px',
-            }}
-            onMouseEnter={cancelHide}
-            onMouseLeave={() => startHide(120)}
-          >
-            <style>{`
-      .dd-sidebar::-webkit-scrollbar { display: none; }
-      .dd-sidebar { -ms-overflow-style: none; scrollbar-width: none; }
-      .dd-brands::-webkit-scrollbar { width: 3px; }
-      .dd-brands::-webkit-scrollbar-thumb { background: #ED1C24; border-radius: 2px; }
-      .dd-brands::-webkit-scrollbar-track { background: #f1f1f1; }
-      .dd-sub-scroll { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #ED1C24 #f1f1f1; }
-      .dd-sub-scroll::-webkit-scrollbar { width: 3px; }
-      .dd-sub-scroll::-webkit-scrollbar-thumb { background: #ED1C24; border-radius: 2px; }
-      .dd-sub-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
-      .dd-child-link { display:block; font-size:13px; color:#374151; text-decoration:none; padding:5px 8px; border-radius:4px; white-space:normal; line-height:1.35; transition: color 0.1s, background 0.1s; }
-      .dd-child-link:hover { color:#ED1C24; background:#FEF2F2; }
-      .dd-brand-item { display:flex; align-items:center; justify-content:center; padding:5px 6px; border:none; border-radius:6px; text-decoration:none; transition: background 0.1s; }
-      .dd-brand-item:hover { background:#FEF2F2; }
-    `}</style>
+        {hoveredCategory && hoveredCategory.subcategories?.length > 0 && (() => {
+          const isSingleSub = (hoveredCategory.subcategories || []).length <= 1;
+          return (
+            <div
+              ref={dropdownRef}
+              className="fixed z-50 bg-white"
+              style={{
+                top: `${dropdownTop}px`,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 'fit-content',
+                minWidth: isSingleSub ? 'unset' : '800px',
+                maxWidth: '96vw',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
+                border: '1px solid #e5e7eb',
+                overflow: 'hidden',
+                minHeight: isSingleSub ? '370px' : '420px',
+              }}
+              onMouseEnter={cancelHide}
+              onMouseLeave={() => startHide(120)}
+            >
+              <style>{`
+        .dd-sidebar::-webkit-scrollbar { display: none; }
+        .dd-sidebar { -ms-overflow-style: none; scrollbar-width: none; }
+        .dd-brands::-webkit-scrollbar { width: 3px; }
+        .dd-brands::-webkit-scrollbar-thumb { background: #ED1C24; border-radius: 2px; }
+        .dd-brands::-webkit-scrollbar-track { background: #f1f1f1; }
+        .dd-sub-scroll { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #ED1C24 #f1f1f1; }
+        .dd-sub-scroll::-webkit-scrollbar { width: 3px; }
+        .dd-sub-scroll::-webkit-scrollbar-thumb { background: #ED1C24; border-radius: 2px; }
+        .dd-sub-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+        .dd-child-link { display:block; font-size:13px; color:#374151; text-decoration:none; padding:5px 8px; border-radius:4px; white-space:normal; line-height:1.35; transition: color 0.1s, background 0.1s; }
+        .dd-child-link:hover { color:#ED1C24; background:#FEF2F2; }
+        .dd-brand-item { display:flex; align-items:center; justify-content:center; padding:5px 6px; border:none; border-radius:6px; text-decoration:none; transition: background 0.1s; }
+        .dd-brand-item:hover { background:#FEF2F2; }
+      `}</style>
 
-            <div style={{ display: 'flex', alignItems: 'flex-start', minHeight: '420px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', minHeight: isSingleSub ? '370px' : '420px' }}>
 
-              {/* ── LEFT SIDEBAR ── */}
-              <div
-                className="dd-sidebar"
-                style={{
-                  width: '220px',
-                  flexShrink: 0,
-                  borderRight: '1px solid #e5e7eb',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignSelf: 'stretch',
-                  background: '#fff',
-                }}
-              >
-                <div style={{
-                  padding: '10px 16px',
-                  fontSize: '13px', fontWeight: 700, color: '#C4161D',
-                  letterSpacing: '0.04em', textTransform: 'uppercase',
-                  borderBottom: 'none', flexShrink: 0,
-                  paddingTop: "16px"
-                }}>
-                  Shop by Category
-                </div>
+                {/* ── LEFT SIDEBAR ── */}
+                <div
+                  className="dd-sidebar"
+                  style={{
+                    width: '220px',
+                    flexShrink: 0,
+                    borderRight: '1px solid #e5e7eb',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignSelf: 'stretch',
+                    background: '#fff',
+                  }}
+                >
+                  <div style={{
+                    padding: '10px 16px',
+                    fontSize: '13px', fontWeight: 700, color: '#C4161D',
+                    letterSpacing: '0.04em', textTransform: 'uppercase',
+                    borderBottom: 'none', flexShrink: 0,
+                    paddingTop: "16px"
+                  }}>
+                    Shop by Category
+                  </div>
 
-                <div className="dd-sidebar" style={{ flex: 1, overflowY: 'auto' }}>
-                  {[...hoveredCategory.subcategories]
-                    .sort(sortByCategoryPosition)
-                    .map((sub) => {
-                      const isActive = activeSubCategory?._id === sub._id;
-                      return (
-                        <div
-                          key={sub._id}
-                          id={`dd-left-${sub._id}`}
-                          onClick={() => {
-                            setActiveSubCategory(sub);
-                            const el = document.getElementById(`dd-left-${sub._id}`);
-                            if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                          }}
-                          style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            padding: '12px 16px', cursor: 'pointer',
-                            background: isActive ? '#FEF2F2' : '#fff',
-                            borderBottom: 'none',
-                            transition: 'background 0.1s',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            {(() => {
-                              const iconSrc = sub.icon_url || sub.image;
-                              return iconSrc ? (
-                                <img
-                                  src={iconSrc}
-                                  alt={sub.category_name || ''}
-                                  style={{
-                                    width: 30,
-                                    height: 30,
-                                    objectFit: 'contain',
-                                    flexShrink: 0,
-                                    filter: 'brightness(0) saturate(100%) invert(18%) sepia(87%) saturate(3500%) hue-rotate(347deg) brightness(87%) contrast(96%)',
-                                  }}
-                                />
-                              ) : (
-                                <div style={{
-                                  width: 24, height: 24, borderRadius: '4px',
-                                  background: '#FEE2E2', display: 'flex', alignItems: 'center',
-                                  justifyContent: 'center', flexShrink: 0,
-                                }}>
-                                  <span style={{ fontSize: '10px', color: '#BC2121', fontWeight: 700 }}>
-                                    {(sub.category_name || '').charAt(0)}
-                                  </span>
-                                </div>
-                              );
-                            })()}
-                            <Link
-                              href={resolveCategoryNavHref(
-                                [hoveredCategory.category_slug, sub.category_slug],
-                                sub._id,
-                                1
-                              )}
-                              style={{
-                                fontSize: '13px',
-                                fontWeight: isActive ? 700 : 600,
-                                color: isActive ? '#BC2121' : '#BC2121',
-                                textDecoration: 'none', lineHeight: 1.3,
-                              }}
-                            >
-                              {splitByNearestSpace(sub.category_name, 24)}
-                            </Link>
+                  <div className="dd-sidebar" style={{ flex: 1, overflowY: 'auto' }}>
+                    {[...hoveredCategory.subcategories]
+                      .sort(sortByCategoryPosition)
+                      .map((sub) => {
+                        const isActive = activeSubCategory?._id === sub._id;
+                        return (
+                          <div
+                            key={sub._id}
+                            id={`dd-left-${sub._id}`}
+                            onClick={() => {
+                              setActiveSubCategory(sub);
+                              const el = document.getElementById(`dd-left-${sub._id}`);
+                              if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                            }}
+                            style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              padding: '12px 16px', cursor: 'pointer',
+                              background: isActive ? '#FEF2F2' : '#fff',
+                              borderBottom: 'none',
+                              transition: 'background 0.1s',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              {(() => {
+                                const iconSrc = sub.icon_url || sub.image;
+                                return iconSrc ? (
+                                  <img
+                                    src={iconSrc}
+                                    alt={sub.category_name || ''}
+                                    style={{
+                                      width: 30,
+                                      height: 30,
+                                      objectFit: 'contain',
+                                      flexShrink: 0,
+                                      filter: 'brightness(0) saturate(100%) invert(18%) sepia(87%) saturate(3500%) hue-rotate(347deg) brightness(87%) contrast(96%)',
+                                    }}
+                                  />
+                                ) : (
+                                  <div style={{
+                                    width: 24, height: 24, borderRadius: '4px',
+                                    background: '#FEE2E2', display: 'flex', alignItems: 'center',
+                                    justifyContent: 'center', flexShrink: 0,
+                                  }}>
+                                    <span style={{ fontSize: '10px', color: '#BC2121', fontWeight: 700 }}>
+                                      {(sub.category_name || '').charAt(0)}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+                              <Link
+                                href={resolveCategoryNavHref(
+                                  [hoveredCategory.category_slug, sub.category_slug],
+                                  sub._id,
+                                  1
+                                )}
+                                style={{
+                                  fontSize: '13px',
+                                  fontWeight: isActive ? 700 : 600,
+                                  color: isActive ? '#BC2121' : '#BC2121',
+                                  textDecoration: 'none', lineHeight: 1.3,
+                                }}
+                              >
+                                {splitByNearestSpace(sub.category_name, 24)}
+                              </Link>
+                            </div>
+                            <FiChevronRight size={13} style={{ color: isActive ? '#BC2121' : '#d1d5db', flexShrink: 0 }} />
                           </div>
-                          <FiChevronRight size={13} style={{ color: isActive ? '#BC2121' : '#d1d5db', flexShrink: 0 }} />
-                        </div>
-                      );
-                    })}
-                  <div style={{ padding: '10px 16px' }}>
-                    <Link
-                      href={resolveCategoryNavHref(
-                        [hoveredCategory.category_slug],
-                        hoveredCategory._id,
-                        0
-                      )}
-                      onClick={() => setHoveredCategory(null)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                        fontSize: '13px', fontWeight: 600, color: '#ED1C24', textDecoration: 'none',
-                      }}
-                    >
-                      View All {hoveredCategory.category_name}
-                      <FiChevronRight size={13} />
-                    </Link>
+                        );
+                      })}
+                    <div style={{ padding: '10px 16px' }}>
+                      <Link
+                        href={resolveCategoryNavHref(
+                          [hoveredCategory.category_slug],
+                          hoveredCategory._id,
+                          0
+                        )}
+                        onClick={() => setHoveredCategory(null)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '4px',
+                          fontSize: '13px', fontWeight: 600, color: '#ED1C24', textDecoration: 'none',
+                        }}
+                      >
+                        View All {hoveredCategory.category_name}
+                        <FiChevronRight size={13} />
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* ── RIGHT CONTENT AREA ── */}
-              {(() => {
-                const ROWS_VISIBLE = 9;
-                const ROW_HEIGHT_PX = 28;
-                const brands = hoveredCategory.brands || [];
-                const navImgs = hoveredCategory?.navImage
-                  ? (typeof hoveredCategory.navImage === 'string'
-                    ? hoveredCategory.navImage.split(',').map(s => s.trim()).filter(Boolean)
-                    : Array.isArray(hoveredCategory.navImage) ? hoveredCategory.navImage : [])
-                  : [];
-                const activeSub = activeSubCategory;
-                // Children if any; otherwise brand names for that subcategory (e.g. Audio)
-                const getSubListItems = (sub) => {
-                  const children = Array.isArray(sub?.subcategories) && sub.subcategories.length > 0
-                    ? [...sub.subcategories].sort(sortByCategoryPosition)
+                {/* ── RIGHT CONTENT AREA ── */}
+                {(() => {
+                  const ROWS_VISIBLE = 7;
+                  const ROW_HEIGHT_PX = 28;
+                  const brands = hoveredCategory.brands || [];
+                  const navImgs = hoveredCategory?.navImage
+                    ? (typeof hoveredCategory.navImage === 'string'
+                      ? hoveredCategory.navImage.split(',').map(s => s.trim()).filter(Boolean)
+                      : Array.isArray(hoveredCategory.navImage) ? hoveredCategory.navImage : [])
                     : [];
-                  if (children.length > 0) {
-                    return children.map((child) => ({
-                      key: child._id,
-                      label: child.category_name,
-                      href: resolveCategoryNavHref(
-                        [
+                  const activeSub = activeSubCategory;
+                  // Children if any; otherwise brand names for that subcategory (e.g. Audio)
+                  const getSubListItems = (sub) => {
+                    const children = Array.isArray(sub?.subcategories) && sub.subcategories.length > 0
+                      ? [...sub.subcategories].sort(sortByCategoryPosition)
+                      : [];
+                    if (children.length > 0) {
+                      return children.map((child) => ({
+                        key: child._id,
+                        label: child.category_name,
+                        href: resolveCategoryNavHref(
+                          [
+                            hoveredCategory.category_slug,
+                            sub.category_slug,
+                            child.category_slug,
+                          ],
+                          child._id,
+                          2
+                        ),
+                        kind: 'child',
+                      }));
+                    }
+                    const subBrands = Array.isArray(sub?.brands) && sub.brands.length > 0
+                      ? sub.brands
+                      : brands;
+                    return [...subBrands]
+                      .sort((a, b) => alphaSortString(a.brand_name, b.brand_name))
+                      .map((brand) => ({
+                        key: brand._id || brand.brand_slug,
+                        label: brand.brand_name,
+                        href: resolveCategoryBrandNavHref(
                           hoveredCategory.category_slug,
-                          sub.category_slug,
-                          child.category_slug,
-                        ],
-                        child._id,
-                        2
-                      ),
-                      kind: 'child',
-                    }));
-                  }
-                  const subBrands = Array.isArray(sub?.brands) && sub.brands.length > 0
-                    ? sub.brands
-                    : brands;
-                  return [...subBrands]
-                    .sort((a, b) => alphaSortString(a.brand_name, b.brand_name))
-                    .map((brand) => ({
-                      key: brand._id || brand.brand_slug,
-                      label: brand.brand_name,
-                      href: resolveCategoryBrandNavHref(
-                        hoveredCategory.category_slug,
-                        brand,
-                        hoveredCategory._id
-                      ),
-                      kind: 'brand',
-                    }));
-                };
-                const renderListColumn = (items, key, opts = {}) => {
-                  const needsScroll = items.length > ROWS_VISIBLE;
-                  return (
-                    <div
-                      key={key}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        minWidth: '180px',
-                        maxWidth: '220px',
-                        borderRight: opts.showBorder ? '1px solid #e5e7eb' : 'none',
-                        paddingRight: opts.showBorder ? '16px' : '0',
-                        paddingLeft: opts.padLeft ? '16px' : '0',
-                        alignSelf: 'flex-start',
-                      }}
-                    >
-                      {opts.header}
+                          brand,
+                          hoveredCategory._id
+                        ),
+                        kind: 'brand',
+                      }));
+                  };
+                  const renderListColumn = (items, key, opts = {}) => {
+                    const needsScroll = items.length > ROWS_VISIBLE;
+                    return (
                       <div
-                        className={needsScroll ? 'dd-sub-scroll' : undefined}
+                        key={key}
                         style={{
                           display: 'flex',
                           flexDirection: 'column',
-                          maxHeight: needsScroll ? `${ROWS_VISIBLE * ROW_HEIGHT_PX}px` : undefined,
+                          minWidth: '180px',
+                          maxWidth: '220px',
+                          borderRight: opts.showBorder ? '1px solid #e5e7eb' : 'none',
+                          paddingRight: opts.showBorder ? '16px' : '0',
+                          paddingLeft: opts.padLeft ? '16px' : '0',
+                          alignSelf: 'flex-start',
                         }}
                       >
-                        {items.map((item) => (
+                        {opts.header}
+                        <div
+                          className={needsScroll ? 'dd-sub-scroll' : undefined}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            maxHeight: needsScroll ? `${ROWS_VISIBLE * ROW_HEIGHT_PX}px` : undefined,
+                          }}
+                        >
+                          {items.map((item) => (
+                            <Link
+                              key={item.key}
+                              href={item.href}
+                              onClick={() => setHoveredCategory(null)}
+                              className="dd-child-link"
+                            >
+                              {splitByNearestSpace(item.label, 24)}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  };
+                  const renderBrands = () => brands.length > 0 && (
+                    <div style={{
+                      marginTop: isSingleSub ? '16px' : 'auto',
+                      paddingTop: '12px',
+                      borderTop: '1px solid #e5e7eb',
+                      flexShrink: 0,
+                      width: '100%',
+                      boxSizing: 'border-box'
+                    }}>
+                      <div style={{
+                        fontSize: '11px', fontWeight: 700, color: '#C4161D',
+                        textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px',
+                      }}>
+                        Top Brands
+                      </div>
+                      <div className="dd-brands" style={{
+                        display: 'grid',
+                        gridTemplateColumns: isSingleSub ? 'repeat(auto-fill, minmax(80px, 1fr))' : 'repeat(5, minmax(80px, 1fr))',
+                        gridTemplateRows: 'repeat(2, auto)',
+                        gap: '8px 16px',
+                        alignItems: 'center',
+                        justifyItems: 'start',
+                      }}>
+                        {[...brands]
+                          .sort((a, b) => alphaSortString(a.brand_name, b.brand_name))
+                          .slice(0, 10)
+                          .map((brand) => (
+                            <Link
+                              key={brand._id || brand.brand_slug}
+                              href={resolveCategoryBrandNavHref(
+                                hoveredCategory.category_slug,
+                                brand,
+                                hoveredCategory._id
+                              )}
+                              onClick={() => setHoveredCategory(null)}
+                              className="dd-brand-item"
+                            >
+                              {brand.image ? (
+                                <img
+                                  src={`/uploads/Brands/${brand.image}`}
+                                  alt={brand.brand_name}
+                                  style={{ height: '32px', maxWidth: '80px', objectFit: 'contain' }}
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.nextElementSibling.style.display = 'block';
+                                  }}
+                                />
+                              ) : null}
+                              <span
+                                style={{
+                                  display: brand.image ? 'none' : 'block',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  color: '#374151'
+                                }}
+                              >
+                                {brand.brand_name}
+                              </span>
+                            </Link>
+                          ))}
+                        {brands.length > 10 && (
                           <Link
-                            key={item.key}
-                            href={item.href}
+                            href={resolveCategoryNavHref(
+                              [hoveredCategory.category_slug],
+                              hoveredCategory._id,
+                              0
+                            )}
                             onClick={() => setHoveredCategory(null)}
-                            className="dd-child-link"
+                            style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '5px 6px', fontSize: '11px', fontWeight: 600, color: '#ED1C24', textDecoration: 'none' }}
                           >
-                            {splitByNearestSpace(item.label, 24)}
+                            +{brands.length - 10} more <FiChevronRight size={11} />
                           </Link>
-                        ))}
+                        )}
                       </div>
                     </div>
                   );
-                };
-                const renderBrands = () => brands.length > 0 && (
-                  <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #e5e7eb', flexShrink: 0, width: '100%', boxSizing: 'border-box' }}>
-                    <div style={{
-                      fontSize: '11px', fontWeight: 700, color: '#C4161D',
-                      textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px',
-                    }}>
-                      Top Brands
-                    </div>
-                    <div className="dd-brands" style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(5, minmax(80px, 1fr))',
-                      gridTemplateRows: 'repeat(2, auto)',
-                      gap: '8px 16px',
-                      alignItems: 'center',
-                      justifyItems: 'start',
-                    }}>
-                      {[...brands]
-                        .sort((a, b) => alphaSortString(a.brand_name, b.brand_name))
-                        .slice(0, 10)
-                        .map((brand) => (
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'stretch', flex: 1, minHeight: isSingleSub ? '370px' : '420px' }}>
+                      <div style={{ flex: 1, padding: '16px 20px', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: isSingleSub ? '370px' : '420px' }}>
+                        {activeSub ? (
+                          <div style={{ flex: 1, minHeight: 0 }}>
+                            <>
+                              <div style={{ marginBottom: '10px', paddingBottom: '8px', borderBottom: 'none' }}>
+                                <Link
+                                  href={resolveCategoryNavHref(
+                                    [hoveredCategory.category_slug, activeSub.category_slug],
+                                    activeSub._id,
+                                    1
+                                  )}
+                                  onClick={() => setHoveredCategory(null)}
+                                  style={{
+                                    fontSize: '13px', fontWeight: 700, color: '#ED1C24',
+                                    textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                    whiteSpace: 'normal', lineHeight: 1.35,
+                                  }}
+                                >
+                                  {splitByNearestSpace(activeSub.category_name, 24)}
+                                </Link>
+                              </div>
+                              {(() => {
+                                const activeItems = getSubListItems(activeSub);
+                                if (isSingleSub) {
+                                  const chunks = [];
+                                  for (let i = 0; i < activeItems.length; i += ROWS_VISIBLE) {
+                                    chunks.push(activeItems.slice(i, i + ROWS_VISIBLE));
+                                  }
+                                  const columnChunks = chunks.length > 0 ? chunks.slice(0, 3) : [[]];
+                                  return (
+                                    <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start' }}>
+                                      {columnChunks.map((chunkItems, ci) =>
+                                        renderListColumn(
+                                          ci === columnChunks.length - 1 && chunks.length > columnChunks.length
+                                            ? activeItems.slice(ci * ROWS_VISIBLE)
+                                            : chunkItems,
+                                          `${activeSub._id}-col-${ci}`,
+                                          {
+                                            showBorder: ci < columnChunks.length - 1,
+                                            padLeft: ci > 0,
+                                          }
+                                        )
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                const otherSubs = [...hoveredCategory.subcategories]
+                                  .sort(sortByCategoryPosition)
+                                  .filter((s) => s._id !== activeSub._id)
+                                  .slice(0, 3);
+                                return (
+                                  <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start' }}>
+                                    {renderListColumn(activeItems, activeSub._id, {
+                                      showBorder: otherSubs.length > 0,
+                                      padLeft: false,
+                                    })}
+                                    {otherSubs.map((sub, idx) => {
+                                      const items = getSubListItems(sub);
+                                      return renderListColumn(items, sub._id, {
+                                        showBorder: idx < otherSubs.length - 1,
+                                        padLeft: true,
+                                        header: (
+                                          <Link
+                                            href={resolveCategoryNavHref(
+                                              [hoveredCategory.category_slug, sub.category_slug],
+                                              sub._id,
+                                              1
+                                            )}
+                                            onClick={() => setHoveredCategory(null)}
+                                            style={{
+                                              fontSize: '13px', fontWeight: 700, color: '#ED1C24',
+                                              textDecoration: 'none', textTransform: 'uppercase',
+                                              letterSpacing: '0.04em', marginBottom: '8px',
+                                              paddingBottom: '6px', borderBottom: 'none',
+                                              whiteSpace: 'normal',
+                                              lineHeight: 1.35,
+                                            }}
+                                          >
+                                            {splitByNearestSpace(sub.category_name, 24)}
+                                          </Link>
+                                        ),
+                                      });
+                                    })}
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          </div>
+                        ) : (
+                          <div style={{ flex: 1, minHeight: 0 }}>
+                            <>
+                              <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start' }}>
+                                {isSingleSub ? (() => {
+                                  const singleSub = hoveredCategory.subcategories[0];
+                                  if (!singleSub) return null;
+                                  const items = getSubListItems(singleSub);
+                                  const chunks = [];
+                                  for (let i = 0; i < items.length; i += ROWS_VISIBLE) {
+                                    chunks.push(items.slice(i, i + ROWS_VISIBLE));
+                                  }
+                                  const columnChunks = chunks.length > 0 ? chunks.slice(0, 3) : [[]];
+                                  return columnChunks.map((chunkItems, ci) =>
+                                    renderListColumn(
+                                      ci === columnChunks.length - 1 && chunks.length > columnChunks.length
+                                        ? items.slice(ci * ROWS_VISIBLE)
+                                        : chunkItems,
+                                      `${singleSub._id}-col-${ci}`,
+                                      {
+                                        showBorder: ci < columnChunks.length - 1,
+                                        padLeft: ci > 0,
+                                        header: ci === 0 ? (
+                                          <Link
+                                            href={resolveCategoryNavHref(
+                                              [hoveredCategory.category_slug, singleSub.category_slug],
+                                              singleSub._id,
+                                              1
+                                            )}
+                                            onClick={() => setHoveredCategory(null)}
+                                            style={{
+                                              display: 'block', fontSize: '13px', fontWeight: 700,
+                                              color: '#C4161D', textDecoration: 'none',
+                                              textTransform: 'uppercase', letterSpacing: '0.04em',
+                                              marginBottom: '8px', paddingBottom: '6px',
+                                              borderBottom: 'none',
+                                              whiteSpace: 'normal',
+                                              lineHeight: 1.35,
+                                            }}
+                                          >
+                                            {splitByNearestSpace(singleSub.category_name, 24)}
+                                          </Link>
+                                        ) : (
+                                          <div style={{ height: '27px', marginBottom: '8px', paddingBottom: '6px' }} />
+                                        ),
+                                      }
+                                    )
+                                  );
+                                })() : (
+                                  [...hoveredCategory.subcategories]
+                                    .sort(sortByCategoryPosition)
+                                    .slice(0, 4)
+                                    .map((sub, si, arr) => {
+                                      const items = getSubListItems(sub);
+                                      return renderListColumn(items, sub._id, {
+                                        showBorder: si < arr.length - 1,
+                                        padLeft: si > 0,
+                                        header: (
+                                          <Link
+                                            href={resolveCategoryNavHref(
+                                              [hoveredCategory.category_slug, sub.category_slug],
+                                              sub._id,
+                                              1
+                                            )}
+                                            onClick={() => setHoveredCategory(null)}
+                                            style={{
+                                              display: 'block', fontSize: '13px', fontWeight: 700,
+                                              color: '#C4161D', textDecoration: 'none',
+                                              textTransform: 'uppercase', letterSpacing: '0.04em',
+                                              marginBottom: '8px', paddingBottom: '6px',
+                                              borderBottom: 'none',
+                                              whiteSpace: 'normal',
+                                              lineHeight: 1.35,
+                                            }}
+                                          >
+                                            {splitByNearestSpace(sub.category_name, 24)}
+                                          </Link>
+                                        ),
+                                      });
+                                    })
+                                )}
+                              </div>
+                            </>
+                          </div>
+                        )}
+                        {renderBrands()}
+                      </div>
+                      {navImgs.length > 0 && (
+                        <div style={{
+                          flexShrink: 0, width: '250px', alignSelf: 'stretch',
+                          borderLeft: '1px solid #e5e7eb', overflow: 'hidden',
+                        }}>
                           <Link
-                            key={brand._id || brand.brand_slug}
-                            href={resolveCategoryBrandNavHref(
-                              hoveredCategory.category_slug,
-                              brand,
-                              hoveredCategory._id
+                            href={resolveCategoryNavHref(
+                              [hoveredCategory.category_slug],
+                              hoveredCategory._id,
+                              0
                             )}
                             onClick={() => setHoveredCategory(null)}
-                            className="dd-brand-item"
+                            style={{ display: 'block', width: '100%', height: '100%' }}
                           >
-                            {brand.image ? (
-                              <img
-                                src={`/uploads/Brands/${brand.image}`}
-                                alt={brand.brand_name}
-                                style={{ height: '32px', maxWidth: '80px', objectFit: 'contain' }}
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  e.currentTarget.nextElementSibling.style.display = 'block';
-                                }}
-                              />
-                            ) : null}
-                            <span
-                              style={{
-                                display: brand.image ? 'none' : 'block',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                color: '#374151'
-                              }}
-                            >
-                              {brand.brand_name}
-                            </span>
+                            <img
+                              src={navImgs[0]}
+                              alt={hoveredCategory.category_name}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                            />
                           </Link>
-                        ))}
-                      {brands.length > 10 && (
-                        <Link
-                          href={resolveCategoryNavHref(
-                            [hoveredCategory.category_slug],
-                            hoveredCategory._id,
-                            0
-                          )}
-                          onClick={() => setHoveredCategory(null)}
-                          style={{ display: 'flex', alignItems: 'center', gap: '2px', padding: '5px 6px', fontSize: '11px', fontWeight: 600, color: '#ED1C24', textDecoration: 'none' }}
-                        >
-                          +{brands.length - 10} more <FiChevronRight size={11} />
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                );
-                return (
-                  <div style={{ display: 'flex', alignItems: 'stretch', flex: 1, minHeight: '420px' }}>
-                    <div style={{ flex: 1, padding: '16px 20px', minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: '420px' }}>
-                      {activeSub ? (
-                        <div style={{ flex: 1, minHeight: 0 }}>
-                          <>
-                            <div style={{ marginBottom: '10px', paddingBottom: '8px', borderBottom: 'none' }}>
-                              <Link
-                                href={resolveCategoryNavHref(
-                                  [hoveredCategory.category_slug, activeSub.category_slug],
-                                  activeSub._id,
-                                  1
-                                )}
-                                onClick={() => setHoveredCategory(null)}
-                                style={{
-                                  fontSize: '13px', fontWeight: 700, color: '#ED1C24',
-                                  textDecoration: 'none', textTransform: 'uppercase', letterSpacing: '0.05em',
-                                  whiteSpace: 'normal', lineHeight: 1.35,
-                                }}
-                              >
-                                {splitByNearestSpace(activeSub.category_name, 24)}
-                              </Link>
-                            </div>
-                            {(() => {
-                              const activeItems = getSubListItems(activeSub);
-                              const otherSubs = [...hoveredCategory.subcategories]
-                                .sort(sortByCategoryPosition)
-                                .filter((s) => s._id !== activeSub._id)
-                                .slice(0, 3);
-                              return (
-                                <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start' }}>
-                                  {renderListColumn(activeItems, activeSub._id, {
-                                    showBorder: otherSubs.length > 0,
-                                    padLeft: false,
-                                  })}
-                                  {otherSubs.map((sub, idx) => {
-                                    const items = getSubListItems(sub);
-                                    return renderListColumn(items, sub._id, {
-                                      showBorder: idx < otherSubs.length - 1,
-                                      padLeft: true,
-                                      header: (
-                                        <Link
-                                          href={resolveCategoryNavHref(
-                                            [hoveredCategory.category_slug, sub.category_slug],
-                                            sub._id,
-                                            1
-                                          )}
-                                          onClick={() => setHoveredCategory(null)}
-                                          style={{
-                                            fontSize: '13px', fontWeight: 700, color: '#ED1C24',
-                                            textDecoration: 'none', textTransform: 'uppercase',
-                                            letterSpacing: '0.04em', marginBottom: '8px',
-                                            paddingBottom: '6px', borderBottom: 'none',
-                                            whiteSpace: 'normal',
-                                            lineHeight: 1.35,
-                                          }}
-                                        >
-                                          {splitByNearestSpace(sub.category_name, 24)}
-                                        </Link>
-                                      ),
-                                    });
-                                  })}
-                                </div>
-                              );
-                            })()}
-                          </>
-                        </div>
-                      ) : (
-                        <div style={{ flex: 1, minHeight: 0 }}>
-                          <>
-                            <div style={{ display: 'flex', gap: 0, alignItems: 'flex-start' }}>
-                              {[...hoveredCategory.subcategories]
-                                .sort(sortByCategoryPosition)
-                                .slice(0, 4)
-                                .map((sub, si, arr) => {
-                                  const items = getSubListItems(sub);
-                                  return renderListColumn(items, sub._id, {
-                                    showBorder: si < arr.length - 1,
-                                    padLeft: si > 0,
-                                    header: (
-                                      <Link
-                                        href={resolveCategoryNavHref(
-                                          [hoveredCategory.category_slug, sub.category_slug],
-                                          sub._id,
-                                          1
-                                        )}
-                                        onClick={() => setHoveredCategory(null)}
-                                        style={{
-                                          display: 'block', fontSize: '13px', fontWeight: 700,
-                                          color: '#C4161D', textDecoration: 'none',
-                                          textTransform: 'uppercase', letterSpacing: '0.04em',
-                                          marginBottom: '8px', paddingBottom: '6px',
-                                          borderBottom: 'none',
-                                          whiteSpace: 'normal',
-                                          lineHeight: 1.35,
-                                        }}
-                                      >
-                                        {splitByNearestSpace(sub.category_name, 24)}
-                                      </Link>
-                                    ),
-                                  });
-                                })}
-                            </div>
-                          </>
                         </div>
                       )}
-                      {renderBrands()}
                     </div>
-                    {navImgs.length > 0 && (
-                      <div style={{
-                        flexShrink: 0, width: '250px', alignSelf: 'stretch',
-                        borderLeft: '1px solid #e5e7eb', overflow: 'hidden',
-                      }}>
-                        <Link
-                          href={resolveCategoryNavHref(
-                            [hoveredCategory.category_slug],
-                            hoveredCategory._id,
-                            0
-                          )}
-                          onClick={() => setHoveredCategory(null)}
-                          style={{ display: 'block', width: '100%', height: '100%' }}
-                        >
-                          <img
-                            src={navImgs[0]}
-                            alt={hoveredCategory.category_name}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                          />
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+                  );
+                })()}
 
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </header>
       {/* DESKTOP SUGGESTIONS DROPDOWN */}
       {searchDropdownVisible && searchContext === 'desktop' && (
