@@ -9,6 +9,8 @@ import { FaAddressBook } from "react-icons/fa";
 import { HiShoppingBag } from "react-icons/hi2";
 import { FaHeart } from "react-icons/fa6";
 import { useHeaderdetails } from '@/context/HeaderContext';
+import { useRegion } from '@/context/RegionContext';
+import { useFilteredStores } from '@/hooks/useFilteredStores';
 
 function getStoreDisplayName(store) {
   if (!store) return "";
@@ -30,11 +32,19 @@ function getStoreDisplayName(store) {
 export default function Profile() {
   const pathname = usePathname();
   const { userData, updateHeaderdetails } = useHeaderdetails();
+  const { district: userDistrict, city: userCity } = useRegion();
+  const activeDistrict = userDistrict || userCity || '';
+
   const [stores, setStores] = useState([]);
   const [loadingStores, setLoadingStores] = useState(true);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  const { filteredStores, isFallback, fallbackMessage } = useFilteredStores(
+    stores,
+    activeDistrict
+  );
 
   const [profileData, setProfileData] = useState({
     firstName: '',
@@ -303,9 +313,24 @@ export default function Profile() {
                       className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-[#d72828] transition-all duration-200 bg-white disabled:bg-gray-50 disabled:cursor-not-allowed"
                     >
                       <option value="">
-                        {loadingStores ? "Loading stores..." : "Select Store Near You"}
+                        {loadingStores
+                          ? "Loading stores..."
+                          : isFallback && fallbackMessage
+                          ? `${fallbackMessage} - Showing all stores`
+                          : activeDistrict
+                          ? `Select Store Near You (${activeDistrict.charAt(0).toUpperCase() + activeDistrict.slice(1)})`
+                          : "Select Store Near You"}
                       </option>
-                      {[...stores]
+                      {profileData.store &&
+                        !filteredStores.some((s) => String(s._id) === String(profileData.store)) && (() => {
+                          const savedStore = stores.find((s) => String(s._id) === String(profileData.store));
+                          return savedStore ? (
+                            <option key={savedStore._id} value={String(savedStore._id)}>
+                              {getStoreDisplayName(savedStore)} (Saved Store)
+                            </option>
+                          ) : null;
+                        })()}
+                      {[...filteredStores]
                         .sort((a, b) => getStoreDisplayName(a).localeCompare(getStoreDisplayName(b)))
                         .map((store) => (
                           <option key={store._id} value={String(store._id)}>
@@ -313,6 +338,18 @@ export default function Profile() {
                           </option>
                         ))}
                     </select>
+                    {isFallback && fallbackMessage && (
+                      <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1.5">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        {fallbackMessage}. Showing all available stores.
+                      </p>
+                    )}
+                    {!isFallback && activeDistrict && filteredStores.length > 0 && (
+                      <p className="text-xs text-emerald-600 mt-1.5 flex items-center gap-1.5">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        Filtered for {activeDistrict.charAt(0).toUpperCase() + activeDistrict.slice(1)} ({filteredStores.length} {filteredStores.length === 1 ? 'store' : 'stores'})
+                      </p>
+                    )}
                   </div>
                 </div>
 

@@ -22,6 +22,7 @@ export async function POST(req) {
     const payload = {
       status: "success",
       city: result.city || DEFAULT_LOCATION.city,
+      district: result.district || result.city || DEFAULT_LOCATION.district || DEFAULT_LOCATION.city,
       pincode: result.pincode || pincode,
       state: result.stateName || DEFAULT_LOCATION.stateName,
       region: result.region || DEFAULT_LOCATION.region,

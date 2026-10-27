@@ -56,6 +56,7 @@ export function useDetectLocation(defaultOptions = {}) {
                 pincode: data.pincode || '',
                 locality: data.locality || data.city || '',
                 city: data.city || '',
+                district: data.district || data.city || '',
                 state: data.state || '',
                 region: data.region || '',
                 code: data.code || '',

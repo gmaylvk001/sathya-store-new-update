@@ -5,10 +5,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { Icon } from '@iconify/react';
 import { getDiscountInfo } from "@/lib/discountHelper";
+import { useRegion } from "@/context/RegionContext";
+import { useFilteredStores } from "@/hooks/useFilteredStores";
 
 export default function OfferClient({ offer, products }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [stores, setStores] = useState([]);
+  const { district: userDistrict, city: userCity } = useRegion();
+  const activeDistrict = userDistrict || userCity || '';
+  const { filteredStores, isFallback, fallbackMessage } = useFilteredStores(stores, activeDistrict);
   
   // Form State
   const [formData, setFormData] = useState({
@@ -293,8 +298,14 @@ export default function OfferClient({ offer, products }) {
                     className="w-full border border-gray-300 rounded py-2 px-2 text-[13px] text-gray-700 focus:outline-none focus:border-gray-400"
                     required
                   >
-                    <option value="">Select store near you *</option>
-                    {stores.map(s => (
+                    <option value="">
+                      {isFallback && fallbackMessage
+                        ? `${fallbackMessage} - Showing all stores`
+                        : activeDistrict
+                        ? `Select store near you (${activeDistrict.charAt(0).toUpperCase() + activeDistrict.slice(1)}) *`
+                        : "Select store near you *"}
+                    </option>
+                    {filteredStores.map(s => (
                       <option key={s._id} value={s._id}>{s.title || s.name}</option>
                     ))}
                   </select>

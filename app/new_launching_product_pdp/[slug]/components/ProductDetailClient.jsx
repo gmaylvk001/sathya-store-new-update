@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { getDiscountInfo } from "@/lib/discountHelper";
+import { useRegion } from "@/context/RegionContext";
+import { useFilteredStores } from "@/hooks/useFilteredStores";
 
 export default function ProductDetailClient({ product }) {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -13,6 +15,9 @@ export default function ProductDetailClient({ product }) {
   const [formErrors, setFormErrors] = useState({});
   const [submitStatus, setSubmitStatus] = useState({ loading: false, message: '', success: false });
   const [storesList, setStoresList] = useState([]);
+  const { district: userDistrict, city: userCity } = useRegion();
+  const activeDistrict = userDistrict || userCity || '';
+  const { filteredStores: filteredStoresList, isFallback, fallbackMessage } = useFilteredStores(storesList, activeDistrict);
 
   const validateField = (field, value) => {
     let error = "";
@@ -441,8 +446,14 @@ export default function ProductDetailClient({ product }) {
                 </div>
                 <div>
                   <select name="store" required className={`w-full px-4 py-3 rounded-xl border ${formErrors.store ? 'border-red-500' : preBookForm.store ? 'border-green-500' : 'border-slate-200'} focus:outline-none focus:border-[#D7191F] focus:ring-1 focus:ring-[#D7191F] transition-colors appearance-none bg-white`} value={preBookForm.store} onChange={handleInputChange}>
-                    <option value="" disabled>Select store near you</option>
-                    {storesList.map(store => (
+                    <option value="" disabled>
+                      {isFallback && fallbackMessage
+                        ? `${fallbackMessage} - Showing all stores`
+                        : activeDistrict
+                        ? `Select store near you (${activeDistrict.charAt(0).toUpperCase() + activeDistrict.slice(1)})`
+                        : "Select store near you"}
+                    </option>
+                    {filteredStoresList.map(store => (
                       <option key={store._id} value={store._id}>{store.title || store.branch || store.name}</option>
                     ))}
                     <option value="Online">Online Team</option>

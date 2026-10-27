@@ -198,6 +198,7 @@ export const RegionProvider = ({ children }) => {
         const locData = {
           pincode: parsed.pincode || matched.defaultPincode,
           city: parsed.city || matched.defaultCity,
+          district: parsed.district || parsed.city || matched.defaultCity,
           region: norm,
           stateName: matched.name,
           code: matched.code,
@@ -214,6 +215,7 @@ export const RegionProvider = ({ children }) => {
         const locData = {
           pincode: matched.defaultPincode,
           city: matched.defaultCity,
+          district: matched.defaultCity,
           region: matched.id,
           stateName: matched.name,
           code: matched.code,
@@ -261,6 +263,7 @@ export const RegionProvider = ({ children }) => {
     const locData = {
       pincode: resolvedPincode,
       city: resolvedCity,
+      district: customCity ? customCity.toLowerCase().trim() : targetRegion.defaultCity.toLowerCase(),
       region: targetRegion.id,
       stateName: targetRegion.name,
       code: targetRegion.code,
@@ -307,6 +310,7 @@ export const RegionProvider = ({ children }) => {
         const locData = {
           pincode: data.pincode || pincode.trim(),
           city: (data.city || matched.defaultCity).toLowerCase(),
+          district: (data.district || data.city || matched.defaultCity).toLowerCase(),
           region: matched.id,
           stateName: matched.name,
           code: matched.code,
@@ -385,6 +389,7 @@ export const RegionProvider = ({ children }) => {
             const locData = {
               pincode: data.pincode || matched.defaultPincode,
               city: (data.city || matched.defaultCity).toLowerCase(),
+              district: (data.district || data.city || matched.defaultCity).toLowerCase(),
               region: matched.id,
               stateName: matched.name,
               code: matched.code,
@@ -429,6 +434,8 @@ export const RegionProvider = ({ children }) => {
         userLocation: userLocation || DEFAULT_LOCATION,
         pincode: userLocation?.pincode || selectedRegion?.defaultPincode || '600001',
         city: userLocation?.city || selectedRegion?.defaultCity || 'chennai',
+        district: userLocation?.district || userLocation?.city || selectedRegion?.defaultCity || 'chennai',
+        userDistrict: userLocation?.district || userLocation?.city || selectedRegion?.defaultCity || 'chennai',
         region: userLocation?.region || selectedRegion?.id || 'tamilnadu',
         allRegions: SOUTH_INDIAN_STATES,
         isRegionModalOpen,
