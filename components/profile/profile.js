@@ -11,6 +11,7 @@ import { FaHeart } from "react-icons/fa6";
 import { useHeaderdetails } from '@/context/HeaderContext';
 import { useRegion } from '@/context/RegionContext';
 import { useFilteredStores } from '@/hooks/useFilteredStores';
+import { getCanonicalDistrict } from '@/lib/storeDistrictHelper';
 
 function getStoreDisplayName(store) {
   if (!store) return "";
@@ -20,11 +21,13 @@ function getStoreDisplayName(store) {
     store.name ||
     store.store_name ||
     "Store";
-  // Clean up long marketing suffixes like " - Electronics Store - Buy Latest Mobiles..."
+  // Clean up long marketing suffixes if any
   const cleanName =
     rawName.split(/\s*-\s*(?:Electronics|Buy|Ref|LED|Mobile|Home|Air)/i)[0].trim() || rawName;
-  if (store.city && !cleanName.toLowerCase().includes(store.city.toLowerCase())) {
-    return `${cleanName} - ${store.city}`;
+  const dist = getCanonicalDistrict(store);
+  const location = store.city || (dist !== "Other" ? dist : "");
+  if (location && !cleanName.toLowerCase().includes(location.toLowerCase())) {
+    return `${cleanName} (${location})`;
   }
   return cleanName;
 }
@@ -59,19 +62,10 @@ export default function Profile() {
     const fetchStores = async () => {
       try {
         setLoadingStores(true);
-        const res = await fetch('/api/stores');
+        // Connect to Checkout's real 383 Sathya Showrooms data source
+        const res = await fetch('/api/store_listings/get');
         const data = await res.json();
-        let list = [];
-        if (data && data.success && Array.isArray(data.data) && data.data.length > 0) {
-          list = data.data;
-        } else {
-          // Fallback to store listings API
-          const fallbackRes = await fetch('/api/store_listings/get');
-          const fallbackData = await fallbackRes.json();
-          if (Array.isArray(fallbackData) && fallbackData.length > 0) {
-            list = fallbackData;
-          }
-        }
+        const list = Array.isArray(data) ? data : (data?.data || []);
         if (!cancelled) {
           const activeList = list.filter((s) => !s.status || s.status.toLowerCase() === 'active');
           setStores(activeList.length > 0 ? activeList : list);

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { getCanonicalDistrict } from '@/lib/storeDistrictHelper';
 
 /**
  * Shape of a Store object in the system
@@ -40,11 +41,7 @@ export interface UseFilteredStoresResult<T extends Store = Store> {
  * useFilteredStores
  *
  * Isolated custom hook to filter stores based on user's current district (or city).
- * Performs case-insensitive matching across:
- * - store.district
- * - store.city
- * - store.address
- * - store.name / organisation_name / title / store_name
+ * Uses schema-resilient `getCanonicalDistrict(store)` for accurate matching.
  *
  * If no stores match the district, it safely falls back to returning all stores
  * and sets `isFallback: true` with a descriptive `fallbackMessage` ("No stores found in [District]")
@@ -84,58 +81,24 @@ export function useFilteredStores<T extends Store = Store>(
     const capitalizedDistrict =
       rawDistrict.charAt(0).toUpperCase() + rawDistrict.slice(1);
 
-    // Filter stores matching district, city, address, or name case-insensitively
+    // Filter stores matching canonical district or city strictly
     const matches = safeStores.filter((store) => {
       if (!store || typeof store !== 'object') return false;
 
-      // 1. Match district field
+      // 1. Strict match using getCanonicalDistrict
+      const storeDistrict = getCanonicalDistrict(store);
       if (
-        store.district &&
-        typeof store.district === 'string' &&
-        store.district.toLowerCase().includes(normalizedDistrict)
+        storeDistrict &&
+        storeDistrict !== 'Other' &&
+        storeDistrict.toLowerCase() === normalizedDistrict
       ) {
         return true;
       }
 
-      // 2. Match city field (e.g., "Madurai" <-> "madurai")
-      if (
-        store.city &&
-        typeof store.city === 'string' &&
-        (store.city.toLowerCase().includes(normalizedDistrict) ||
-          normalizedDistrict.includes(store.city.toLowerCase()))
-      ) {
-        return true;
-      }
-
-      // 3. Match address field
-      if (
-        store.address &&
-        typeof store.address === 'string' &&
-        store.address.toLowerCase().includes(normalizedDistrict)
-      ) {
-        return true;
-      }
-
-      // 4. Match store name / title / organisation_name
-      const storeName =
-        store.name ||
-        store.organisation_name ||
-        store.title ||
-        store.store_name ||
-        '';
-      if (
-        typeof storeName === 'string' &&
-        storeName.toLowerCase().includes(normalizedDistrict)
-      ) {
-        return true;
-      }
-
-      // 5. Match location or service_area if present
-      const storeLocation = store.location || store.service_area || '';
-      if (
-        typeof storeLocation === 'string' &&
-        storeLocation.toLowerCase().includes(normalizedDistrict)
-      ) {
+      // 2. Direct match on store.city or store.district
+      const directCity = (store.city || '').toString().trim().toLowerCase();
+      const directDistrict = (store.district || '').toString().trim().toLowerCase();
+      if (directDistrict === normalizedDistrict || directCity === normalizedDistrict) {
         return true;
       }
 

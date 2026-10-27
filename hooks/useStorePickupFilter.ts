@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { getCanonicalDistrict } from '../lib/storeDistrictHelper.js';
 import { getStoreDistrict } from '../lib/storePickupHelper.js';
 
 /**
@@ -56,13 +57,14 @@ export interface UseStorePickupFilterResult<T extends StorePickupItem = StorePic
  *
  * Isolated custom hook for Checkout Store Pickup selector:
  * 1. Strict District Isolation:
- *    User selecting a district (e.g. "Madurai") strictly matches against store.district only
- *    (`storeDistrict.toLowerCase() === selectedDistrict.toLowerCase()`).
- *    Does NOT perform loose substring searches on store.address or store.name.
+ *    User selecting a district (e.g. "Dindigul") strictly matches against
+ *    `getCanonicalDistrict(store).toLowerCase() === selectedDistrict.toLowerCase()`.
+ *    Null/undefined districts, or stores belonging to other districts (like Chennai or Cuddalore),
+ *    are 100% blocked from entering the filtered list.
  * 2. Search Store Input Isolation:
  *    searchQuery checks ONLY store.name, store.address, and store.city.
  * 3. Dynamic District Dropdown Options:
- *    Extracts unique districts from the available stores list with live store counts.
+ *    Extracts unique districts derived from getCanonicalDistrict with live store counts.
  * 4. Clean memoization via useMemo.
  */
 export function useStorePickupFilter<T extends StorePickupItem = StorePickupItem>(
@@ -78,7 +80,7 @@ export function useStorePickupFilter<T extends StorePickupItem = StorePickupItem
 
     safeStores.forEach((store) => {
       if (!store || typeof store !== 'object') return;
-      const dist = getStoreDistrict(store);
+      const dist = getCanonicalDistrict(store);
       if (dist && dist !== 'Other') {
         counts[dist] = (counts[dist] || 0) + 1;
       }
@@ -101,12 +103,11 @@ export function useStorePickupFilter<T extends StorePickupItem = StorePickupItem
     const filtered = safeStores.filter((store) => {
       if (!store || typeof store !== 'object') return false;
 
-      // Requirement 1: Strict District Isolation
+      // Requirement 1: 100% Strict District Filtering
       if (targetDist !== 'all') {
-        const storeDistrict = getStoreDistrict(store).trim().toLowerCase();
-        // STRICT / EXACT match against store.district only
-        // Do NOT check store.address or store.name!
-        if (storeDistrict !== targetDist) {
+        const storeDistrict = getCanonicalDistrict(store);
+        // STRICT / EXACT match against canonical district
+        if (!storeDistrict || storeDistrict === 'Other' || storeDistrict.trim().toLowerCase() !== targetDist) {
           return false;
         }
       }
@@ -133,8 +134,8 @@ export function useStorePickupFilter<T extends StorePickupItem = StorePickupItem
 
     // Deterministic sort: by District (alphabetical), then by Store Name (alphabetical)
     return [...filtered].sort((a, b) => {
-      const distA = getStoreDistrict(a).toLowerCase();
-      const distB = getStoreDistrict(b).toLowerCase();
+      const distA = getCanonicalDistrict(a).toLowerCase();
+      const distB = getCanonicalDistrict(b).toLowerCase();
       if (distA !== distB) {
         return distA.localeCompare(distB);
       }
