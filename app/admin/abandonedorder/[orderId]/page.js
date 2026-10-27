@@ -446,6 +446,13 @@ const OrderDetails = () => {
               }
               <tr className="border-b">
                 <td className="p-2 flex items-center gap-2 font-semibold text-gray-700">
+                  <FaPhoneAlt className="bg-red-500 text-white p-1 rounded-md w-6 h-6" />
+                  Phone:
+                </td>
+                <td className="p-2">{order.order_phonenumber || "—"}</td>
+              </tr>
+              <tr className="border-b">
+                <td className="p-2 flex items-center gap-2 font-semibold text-gray-700">
                   <MdDateRange className="bg-red-500 text-white p-1 rounded-md w-6 h-6" />
                   Date: </td>
                 <td className="p-2 ">{new Date(order.created_at || order.createdAt).toLocaleDateString()}</td>
@@ -493,7 +500,7 @@ const OrderDetails = () => {
                 <td className="p-2 flex items-center gap-2 font-semibold text-gray-700">
                   <FaPhoneAlt className="bg-red-500 text-white p-1 rounded-md w-6 h-6" />
                   Phone:</td>
-                <td className="p-2">{order.order_phonenumber}</td>
+                <td className="p-2">{order.customer_current_phone || "—"}</td>
               </tr>
               <tr className="border-b">
                 <td className="p-2 flex items-center gap-2 font-semibold text-gray-700">

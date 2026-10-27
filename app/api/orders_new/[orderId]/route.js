@@ -10,6 +10,7 @@ import StoreListing from "@/models/store_listings";
 import { requireAdmin } from "@/lib/adminRequest";
 import { ownerFieldFilter } from "@/lib/storeView";
 import { attachRefundMeta } from "@/lib/orderRefund";
+import { attachCustomerCurrentPhone } from "@/lib/orderCustomerPhone";
 
 const ORDER_STATUSES = [
   "Billed",
@@ -118,6 +119,7 @@ export async function GET(req, { params }) {
     await attachDetails(order);
     await attachOrderHistory(order);
     await attachRefundMeta(order);
+    await attachCustomerCurrentPhone(order);
     const rawSales = await OrderNew.collection.findOne(
       { _id: order._id },
       { projection: { sales_person_id: 1, sales_person_role: 1 } }

@@ -113,6 +113,13 @@ const addHistory = async () => {
         </tr>
         <tr className="border-b">
           <td className="p-2 flex items-center gap-2 font-semibold text-gray-700">
+            <FaPhoneAlt className="bg-red-500 text-white p-1 rounded-md w-6 h-6" />
+            Phone:
+          </td>
+          <td className="p-2">{order.order_phonenumber || "—"}</td>
+        </tr>
+        <tr className="border-b">
+          <td className="p-2 flex items-center gap-2 font-semibold text-gray-700">
             <MdDateRange className="bg-red-500 text-white p-1 rounded-md w-6 h-6" />
             Date: </td>
           <td className="p-2 ">{new Date(order.created_at).toLocaleDateString()}</td>
@@ -156,12 +163,12 @@ const addHistory = async () => {
             Name:</td>
           <td className="p-2">{order.order_username}</td>
         </tr>
-        {/* <tr className="border-b">
+        <tr className="border-b">
           <td className="p-2 flex items-center gap-2 font-semibold text-gray-700">
             <FaPhoneAlt className="bg-red-500 text-white p-1 rounded-md w-6 h-6" />
             Phone:</td>
-          <td className="p-2">{order.order_phonenumber}</td>
-        </tr> */}
+          <td className="p-2">{order.customer_current_phone || "—"}</td>
+        </tr>
         <tr className="border-b"> 
           <td className="p-2 flex items-center gap-2 font-semibold text-gray-700">
             <FaStore className="bg-red-500 text-white p-1 rounded-md w-6 h-6" />

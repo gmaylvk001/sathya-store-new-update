@@ -2,6 +2,7 @@ import Order from '@/models/ecom_order_info';
 import Product from "@/models/product";
 import { NextResponse } from "next/server";
 import dbConnect from '@/lib/db';
+import { attachCustomerCurrentPhone } from "@/lib/orderCustomerPhone";
 
 export async function GET(req, { params }) {
   await dbConnect();
@@ -14,7 +15,7 @@ export async function GET(req, { params }) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    const productItemCodes = order.order_details.map(item => {
+    const productItemCodes = (order.order_details || []).map(item => {
       // Check if the item_code starts with 'ITEM' and remove it
       if (item.item_code && item.item_code.startsWith('ITEM')) {
         return item.item_code.substring(4); // 'ITEM' is 4 characters long
@@ -31,15 +32,17 @@ export async function GET(req, { params }) {
     // Log the fetched products to check if a match was found
     console.log("Fetched Products:", products);
 
-    order.order_details = order.order_details.map(item => {
+    order.order_details = (order.order_details || []).map(item => {
       // Find the corresponding product using the original item_code
       const product = products.find(p => {
         const trimmedCode = p.item_code;
         // Compare the trimmed code from the products array with the order item code
-        return item.item_code.endsWith(trimmedCode);
+        return item.item_code && item.item_code.endsWith(trimmedCode);
       });
       return { ...item, slug: product?.slug || null };
     });
+
+    await attachCustomerCurrentPhone(order);
 
     console.log("Order with Slugs:", order);
     
