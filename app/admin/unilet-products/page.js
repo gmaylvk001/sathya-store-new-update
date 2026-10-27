@@ -53,6 +53,7 @@ export default function UniletProductsPage() {
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState('');
   const [importResult, setImportResult] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Bulk Delete State
   const [selectedIds, setSelectedIds] = useState([]);
@@ -376,6 +377,57 @@ export default function UniletProductsPage() {
     setImportModalOpen(true);
   };
 
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      const params = new URLSearchParams();
+      if (activeSearch) params.set('search', activeSearch);
+      const qs = params.toString();
+      const url = qs
+        ? `/api/admin/owner-product/export?${qs}`
+        : `/api/admin/owner-product/export`;
+
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'x-admin-auth': 'true',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        cache: 'no-store',
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || 'Export failed');
+      }
+
+      const blob = await res.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename=(.+)/i);
+      link.download = match
+        ? match[1].replace(/["']/g, '').trim()
+        : `unilet_products_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+      showToast(
+        activeSearch
+          ? `Exported Unilet products matching "${activeSearch}"`
+          : 'Unilet products exported successfully'
+      );
+    } catch (err) {
+      console.error('Unilet export error:', err);
+      showToast(err.message || 'Export failed', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleImport = async (e) => {
     e.preventDefault();
     setImportError('');
@@ -441,7 +493,20 @@ export default function UniletProductsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start md:self-auto">
+        <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={isExporting || isLoading}
+            className="inline-flex items-center space-x-1.5 bg-[#2563eb] hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Icon
+              icon={isExporting ? 'mdi:loading' : 'mdi:download'}
+              className={`text-lg ${isExporting ? 'animate-spin' : ''}`}
+            />
+            <span>{isExporting ? 'Exporting...' : 'Export Excel'}</span>
+          </button>
+
           <button
             onClick={handleOpenImport}
             className="inline-flex items-center space-x-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2 rounded-md shadow-sm transition-colors"
