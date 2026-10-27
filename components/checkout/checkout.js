@@ -18,6 +18,7 @@ import {
   getDistrictsWithCounts,
   formatStorePhone,
 } from "@/lib/storePickupHelper";
+import { useStorePickupFilter } from "@/hooks/useStorePickupFilter";
 
 const loadRazorpay = () => {
   return new Promise((resolve) => {
@@ -185,17 +186,11 @@ const StorePickupSelector = ({
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef(null);
 
-  // Derived unique districts with store counts
-  const districts = useMemo(() => getDistrictsWithCounts(stores), [stores]);
-
-  // Combined filtered and predictably sorted stores
-  const filteredStores = useMemo(() => {
-    const filtered = filterStores(stores, {
-      district: selectedDistrict,
-      searchQuery,
-    });
-    return sortStoresByDistrictAndName(filtered);
-  }, [stores, selectedDistrict, searchQuery]);
+  // Isolated custom hook for strict district matching, search isolation, and dynamic district counts
+  const { filteredStores, districts } = useStorePickupFilter(stores, {
+    selectedDistrict,
+    searchQuery,
+  });
 
   // Find currently selected store object (persists across filter/search changes)
   const currentSelectedStore = useMemo(() => {
