@@ -16,6 +16,7 @@ import { ADD_CART_ALLOWED_MOVEMENTS, isMovementAllowed } from "@/lib/addCartConf
 import OpenBoxPopup from "@/components/OpenBoxPopup";
 
 import { v4 as uuidv4 } from "uuid";
+import { useRegion } from "@/context/RegionContext";
 
 const AddToCartButton = ({
   productId,
@@ -47,6 +48,7 @@ const AddToCartButton = ({
   const [showOpenBoxPopup, setShowOpenBoxPopup] = useState(false);
   // const isprice = special_price <= 0;
   const { cartCount, updateCartCount } = useCart();
+  const { pincode: headerPincode, userLocation, region: currentRegion } = useRegion();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   const handleAddToCart = async () => {
     if (isOutOfStock) return;
@@ -98,6 +100,10 @@ const AddToCartButton = ({
 
       // ✅ Add main product to cart in a single direct API request
       const effectiveGuestCartId = guestCartId || (typeof window !== "undefined" ? localStorage.getItem("guestCartId") : null);
+      const effectivePincode = headerPincode || userLocation?.pincode || "";
+      const effectiveUserState = userLocation?.stateName || userLocation?.state || (currentRegion === "karnataka" ? "Karnataka" : "Tamil Nadu");
+      const effectiveRegion = currentRegion || userLocation?.region || (effectiveUserState === "Karnataka" ? "karnataka" : "tamilnadu");
+
       const cartResponse = await fetch("/api/cart", {
         method: "POST",
         headers: {
@@ -112,6 +118,9 @@ const AddToCartButton = ({
           selectedWarranty: warranty,
           selectedExtendedWarranty: extendedWarranty,
           guestCartId: effectiveGuestCartId || undefined,
+          pincode: effectivePincode,
+          userState: effectiveUserState,
+          region: effectiveRegion,
         }),
       });
 

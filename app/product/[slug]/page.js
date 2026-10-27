@@ -2,7 +2,7 @@ import ProductClient from "./ProductClient";
 import { getProductDataCached } from "@/lib/productFetcher";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { normalizeRegion } from "@/lib/regionHelper";
+import { normalizeRegion, isKarnatakaPincode } from "@/lib/regionHelper";
 
 export async function generateMetadata({ params }) {
   const awaitedParams = await params;
@@ -52,7 +52,11 @@ export default async function ProductPage({ params }) {
     try {
       const decoded = decodeURIComponent(rawLoc);
       const parsed = JSON.parse(decoded);
-      region = normalizeRegion(parsed.region || parsed.state || parsed.stateName);
+      const isKarnataka =
+        isKarnatakaPincode(parsed.pincode) ||
+        /karnataka/i.test(String(parsed.stateName || parsed.state || "")) ||
+        normalizeRegion(parsed.region) === "karnataka";
+      region = isKarnataka ? "karnataka" : normalizeRegion(parsed.region || parsed.state || parsed.stateName);
     } catch {
       region = normalizeRegion(rawLoc);
     }

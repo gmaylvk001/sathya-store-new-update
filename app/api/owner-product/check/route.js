@@ -49,11 +49,19 @@ export async function POST(req) {
 
     const owners = or.length
       ? await OwnerProduct.find({
-          owner_id: "unilet",
-          is_active: true,
-          $or: or,
+          $and: [
+            {
+              $or: [
+                { owner_id: { $regex: /^unilet$/i } },
+                { store_owner: { $regex: /^unilet$/i } },
+                { region: "karnataka" },
+              ],
+            },
+            { is_active: true },
+            { $or: or },
+          ],
         })
-          .select("product_id product_item_code vendor_item_code")
+          .select("product_id product_item_code vendor_item_code stock stock_status")
           .lean()
       : [];
 

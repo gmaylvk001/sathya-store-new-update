@@ -12,6 +12,7 @@ import { isOpenBoxEligible } from "@/lib/openBoxHelper";
 import OpenBoxPopup from "@/components/OpenBoxPopup";
 
 import { v4 as uuidv4 } from "uuid";
+import { useRegion } from "@/context/RegionContext";
 
 const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts = [], extendedWarranty, selectedFrequentProducts = [], stockQuantity = 1, special_price, onSuccess, buttonLabel, buttonClassName, movement, productName, productSlug, warrantyData, variantValues, selectedVariant, color, exchangeOffer = null }) => {
   const { openAuthModal } = useModal();
@@ -25,6 +26,7 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
   const isprice = special_price <= 0;
   const isOpenBox = isOpenBoxEligible({ movement, quantity: stockQuantity });
   const { cartCount, updateCartCount } = useCart();
+  const { pincode: headerPincode, userLocation, region: currentRegion } = useRegion();
   const handleAddToCart = async () => {
      if (isOutOfStock) return;
 
@@ -67,7 +69,11 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
           price: Number(extendedWarranty || warrantyData.price || warrantyData.amount || 0),
         } : null;
 
-        // ✅ Add main product to cart in a single direct API call
+        const effectivePincode = headerPincode || userLocation?.pincode || "";
+        const effectiveUserState = userLocation?.stateName || userLocation?.state || (currentRegion === "karnataka" ? "Karnataka" : "Tamil Nadu");
+        const effectiveRegion = currentRegion || userLocation?.region || (effectiveUserState === "Karnataka" ? "karnataka" : "tamilnadu");
+
+        // ✅ Add main product to cart in a single direct API call with region and pincode
         const cartResponse = await fetch("/api/cart", {
           method: "POST",
           headers: {
@@ -86,6 +92,9 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
             color: color || undefined,
             ...(exchangeOffer ? { exchangeOffer } : {}),
             guestCartId: guestCartId || undefined,
+            pincode: effectivePincode,
+            userState: effectiveUserState,
+            region: effectiveRegion,
           }),
         });
 

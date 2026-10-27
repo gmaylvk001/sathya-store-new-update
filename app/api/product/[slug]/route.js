@@ -1,5 +1,5 @@
 import { getProductData } from "@/lib/productFetcher";
-import { normalizeRegion } from "@/lib/regionHelper";
+import { normalizeRegion, isKarnatakaPincode } from "@/lib/regionHelper";
 
 export async function GET(request, context) {
   const { params } = await context;
@@ -17,24 +17,28 @@ export async function GET(request, context) {
 
   try {
     const url = request?.url ? new URL(request.url) : null;
-    const rawState =
-      url?.searchParams.get("state") ||
-      url?.searchParams.get("region") ||
-      request.cookies?.get("sathya_location")?.value;
+    const qPincode = url?.searchParams.get("pincode");
+    const qRegion = url?.searchParams.get("region") || url?.searchParams.get("state");
+    const cookieLoc = request.cookies?.get("sathya_location")?.value;
 
-    let region = "tamilnadu";
-    if (rawState) {
+    let cookieParsed = null;
+    if (cookieLoc) {
       try {
-        if (rawState.startsWith("{")) {
-          const parsed = JSON.parse(rawState);
-          region = normalizeRegion(parsed.region || parsed.state || parsed.stateName);
-        } else {
-          region = normalizeRegion(rawState);
-        }
-      } catch {
-        region = normalizeRegion(rawState);
-      }
+        const decoded = cookieLoc.startsWith("%") ? decodeURIComponent(cookieLoc) : cookieLoc;
+        cookieParsed = JSON.parse(decoded);
+      } catch {}
     }
+
+    const effectivePin = String(qPincode || cookieParsed?.pincode || "").replace(/\D/g, "").trim();
+    const effectiveState = cookieParsed?.stateName || cookieParsed?.state || "";
+    const isKarnataka =
+      isKarnatakaPincode(effectivePin) ||
+      /karnataka/i.test(String(effectiveState)) ||
+      normalizeRegion(qRegion || cookieParsed?.region) === "karnataka";
+
+    const region = isKarnataka
+      ? "karnataka"
+      : normalizeRegion(qRegion || cookieParsed?.region || effectiveState || "tamilnadu");
 
     const responseProduct = await getProductData(slug, region);
 

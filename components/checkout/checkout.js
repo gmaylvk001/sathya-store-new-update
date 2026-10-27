@@ -7,7 +7,12 @@ import { useRouter } from 'next/navigation';
 import { AuthModal } from '@/components/AuthModal';
 import { ga4BeginCheckout, ga4Purchase } from "@/utils/nextjs-event-tracking.js";
 import { useModal } from "@/context/ModalContext";
-import { isKarnatakaPincode } from "@/lib/regionHelper";
+import {
+  isKarnatakaPincode,
+  isUniletProduct,
+  isProductDeliverableToPincode,
+  UNILET_RESTRICTION_MESSAGE,
+} from "@/lib/regionHelper";
 import { buildOrderNumber } from "@/lib/orderNumber";
 import { useRegion } from "@/context/RegionContext";
 import useDetectLocation from "@/hooks/useDetectLocation";
@@ -559,6 +564,7 @@ const DeliveryOptions = ({
   normDeliveryPin,
   normHeaderPin,
   setPincode,
+  uniletDeliveryBlocked,
 }) => {
   const firstProduct = cartItems?.[0];
   const productLink = firstProduct
@@ -701,6 +707,11 @@ const DeliveryOptions = ({
           <button
             type="button"
             onClick={() => {
+              if (uniletDeliveryBlocked) {
+                setPincodeError(UNILET_RESTRICTION_MESSAGE);
+                toast.error(UNILET_RESTRICTION_MESSAGE);
+                return;
+              }
               if (formData.deliveryType === 'store' && !formData.selectedStore) {
                 toast.error('Please select a pickup store');
                 return;
@@ -727,7 +738,13 @@ const DeliveryOptions = ({
           >
             Save and continue
           </button>
-          {pincodeError && (
+          {uniletDeliveryBlocked && (
+            <div role="alert" className="mt-3 p-3.5 rounded-lg border border-red-300 bg-red-50 text-sm text-red-700 font-medium flex items-start gap-2 shadow-xs">
+              <span className="text-red-600 font-bold text-base leading-none">⚠️</span>
+              <span>{UNILET_RESTRICTION_MESSAGE}</span>
+            </div>
+          )}
+          {pincodeError && !uniletDeliveryBlocked && (
             <div role="alert" className="mt-3 p-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700">
               {pincodeError}
             </div>
@@ -1388,6 +1405,20 @@ export default function CheckoutPage() {
 
   const isKarnataka = formData.deliveryType === 'store' ? Boolean(isKarnatakaStorePickup) : Boolean(isKarnatakaDelivery);
 
+  const hasUniletItems = useMemo(() => {
+    return cartItems.some((item) => {
+      return (
+        item.isUnilet === true ||
+        isUniletProduct(item) ||
+        isUniletProduct(item.productId)
+      );
+    });
+  }, [cartItems]);
+
+  const uniletDeliveryBlocked = hasUniletItems && (
+    formData.deliveryType === 'store' ? !isKarnatakaStorePickup : !isKarnatakaDelivery
+  );
+
   const hasPincodeMismatch = Boolean(
     normDeliveryPin.length === 6 &&
     normHeaderPin.length === 6 &&
@@ -1395,10 +1426,10 @@ export default function CheckoutPage() {
   );
 
   useEffect(() => {
-    if (hasPincodeMismatch && isDeliverySaved) {
+    if ((hasPincodeMismatch || uniletDeliveryBlocked) && isDeliverySaved) {
       setIsDeliverySaved(false);
     }
-  }, [hasPincodeMismatch, isDeliverySaved]);
+  }, [hasPincodeMismatch, uniletDeliveryBlocked, isDeliverySaved]);
 
   const resolveCartProductId = (item) => {
     const raw =
@@ -1895,6 +1926,11 @@ export default function CheckoutPage() {
         );
         return;
       }
+      if (uniletDeliveryBlocked) {
+        toast.error(UNILET_RESTRICTION_MESSAGE);
+        setIsSubmitting(false);
+        return;
+      }
       const decoded = jwtDecode(token);
       const userId = decoded.userId;
       const shippingAddress = savedAddresses.find(a => a._id === shippingAddressId);
@@ -2370,6 +2406,7 @@ export default function CheckoutPage() {
                 normDeliveryPin={normDeliveryPin}
                 normHeaderPin={normHeaderPin}
                 setPincode={setPincode}
+                uniletDeliveryBlocked={uniletDeliveryBlocked}
               />
 
               {/* Address Selection UI (replaces inline form) */}
@@ -2999,11 +3036,16 @@ export default function CheckoutPage() {
                     Could not verify Karnataka availability, so Continue to payment stays off. Refresh the page and try again.
                   </p>
                 )}
+                {uniletDeliveryBlocked && (
+                  <p className="mb-2 text-xs font-semibold text-red-600 leading-relaxed bg-red-50 p-2.5 rounded-lg border border-red-200">
+                    ⚠️ {UNILET_RESTRICTION_MESSAGE}
+                  </p>
+                )}
                 <button
                   onClick={handleSubmit}
-                  disabled={isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || hasPincodeMismatch || karnatakaOrderBlocked}
+                  disabled={isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || hasPincodeMismatch || karnatakaOrderBlocked || uniletDeliveryBlocked}
                   className={`w-full h-12 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all
-                    ${isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || hasPincodeMismatch || karnatakaOrderBlocked
+                    ${isSubmitting || loading || cartItems.length === 0 || !isDeliverySaved || hasPincodeMismatch || karnatakaOrderBlocked || uniletDeliveryBlocked
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-red-600 text-white hover:bg-red-700 active:scale-[0.98]'}`}
                 >

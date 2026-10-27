@@ -13,6 +13,7 @@ import {
 import {
   isValidPincode,
   isKarnatakaPincode,
+  isUniletProduct,
   lookupPincode,
 } from "@/lib/regionHelper";
 
@@ -212,9 +213,34 @@ export async function GET(req) {
 
     if (product) {
       // Check Karnataka specific Unilet stock rule
+      const isUnilet = isUniletProduct(product);
+
+      if (isUnilet && !isKarnataka) {
+        return NextResponse.json({
+          status: 0,
+          available: false,
+          serviceable: false,
+          deliveryAvailable: false,
+          days: 0,
+          deliveryDays: 0,
+          message: "UNILETEC products are only deliverable within Karnataka. Please change delivery address or remove item.",
+          deliveryMessage: "UNILETEC products are only deliverable within Karnataka. Please change delivery address or remove item.",
+          pickupAvailable: false,
+          pickupMessage: "Not Available",
+          codAvailable: false,
+          isCodAvailable: false,
+          region,
+        });
+      }
+
       if (isKarnataka) {
         const ownerProduct = await OwnerProduct.findOne({
-          $or: [{ product_id: product._id }, { product_item_code: product.item_code }],
+          owner_id: "unilet",
+          $or: [
+            ...(product._id ? [{ product_id: product._id }] : []),
+            ...(product.item_code ? [{ product_item_code: product.item_code }, { vendor_item_code: product.item_code }] : []),
+            { product_item_code: "UNILETEC383BIKSTM" },
+          ],
           is_active: true,
         }).lean();
 

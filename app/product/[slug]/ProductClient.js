@@ -30,9 +30,12 @@ import { FiShoppingCart } from "react-icons/fi";
 import { TbTruckDelivery } from "react-icons/tb";
 import { IoFastFoodOutline, IoReload, IoCardOutline, IoShieldCheckmark, IoStorefront, IoLocationOutline } from "react-icons/io5";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCart } from '@/context/CartContext';
 import { useModal } from '@/context/ModalContext';
 import { useRegion } from '@/context/RegionContext';
+import { isUniletProduct } from '@/lib/regionHelper';
+import { toast } from 'react-toastify';
 import ProductCard from "@/components/ProductCard";
 import ProductAddtoCart from "@/components/ProductAddtoCart"
 import AddToWishlistButton from "@/components/ProductCard";
@@ -269,9 +272,99 @@ export default function ProductClient({ initialProduct = null }) {
   const [addOnProducts, setAddOnProducts] = useState([]);
   const [warranties, setWarranties] = useState([]);
   const [selectedWarrantyData, setSelectedWarrantyData] = useState(null);
-  const { pincode: globalPincode, region: globalRegion, isInitialized, setPincode } = useRegion();
+  const { pincode: globalPincode, region: globalRegion, userLocation, isInitialized, setPincode } = useRegion();
   const variantKey = (id) => `${globalRegion || "tamilnadu"}::${id}`;
   productRef.current = product;
+  const router = useRouter();
+
+  const effectivePincode = useMemo(() => {
+    return (globalPincode || userLocation?.pincode || "").toString().replace(/\D/g, "").trim();
+  }, [globalPincode, userLocation?.pincode]);
+
+  const effectiveUserState = useMemo(() => {
+    return userLocation?.stateName || userLocation?.state || (globalRegion === "karnataka" ? "Karnataka" : "Tamil Nadu");
+  }, [userLocation?.stateName, userLocation?.state, globalRegion]);
+
+  // ⚡ Instant Client-Side Stock Reactivity on Pincode / Region Change (No Hard Refresh Required)
+  useEffect(() => {
+    if (!product?._id && !initialProduct?._id) return;
+    if (!isInitialized) return;
+
+    const targetProductId = product?._id || initialProduct?._id;
+    const targetItemCode = product?.item_code || initialProduct?.item_code;
+    const targetSlug = product?.slug || initialProduct?.slug || slug;
+
+    let isMounted = true;
+    const controller = new AbortController();
+
+    const updateLiveStock = async () => {
+      try {
+        const queryParams = new URLSearchParams({
+          productId: String(targetProductId),
+          ...(targetItemCode ? { item_code: String(targetItemCode) } : {}),
+          ...(targetSlug ? { slug: String(targetSlug) } : {}),
+          pincode: effectivePincode,
+          userState: effectiveUserState,
+          region: globalRegion || "",
+        });
+
+        const res = await fetch(`/api/stock/validate?${queryParams.toString()}`, {
+          signal: controller.signal,
+          headers: { "Cache-Control": "no-cache" },
+        });
+
+        const stockData = await res.json().catch(() => null);
+        if (!isMounted || !stockData) return;
+
+        const liveInStock = Boolean(stockData.inStock && stockData.isDeliverable !== false);
+        const liveQty = liveInStock
+          ? Number(stockData.availableQuantity ?? stockData.stock ?? 0)
+          : 0;
+
+        setProduct((prev) => {
+          if (!prev) return prev;
+          const currentQty = Number(prev.quantity ?? prev.stock ?? 0);
+          const currentStatus = String(prev.stock_status || "").trim();
+          const targetStatus = liveInStock ? "In Stock" : "Out of Stock";
+
+          if (
+            currentQty === liveQty &&
+            currentStatus === targetStatus &&
+            prev.isDeliverable === stockData.isDeliverable
+          ) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            quantity: liveQty,
+            stock: liveQty,
+            stock_status: targetStatus,
+            isDeliverable: stockData.isDeliverable,
+            isUnilet: Boolean(stockData.isUnilet ?? prev.isUnilet),
+            resolvedRegion: stockData.warehouse === "unilet" ? "karnataka" : prev.resolvedRegion,
+          };
+        });
+
+        // Sync Next.js server components in the background
+        try {
+          router.refresh();
+        } catch {}
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.warn("Live stock check warning:", err);
+        }
+      }
+    };
+
+    updateLiveStock();
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [effectivePincode, effectiveUserState, globalRegion, product?._id, initialProduct?._id, isInitialized, slug, router]);
+
   const [highlightOffer, setHighlightOffer] = useState(null);
   const [hasExchangeOffers, setHasExchangeOffers] = useState(false);
   const [appliedExchangeOffer, setAppliedExchangeOffer] = useState(null);
@@ -734,28 +827,40 @@ export default function ProductClient({ initialProduct = null }) {
       } : null;
 
       // ✅ Add main product to cart
-      try {
-        const cartResponse = await fetch("/api/cart", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(isLoggedIn && { Authorization: `Bearer ${token}` }),
-          },
-          body: JSON.stringify({
-            productId: product?._id,
-            quantity: Number(quantity) || 1,
-            selectedWarranty: Number(activeWarranty?.year || (effectiveWarrantyAmount > 0 ? 1 : 0)),
-            selectedExtendedWarranty: effectiveWarrantyAmount,
-            warrantyData: activeWarranty,
-            variantValues: currentVariantValues || undefined,
-            selectedVariant: currentVariantValues || undefined,
-            color: currentColor || undefined,
-            ...(exchangeOffer ? { exchangeOffer } : {}),
-            ...(guestCartId && { guestCartId }),
-          }),
-        });
+          const effectivePincode = globalPincode || userLocation?.pincode || "";
+          const effectiveUserState = userLocation?.stateName || userLocation?.state || (globalRegion === "karnataka" ? "Karnataka" : "Tamil Nadu");
+          const effectiveRegion = globalRegion || userLocation?.region || (effectiveUserState === "Karnataka" ? "karnataka" : "tamilnadu");
 
-        if (cartResponse.ok) {
+          const cartResponse = await fetch("/api/cart", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(isLoggedIn && { Authorization: `Bearer ${token}` }),
+            },
+            body: JSON.stringify({
+              productId: product?._id,
+              quantity: Number(quantity) || 1,
+              selectedWarranty: Number(activeWarranty?.year || (effectiveWarrantyAmount > 0 ? 1 : 0)),
+              selectedExtendedWarranty: effectiveWarrantyAmount,
+              warrantyData: activeWarranty,
+              variantValues: currentVariantValues || undefined,
+              selectedVariant: currentVariantValues || undefined,
+              color: currentColor || undefined,
+              ...(exchangeOffer ? { exchangeOffer } : {}),
+              ...(guestCartId && { guestCartId }),
+              pincode: effectivePincode,
+              userState: effectiveUserState,
+              region: effectiveRegion,
+            }),
+          });
+
+          if (!cartResponse.ok) {
+            const errData = await cartResponse.json().catch(() => ({}));
+            const errMsg = errData.error || "This product is currently out of stock.";
+            toast.error(errMsg);
+            return;
+          }
+
           const additionalProducts = [
             ...selectedFrequentProducts.map((p) => p._id),
             ...selectedRelatedProducts.map((p) => p._id),
@@ -775,6 +880,9 @@ export default function ProductClient({ initialProduct = null }) {
                       productId: id,
                       quantity: 1,
                       ...(guestCartId && { guestCartId }),
+                      pincode: effectivePincode,
+                      userState: effectiveUserState,
+                      region: effectiveRegion,
                     }),
                   });
                 } catch (extraErr) {
@@ -784,19 +892,23 @@ export default function ProductClient({ initialProduct = null }) {
             );
           }
 
-          const cartData = await cartResponse.json();
+          const cartData = await cartResponse.json().catch(() => ({}));
           if (cartData?.cart?.totalItems) {
             updateCartCount(cartData.cart.totalItems + additionalProducts.length);
           }
+        } catch (cartApiErr) {
+          console.warn("Cart API sync warning:", cartApiErr);
         }
-      } catch (cartApiErr) {
-        console.warn("Cart API sync warning:", cartApiErr);
-      }
 
       const resolvePrice = (p) =>
         p?.special_price && Number(p.special_price) > 0
           ? Number(p.special_price)
           : Number(p?.price || 0);
+
+      const isUnilet = Boolean(
+        product?.isUnilet ||
+        isUniletProduct(product)
+      );
 
       // Clean, strictly serializable items array for checkout
       const cleanMainItem = {
@@ -806,11 +918,15 @@ export default function ProductClient({ initialProduct = null }) {
         name: product?.name || product?.title || "",
         title: product?.title || product?.name || "",
         slug: product?.slug || "",
+        item_code: product?.item_code || "",
         price: productPrice,
         special_price: Number(product?.special_price) || 0,
         quantity: Number(quantity) || 1,
         images: Array.isArray(product?.images) ? product.images : [],
         image: (product?.images && product.images[0]) || product?.image || "",
+        isUnilet,
+        vendor: isUnilet ? "unilet" : (product?.vendor || "sathya"),
+        store_owner: isUnilet ? "unilet" : (product?.store_owner || "sathya"),
         warranty: Number(selectedWarranty) || 0,
         extendedWarranty: effectiveWarrantyAmount,
         warrantyData: activeWarranty,
@@ -1209,7 +1325,10 @@ export default function ProductClient({ initialProduct = null }) {
           ...current,
           price: data.price,
           special_price: data.special_price,
-          isUnilet: data.isUnilet,
+          quantity: data.quantity != null ? data.quantity : current.quantity,
+          stock: data.quantity != null ? data.quantity : current.stock,
+          stock_status: data.stock_status || current.stock_status,
+          isUnilet: data.isUnilet != null ? data.isUnilet : current.isUnilet,
           resolvedRegion: data.resolvedRegion,
           bestPriceDetails: data.bestPriceDetails,
           best_price: data.best_price,
@@ -1251,7 +1370,7 @@ export default function ProductClient({ initialProduct = null }) {
       try {
         setLoading((currentLoading) => (sameProduct ? currentLoading : true));
         const response = await fetch(
-          `/api/product/${encodeURIComponent(requestSlug)}?region=${encodeURIComponent(region)}`
+          `/api/product/${encodeURIComponent(requestSlug)}?region=${encodeURIComponent(region)}&pincode=${encodeURIComponent(effectivePincode)}&state=${encodeURIComponent(effectiveUserState)}`
         );
 
         if (!response.ok) {
@@ -1292,7 +1411,7 @@ export default function ProductClient({ initialProduct = null }) {
 
     if (!isInitialized) return;
     fetchProduct();
-  }, [slug, globalRegion, isInitialized]);
+  }, [slug, globalRegion, effectivePincode, effectiveUserState, isInitialized]);
 
   useEffect(() => {
     if (!product?._id) return;
