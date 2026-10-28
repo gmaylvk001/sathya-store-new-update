@@ -17,6 +17,7 @@ const menuItems = [
       { icon: 'mdi:shape-outline', label: 'Variants', link: 'variants', dotColor: 'bg-blue-500' },
       { icon: 'mdi:trademark', label: 'Brand', link: 'brand', dotColor: 'bg-red-500' },
       { icon: 'mdi:upload', label: 'Bulk Upload', link: 'product/bulk_upload', dotColor: 'bg-yellow-500' },
+      { icon: 'mdi:file-upload-outline', label: 'Filter Bulk Upload', link: 'product/filter_bulk_upload', dotColor: 'bg-yellow-500' },
       { icon: 'mdi:filter-variant', label: 'Filter Group', link: 'filter_group', dotColor: 'bg-yellow-500' },
       { icon: 'mdi:filter-outline', label: 'Filter', link: 'filter', dotColor: 'bg-yellow-500' },
       { icon: 'mdi:plus-box-outline', label: 'New Product', link: 'newproduct', dotColor: 'bg-green-500' },
