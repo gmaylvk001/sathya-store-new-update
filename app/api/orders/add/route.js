@@ -11,6 +11,8 @@ import { sendOrderData } from "@/lib/sendOrderData";
 import { sendOrderConfirmationSms } from "@/lib/orderConfirmSms";
 import { isKarnatakaPincode } from "@/lib/regionHelper";
 import { getAuthUserId } from "@/lib/authRequest";
+import { isInvenzoServiceEnabled } from "@/lib/invenzo";
+import { orderPlacedToStoreInvenzo } from "@/lib/invenzoOrderPlace";
 import {
   generateUniqueOrderNumber,
   resolveLinePrice,
@@ -766,6 +768,36 @@ export async function POST(req) {
       }
     }
 
+    // Exist storeOrders only: foreach orderNumbersArray → Invenso (not Unilet, not admin PlaceOrder)
+    let invenzoResults = [];
+    if (
+      isInvenzoServiceEnabled() &&
+      !isKarnatakaOrder &&
+      Array.isArray(savedOrders) &&
+      savedOrders.length > 0
+    ) {
+      for (const saved of savedOrders) {
+        try {
+          const inv = await orderPlacedToStoreInvenzo({
+            orderId: String(saved._id),
+            orderNumber: saved.order_number,
+            storeCode: saved.pickup_type || sharedFields.pickup_type || "",
+          });
+          invenzoResults.push({
+            order_number: saved.order_number,
+            ...inv,
+          });
+        } catch (invErr) {
+          console.error("Invenzo checkout push error:", invErr);
+          invenzoResults.push({
+            order_number: saved.order_number,
+            ok: false,
+            error: invErr.message || "Invenzo place failed",
+          });
+        }
+      }
+    }
+
     const checkoutTotal =
       serverTotal > 0
         ? serverTotal
@@ -782,6 +814,7 @@ export async function POST(req) {
         // Full multi-item checkout total (sum of sibling line orders)
         total_amount: checkoutTotal,
         order_amount: checkoutTotal,
+        ...(invenzoResults.length ? { invenzo: invenzoResults } : {}),
       },
       { status: createdAny ? 201 : 200 }
     );

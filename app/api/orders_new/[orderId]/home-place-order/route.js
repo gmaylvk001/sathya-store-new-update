@@ -7,8 +7,9 @@ import { sendOrderData } from "@/lib/sendOrderData";
 import { ownerFieldFilter } from "@/lib/storeView";
 
 /**
- * Exist CallApi for Home Delivery PlaceOrder:
- * save pickup_type = branchid → sendOrderData (CreateSalesOrder)
+ * Exist CallApi (admin PlaceOrder / Assign path):
+ * save pickup_type = branchid → sendOrderData (Wondersoft only).
+ * Invenzo is NOT called here (Exist: Invenso only in storeOrders checkout).
  */
 export async function POST(req, { params }) {
   try {
@@ -29,15 +30,10 @@ export async function POST(req, { params }) {
       body = {};
     }
 
-    const branchid = String(body.branchid || body.pickup_type || "").trim();
+    // Exist CallApi UI: empty branch → default SSSA
+    let branchid = String(body.branchid || body.pickup_type || "").trim();
+    if (!branchid) branchid = "SSSA";
     const remarks = body.remarks != null ? String(body.remarks) : "";
-
-    if (!branchid) {
-      return NextResponse.json(
-        { success: false, message: "Please select a store / branch" },
-        { status: 400 }
-      );
-    }
 
     const order = await OrderNew.findById(orderId).lean();
     if (!order) {
@@ -48,16 +44,23 @@ export async function POST(req, { params }) {
     }
 
     const uniletOrder = String(order.order_owner || "").trim().toLowerCase() === "unilet";
-    const branchPattern = branchid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const matchingStore = await StoreListing.findOne({
-      branch_code: { $regex: new RegExp(`^${branchPattern}$`, "i") },
-      ...ownerFieldFilter("store_owner", uniletOrder),
-    }).select("_id").lean();
-    if (!matchingStore) {
-      return NextResponse.json(
-        { success: false, message: uniletOrder ? "Select a Unilet store" : "Select a Sathya store" },
-        { status: 400 }
-      );
+    if (branchid.toUpperCase() !== "SSSA") {
+      const branchPattern = branchid.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const matchingStore = await StoreListing.findOne({
+        branch_code: { $regex: new RegExp(`^${branchPattern}$`, "i") },
+        ...ownerFieldFilter("store_owner", uniletOrder),
+      })
+        .select("_id")
+        .lean();
+      if (!matchingStore) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: uniletOrder ? "Select a Unilet store" : "Select a Sathya store",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     await OrderNew.updateOne(
@@ -76,6 +79,7 @@ export async function POST(req, { params }) {
       api_status: result.api_status,
       api_reason: result.api_reason,
       pickup_type: branchid,
+      skippedApi: result.skippedApi || false,
     });
   } catch (error) {
     console.error("home-place-order error:", error);
