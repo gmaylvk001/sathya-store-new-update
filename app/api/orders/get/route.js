@@ -48,6 +48,9 @@ import CancelOrders from "@/models/cancel_orders_live";
 import { ensureAppCancelsMoved } from "@/lib/cancelOrdersLive";
 import product from "@/models/product";
 import Review from "@/models/Review";
+import ShipmentsInvenzo from "@/models/shipments_invenzo";
+import ShipmentTrackingInvenzo from "@/models/shipment_tracking_invenzo";
+import { isInvenzoServiceEnabled } from "@/lib/invenzo";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
@@ -234,6 +237,42 @@ export async function GET(req) {
       }
     }
 
+    // Invenso tracking (Exist my_orders) — only when invenso_service_on=on
+    const invensoServiceOn = isInvenzoServiceEnabled();
+    const shipmentByOrderNumber = new Map();
+    const trackingByShipmentNo = new Map();
+    if (invensoServiceOn && orderNumbers.length) {
+      try {
+        const shipments = await ShipmentsInvenzo.find({
+          order_number: { $in: orderNumbers.map((n) => String(n)) },
+        }).lean();
+        for (const s of shipments) {
+          const key = String(s.order_number || "").trim();
+          if (key && !shipmentByOrderNumber.has(key)) {
+            shipmentByOrderNumber.set(key, s);
+          }
+        }
+        const shipmentNos = [
+          ...new Set(
+            shipments.map((s) => String(s.shipment_no || "").trim()).filter(Boolean)
+          ),
+        ];
+        if (shipmentNos.length) {
+          const trackings = await ShipmentTrackingInvenzo.find({
+            shipment_id: { $in: shipmentNos },
+          }).lean();
+          for (const t of trackings) {
+            const sid = String(t.shipment_id || "").trim();
+            if (sid && !trackingByShipmentNo.has(sid)) {
+              trackingByShipmentNo.set(sid, t);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching Invenso tracking for orders:", e);
+      }
+    }
+
     const updatedOrders = [];
     for (let order of orders) {
       const itemsWithSlug = [];
@@ -351,6 +390,37 @@ export async function GET(req) {
           ? cancelExistsByOrderNumber.has(String(order.order_number).trim())
           : false);
 
+      let invenzo_shipment = null;
+      let invenzo_tracking = null;
+      if (invensoServiceOn && order.order_number) {
+        const ship = shipmentByOrderNumber.get(String(order.order_number).trim()) || null;
+        invenzo_shipment = ship
+          ? {
+              shipment_no: ship.shipment_no || null,
+              status: ship.status || null,
+              tracking_number: ship.tracking_number || null,
+              shipped_at: ship.shipped_at || null,
+              delivered_at: ship.delivered_at || null,
+              cancelled_at: ship.cancelled_at || null,
+            }
+          : null;
+        if (ship?.shipment_no) {
+          const track = trackingByShipmentNo.get(String(ship.shipment_no).trim()) || null;
+          if (track) {
+            const updates = Array.isArray(track.tracking_updates)
+              ? track.tracking_updates
+              : [];
+            invenzo_tracking = {
+              shipment_id: track.shipment_id || null,
+              location: track.location || null,
+              status: track.status || null,
+              message: track.message || null,
+              tracking_updates: updates,
+            };
+          }
+        }
+      }
+
       updatedOrders.push({
         ...orderObj,
         order_item: itemsWithSlug,
@@ -360,6 +430,9 @@ export async function GET(req) {
         createdAt: orderObj.created_at || orderObj.createdAt,
         updatedAt: orderObj.updated_at || orderObj.updatedAt,
         cancel_exists: Boolean(cancel_exists),
+        invenso_service_on: invensoServiceOn,
+        invenzo_shipment,
+        invenzo_tracking,
       });
     }
     

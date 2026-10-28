@@ -960,7 +960,13 @@ export default function Order() {
                                 <tr>
                                   <td className="text-gray-500 pr-1 whitespace-nowrap align-top">Tracking Details</td>
                                   <td className="text-gray-500 pr-2 align-top">:</td>
-                                  <td className="font-medium text-gray-800"></td>
+                                  <td className="font-medium text-gray-800">
+                                    {order.invenso_service_on && order.invenzo_shipment?.tracking_number
+                                      ? order.invenzo_shipment.tracking_number
+                                      : order.invenso_service_on && order.invenzo_shipment?.status
+                                      ? String(order.invenzo_shipment.status).replace(/_/g, " ")
+                                      : ""}
+                                  </td>
                                 </tr>
                               )}
                             </tbody>
@@ -1045,6 +1051,110 @@ export default function Order() {
                           </div>
                         </div>
                       )}
+
+                      {/* ── Invenso shipment tracking (only when invenso_service_on + shipment/tracking data) ── */}
+                      {order.invenso_service_on &&
+                        String(order.type || "online").trim().toLowerCase() !== "offline" &&
+                        (order.invenzo_tracking || order.invenzo_shipment) && (
+                          <div className="px-4 pb-4 pt-1 border-t border-gray-100">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                              <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-1.5">
+                                <FiTruck className="text-[#d72828]" />
+                                Order Tracking
+                              </h3>
+                              <div className="text-[11px] sm:text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1">
+                                {order.invenzo_shipment?.status && (
+                                  <span>
+                                    Status:{" "}
+                                    <span className="font-medium text-gray-700 capitalize">
+                                      {String(order.invenzo_shipment.status).replace(/_/g, " ")}
+                                    </span>
+                                  </span>
+                                )}
+                                {order.invenzo_shipment?.tracking_number && (
+                                  <span>
+                                    AWB:{" "}
+                                    <span className="font-medium text-gray-700">
+                                      {order.invenzo_shipment.tracking_number}
+                                    </span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {(() => {
+                              const updates = Array.isArray(order.invenzo_tracking?.tracking_updates)
+                                ? [...order.invenzo_tracking.tracking_updates].reverse()
+                                : [];
+                              const rows =
+                                updates.length > 0
+                                  ? updates
+                                  : order.invenzo_tracking
+                                  ? [
+                                      {
+                                        status: order.invenzo_tracking.status,
+                                        location: order.invenzo_tracking.location,
+                                        time: null,
+                                      },
+                                    ]
+                                  : [
+                                      {
+                                        status: order.invenzo_shipment?.status || "pending",
+                                        location: "",
+                                        time: null,
+                                      },
+                                    ];
+                              return (
+                                <ul className="space-y-2">
+                                  {rows.map((upd, idx) => {
+                                    const statusLabel = String(upd?.status || "")
+                                      .replace(/_/g, " ")
+                                      .trim();
+                                    const loc =
+                                      upd?.location != null ? String(upd.location).trim() : "";
+                                    const timeRaw = upd?.time || null;
+                                    let timeLabel = "";
+                                    if (timeRaw) {
+                                      const dt = new Date(timeRaw);
+                                      timeLabel = Number.isNaN(dt.getTime())
+                                        ? String(timeRaw)
+                                        : dt.toLocaleString("en-IN", {
+                                            day: "numeric",
+                                            month: "short",
+                                            year: "numeric",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          });
+                                    }
+                                    return (
+                                      <li
+                                        key={`${order._id}-invenso-${idx}`}
+                                        className="flex gap-2 text-xs sm:text-sm text-gray-700"
+                                      >
+                                        <span className="mt-1.5 h-2 w-2 rounded-full bg-[#d72828] flex-shrink-0" />
+                                        <div className="min-w-0">
+                                          <p className="font-medium capitalize text-gray-800">
+                                            {statusLabel || "Update"}
+                                            {loc ? (
+                                              <span className="font-normal text-gray-600">
+                                                {" "}
+                                                — {loc}
+                                              </span>
+                                            ) : null}
+                                          </p>
+                                          {timeLabel ? (
+                                            <p className="text-[11px] text-gray-400 mt-0.5">
+                                              {timeLabel}
+                                            </p>
+                                          ) : null}
+                                        </div>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              );
+                            })()}
+                          </div>
+                        )}
 
                       {/* Cancelled/Failure/Complete status bar */}
                       {isCancelledOrFailure && (
