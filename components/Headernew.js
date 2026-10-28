@@ -26,6 +26,7 @@ import { Navigation, Scrollbar } from 'swiper/modules';
 import { useHeaderdetails } from "@/context/HeaderContext";
 import { useRegion } from "@/context/RegionContext";
 import HeaderOfferTimer from "@/components/HeaderOfferTimer";
+import DealsPdfButton from "@/components/deals-offer/DealsPdfButton";
 import { filterAndRankProducts } from '@/lib/searchMatch';
 import { uniqueById } from '@/lib/uniqueById';
 import { PAGE_TYPES } from '@/lib/categoryPageComponents/registry';
@@ -2160,9 +2161,10 @@ const Header = () => {
                 onClick={openRegionModal}
                 className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 hover:bg-red-100 text-[#d72828] text-[10px] font-bold border border-red-200/80 transition-all flex-shrink-0 max-w-[95px]"
                 title={`Deliver to: ${city || 'Chennai'}, ${pincode || '600001'}`}
+                suppressHydrationWarning
               >
                 <FiMapPin size={11} className="text-[#d72828] flex-shrink-0" />
-                <span className="truncate">{pincode ? pincode : (selectedRegion?.code || 'TN')}</span>
+                <span className="truncate" suppressHydrationWarning>{pincode ? pincode : (selectedRegion?.code || 'TN')}</span>
                 <span className="text-[9px] opacity-70">▾</span>
               </button>
             </div>
@@ -2170,7 +2172,7 @@ const Header = () => {
               <Link href="/wishlist" className={`${HEADER_ACTION_LINK_CLASS} relative min-w-[36px]`}>
                 <div className={HEADER_ACTION_ICON_WRAP_SM_CLASS}>
                   <HiOutlineHeart size={15} strokeWidth={1.8} />
-                  <span className={HEADER_ACTION_BADGE_SM_CLASS}>
+                  <span className={HEADER_ACTION_BADGE_SM_CLASS} suppressHydrationWarning>
                     {wishlistCount}
                   </span>
                 </div>
@@ -2179,12 +2181,15 @@ const Header = () => {
               <Link href="/cart" className={`${HEADER_ACTION_LINK_CLASS} relative min-w-[36px]`}>
                 <div className={HEADER_ACTION_ICON_WRAP_SM_CLASS}>
                   <HiOutlineShoppingBag size={15} strokeWidth={1.8} />
-                  <span className={HEADER_ACTION_BADGE_SM_CLASS}>
+                  <span className={HEADER_ACTION_BADGE_SM_CLASS} suppressHydrationWarning>
                     {cartCount}
                   </span>
                 </div>
                 <span className={`text-[8px] hidden ${HEADER_ACTION_LABEL_CLASS}`}>Cart</span>
               </Link>
+              {/* Mobile Deals Offer PDF Button */}
+              <DealsPdfButton className="scale-90" />
+
               <div className="relative flex-shrink-0 px-0.5">
                 {userData ? (
                   <button ref={mobileProfileButtonRef} type="button" onClick={() => setDropdownOpen(!dropdownOpen)} aria-label="Account">
@@ -2474,17 +2479,30 @@ const Header = () => {
                 <FiSearch size={20} />
               </button>
 
+              {/* Deals Button (Live Sathya Style: Multi-color gradient, Title Case "Deals", Bold Black text, rounded-md) */}
+              <Link
+                href="/deals-offer"
+                className="hidden sm:inline-flex items-center justify-center px-3.5 py-1.5 rounded-md text-[#000000] font-bold text-[13px] leading-tight transition-all duration-200 shadow-xs hover:shadow hover:opacity-95 active:scale-95 shrink-0 self-center"
+                style={{
+                  background: "linear-gradient(135deg, #00b4db 0%, #f44336 55%, #ffc107 100%)",
+                }}
+                title="View Deals & Special Offers"
+              >
+                Deals
+              </Link>
+
               {/* State / Region Selector Button */}
               <button
                 type="button"
                 onClick={openRegionModal}
                 className={`${HEADER_ACTION_LINK_CLASS} hidden sm:flex min-w-[54px] cursor-pointer`}
                 title={`Deliver to: ${city || 'Chennai'}, ${pincode || '600001'} (${selectedRegion?.name || 'Tamil Nadu'}). Click to change.`}
+                suppressHydrationWarning
               >
                 <div className={HEADER_ACTION_ICON_WRAP_CLASS}>
                   <FiMapPin size={18} strokeWidth={1.75} />
                 </div>
-                <span className={`text-[10px] ${HEADER_ACTION_LABEL_CLASS} max-w-[62px] truncate`}>
+                <span className={`text-[10px] ${HEADER_ACTION_LABEL_CLASS} max-w-[62px] truncate`} suppressHydrationWarning>
                   {pincode ? pincode : (selectedRegion?.code || 'Region')} ▾
                 </span>
               </button>
@@ -2511,7 +2529,7 @@ const Header = () => {
               <Link href="/wishlist" className={`${HEADER_ACTION_LINK_CLASS} flex min-w-[52px] relative`}>
                 <div className={HEADER_ACTION_ICON_WRAP_CLASS}>
                   <HiOutlineHeart size={18} strokeWidth={1.75} />
-                  <span className={HEADER_ACTION_BADGE_CLASS}>
+                  <span className={HEADER_ACTION_BADGE_CLASS} suppressHydrationWarning>
                     {wishlistCount}
                   </span>
                 </div>
@@ -2521,7 +2539,7 @@ const Header = () => {
               <Link href="/cart" className={`${HEADER_ACTION_LINK_CLASS} flex min-w-[52px] relative`}>
                 <div className={HEADER_ACTION_ICON_WRAP_CLASS}>
                   <HiOutlineShoppingBag size={18} strokeWidth={1.75} />
-                  <span className={HEADER_ACTION_BADGE_CLASS}>
+                  <span className={HEADER_ACTION_BADGE_CLASS} suppressHydrationWarning>
                     {cartCount}
                   </span>
                 </div>
@@ -2587,13 +2605,16 @@ const Header = () => {
                 )}
               </div>
 
+              {/* Deals Offer PDF Export Icon - Visible ONLY for Authenticated Users */}
+              <DealsPdfButton />
+
               {/* User Account */}
               <div className="relative">
                 {userData ? (
                   <>
                     <button ref={profileButtonRef} onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center text-black focus:outline-none p-1 sm:p-0">
                       <FiUser size={18} className="text-brandRed" />
-                      <span className="ml-1 font-bold text-xs sm:text-sm text-brandRed hidden lg:inline">
+                      <span className="ml-1 font-bold text-xs sm:text-sm text-brandRed hidden lg:inline" suppressHydrationWarning>
                         Hi, {userData.name || userData.username || "User"}
                       </span>
                     </button>
