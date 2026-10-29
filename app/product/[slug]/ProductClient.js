@@ -38,6 +38,7 @@ import { isUniletProduct } from '@/lib/regionHelper';
 import { toast } from 'react-toastify';
 import ProductCard from "@/components/ProductCard";
 import ProductAddtoCart from "@/components/ProductAddtoCart"
+import LowStockEnquiryPopup from "@/components/LowStockEnquiryPopup";
 import AddToWishlistButton from "@/components/ProductCard";
 
 import ProductBreadcrumb from "@/components/ProductBreadcrumb";
@@ -257,6 +258,7 @@ export default function ProductClient({ initialProduct = null }) {
   const applyingVariantRef = useRef(false);
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
+  const [showLowStockEnquiry, setShowLowStockEnquiry] = useState(false);
   const [showEMIModal, setShowEMIModal] = useState(false);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [selectedWarrantyAmount, setSelectedWarrantyAmount] = useState(0);
@@ -750,7 +752,15 @@ export default function ProductClient({ initialProduct = null }) {
       e.stopPropagation();
     }
 
-    if (!isInStock || !isMovementAllowed) return;
+    if (!isInStock) return;
+
+    // Qty < 10 → show enquiry form (do not checkout yet)
+    if (isStoreOnly) {
+      setShowLowStockEnquiry(true);
+      return;
+    }
+
+    if (!isMovementAllowed) return;
 
     // Prefer offer passed in (legacy), else the offer applied on this PDP
     let exchangeOffer = null;
@@ -1946,18 +1956,7 @@ export default function ProductClient({ initialProduct = null }) {
                   </button>
                 </div>
               )}
-              {isInStock && isStoreOnly && (
-                <div className="flex gap-3">
-                  <div className="flex-1 bg-gray-300 text-gray-600 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm cursor-not-allowed">
-                    Sold Out Online
-                  </div>
-                  <div className="flex-1 border border-emerald-500 text-emerald-700 bg-emerald-50 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm">
-                    <FaStore className="w-4 h-4" />
-                    Available in Store
-                  </div>
-                </div>
-              )}
-              {isInStock && isOnlineAvailable && (
+              {isInStock && (
                 <div className="flex gap-3">
                   {isOpenBox ? (
                     <a
@@ -1999,6 +1998,11 @@ export default function ProductClient({ initialProduct = null }) {
                       movement={product.movement}
                       productName={product.name}
                       productSlug={product.slug}
+                      productCategory={
+                        product.sub_category_new_name
+                          ? String(product.sub_category_new_name).replace(/##/g, ",")
+                          : product.categoryName || product.category_name || ""
+                      }
                     />
                   </div>
                 </div>
@@ -2242,6 +2246,11 @@ export default function ProductClient({ initialProduct = null }) {
                 movement={product.movement}
                 productName={product.name}
                 productSlug={product.slug}
+                productCategory={
+                  product.sub_category_new_name
+                    ? String(product.sub_category_new_name).replace(/##/g, ",")
+                    : product.categoryName || product.category_name || ""
+                }
               />
             </div>
           )}
@@ -2697,17 +2706,6 @@ export default function ProductClient({ initialProduct = null }) {
                     )}
 
                     {isInStock ? (
-                      isStoreOnly ? (
-                        <>
-                          <div className="w-full bg-gray-300 text-gray-600 font-extrabold py-3 rounded-lg flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-not-allowed">
-                            Sold Out Online
-                          </div>
-                          <div className="w-full border-2 border-emerald-500 text-emerald-700 bg-emerald-50 font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm">
-                            <FaStore className="w-4 h-4 flex-shrink-0" />
-                            Available in Store
-                          </div>
-                        </>
-                      ) : (
                         <>
                           {/* BUY NOW Button or Call to Order for Clearance */}
                           {isOpenBox ? (
@@ -2732,7 +2730,7 @@ export default function ProductClient({ initialProduct = null }) {
                             </button>
                           )}
 
-                          {/* ADD TO CART Button */}
+                          {/* ADD TO CART Button — qty < 10 opens enquiry form inside ProductAddtoCart */}
                           <ProductAddtoCart
                             productId={product._id}
                             stockQuantity={product.quantity}
@@ -2751,9 +2749,13 @@ export default function ProductClient({ initialProduct = null }) {
                             movement={product.movement}
                             productName={product.name}
                             productSlug={product.slug}
+                            productCategory={
+                              product.sub_category_new_name
+                                ? String(product.sub_category_new_name).replace(/##/g, ",")
+                                : product.categoryName || product.category_name || ""
+                            }
                           />
                         </>
-                      )
                     ) : (
                       /* Out of Stock CTAs (Modern Croma/Flipkart e-commerce pattern) */
                       <div className="flex flex-col gap-2 pt-0.5">
@@ -2881,6 +2883,20 @@ export default function ProductClient({ initialProduct = null }) {
         price={effectivePrice}
         productName={product?.name}
       />
+
+      {showLowStockEnquiry && (
+        <LowStockEnquiryPopup
+          onClose={() => setShowLowStockEnquiry(false)}
+          productName={product?.name}
+          productSlug={product?.slug}
+          productCategory={
+            product?.sub_category_new_name
+              ? String(product.sub_category_new_name).replace(/##/g, ",")
+              : product?.categoryName || product?.category_name || ""
+          }
+          stockQuantity={productQty}
+        />
+      )}
     </div>
   );
 }
