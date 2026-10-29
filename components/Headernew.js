@@ -2082,15 +2082,19 @@ const Header = () => {
               .header-search-select-wrap{
                 position:relative;
                 flex:0 0 auto;
+                flex-shrink:0;
                 height:100%;
                 border-right:1px solid #eee;
                 background:#fafafa;
+                display:flex;
+                align-items:center;
               }
               .header-search-select{
                 height:100%;
+                width:auto;
                 min-width:120px;
-                max-width:160px;
-                padding:0 28px 0 14px;
+                max-width:235px;
+                padding:0 30px 0 14px;
                 border:0;
                 background:transparent;
                 color:#111;
@@ -2100,6 +2104,10 @@ const Header = () => {
                 outline:none;
                 -webkit-appearance:none;
                 appearance:none;
+                flex-shrink:0;
+                white-space:nowrap;
+                text-overflow:ellipsis;
+                overflow:hidden;
               }
               .header-search-select-wrap::after{
                 content:'';
@@ -2149,8 +2157,14 @@ const Header = () => {
               .header-search-btn:active{ transform:scale(0.98); }
               @media (max-width:640px){
                 :root{ --search-h:40px; --search-radius:12px; }
-                .header-search-select{ min-width:78px; max-width:92px; font-size:11px; padding:0 22px 0 8px; }
+                .header-search-select{ min-width:85px; max-width:130px; font-size:11px; padding:0 22px 0 8px; }
                 .header-search-btn{ min-width:42px; padding:0 12px; }
+              }
+              @media (min-width:641px) and (max-width:1024px){
+                .header-search-select{ min-width:110px; max-width:185px; font-size:12px; padding:0 26px 0 10px; }
+              }
+              @media (min-width:1025px){
+                .header-search-select{ min-width:120px; max-width:235px; font-size:13px; padding:0 30px 0 14px; }
               }
             `}</style>
         {/* Main Header */}
@@ -2430,6 +2444,7 @@ const Header = () => {
                   }}
                   className="header-search-select"
                   aria-label="Search category"
+                  title={selectedCategory}
                 >
                   <option value="All Category">All Category</option>
                   {categories.map((cat) => (
