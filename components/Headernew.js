@@ -2184,26 +2184,37 @@ const Header = () => {
               }
               : undefined
           }>
-          {/* NEW MOBILE TOP ROW — compact so it never overflows viewport */}
-          <div className="sm:hidden flex items-center justify-between w-full max-w-full min-w-0 relative">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Link href="/" className={`p-1 rounded-lg flex-shrink-0 ${currentBannerUrl ? "bg-transparent" : "bg-white"}`}>
-                <img src="/uploads/sathya-header-logo.webp" alt="Logo" width={64} height={40} className="h-9 w-auto" />
+          {/* NEW MOBILE TOP ROW — compact & collision-free layout */}
+          <div className="sm:hidden flex items-center justify-between w-full max-w-full min-w-0 relative gap-1">
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 min-w-0">
+              <Link href="/" className={`p-0.5 sm:p-1 rounded-lg flex-shrink-0 ${currentBannerUrl ? "bg-transparent" : "bg-white"}`}>
+                <img src="/uploads/sathya-header-logo.webp" alt="Logo" width={58} height={36} className="h-8 sm:h-9 w-auto" />
               </Link>
               <button
                 type="button"
                 onClick={openRegionModal}
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 hover:bg-red-100 text-[#d72828] text-[10px] font-bold border border-red-200/80 transition-all flex-shrink-0 max-w-[95px]"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 hover:bg-red-100 text-[#d72828] text-[10px] font-bold border border-red-200/80 transition-all flex-shrink-0 max-w-[82px] sm:max-w-[95px]"
                 title={`Deliver to: ${city || 'Chennai'}, ${pincode || '600001'}`}
                 suppressHydrationWarning
               >
-                <FiMapPin size={11} className="text-[#d72828] flex-shrink-0" />
+                <FiMapPin size={10} className="text-[#d72828] flex-shrink-0" />
                 <span className="truncate" suppressHydrationWarning>{pincode ? pincode : (selectedRegion?.code || 'TN')}</span>
                 <span className="text-[9px] opacity-70">▾</span>
               </button>
+              {/* Mobile Deals Button (Compact & strictly isolated) */}
+              <Link
+                href="/deals-offer"
+                className="inline-flex items-center justify-center px-2 py-0.5 h-[26px] sm:h-[28px] rounded-md text-[#000000] font-bold text-[10.5px] sm:text-[11px] leading-tight transition-all duration-200 shadow-xs hover:shadow hover:opacity-95 active:scale-95 flex-shrink-0 self-center"
+                style={{
+                  background: "linear-gradient(135deg, #00b4db 0%, #f44336 55%, #ffc107 100%)",
+                }}
+                title="View Deals & Special Offers"
+              >
+                Deals
+              </Link>
             </div>
-            <div className="flex items-center gap-1.5 text-brandRed flex-shrink-0">
-              <Link href="/wishlist" className={`${HEADER_ACTION_LINK_CLASS} relative min-w-[36px]`}>
+            <div className="flex items-center gap-1 sm:gap-1.5 text-brandRed flex-shrink-0">
+              <Link href="/wishlist" className={`${HEADER_ACTION_LINK_CLASS} relative min-w-[32px] sm:min-w-[36px]`}>
                 <div className={HEADER_ACTION_ICON_WRAP_SM_CLASS}>
                   <HiOutlineHeart size={15} strokeWidth={1.8} />
                   <span className={HEADER_ACTION_BADGE_SM_CLASS} suppressHydrationWarning>
@@ -2212,7 +2223,7 @@ const Header = () => {
                 </div>
                 <span className={`text-[8px] hidden ${HEADER_ACTION_LABEL_CLASS}`}>Wishlist</span>
               </Link>
-              <Link href="/cart" className={`${HEADER_ACTION_LINK_CLASS} relative min-w-[36px]`}>
+              <Link href="/cart" className={`${HEADER_ACTION_LINK_CLASS} relative min-w-[32px] sm:min-w-[36px]`}>
                 <div className={HEADER_ACTION_ICON_WRAP_SM_CLASS}>
                   <HiOutlineShoppingBag size={15} strokeWidth={1.8} />
                   <span className={HEADER_ACTION_BADGE_SM_CLASS} suppressHydrationWarning>
@@ -2226,7 +2237,8 @@ const Header = () => {
                 <DealsPdfButton className="scale-90" />
               )}
 
-              <div className="relative flex-shrink-0 px-0.5">
+              {/* Standalone Profile icon hidden on mobile (accessible in Hamburger menu) */}
+              <div className="hidden sm:block relative flex-shrink-0 px-0.5">
                 {userData ? (
                   <button ref={mobileProfileButtonRef} type="button" onClick={() => setDropdownOpen(!dropdownOpen)} aria-label="Account">
                     <FiUser size={16} />
@@ -2687,6 +2699,46 @@ const Header = () => {
                 </button>
               </div>
 
+              {/* Mobile User Account Header (Replaces hidden top bar profile icon) */}
+              <div className="mb-3 p-2.5 rounded-xl bg-gradient-to-r from-red-50/80 to-amber-50/50 border border-red-100 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-[#d72828] text-white flex items-center justify-center flex-shrink-0">
+                    <FiUser size={15} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-gray-900 truncate">
+                      {userData ? (userData.name || userData.username || "My Account") : "My Account"}
+                    </p>
+                    <p className="text-[10px] text-gray-500 truncate">
+                      {userData ? (userData.mobile || userData.email || "Manage profile") : "Login to view orders & offers"}
+                    </p>
+                  </div>
+                </div>
+                {userData ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setDropdownOpen(true);
+                    }}
+                    className="text-[11px] font-bold text-[#d72828] hover:underline flex-shrink-0 ml-2"
+                  >
+                    Profile →
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setShowAuthModal(true);
+                    }}
+                    className="text-[11px] font-bold px-3 py-1 rounded-md bg-[#d72828] text-white shadow-xs flex-shrink-0 ml-2"
+                  >
+                    Login
+                  </button>
+                )}
+              </div>
+
               {/* Mobile Category Block (accordion) */}
               <div className=" bg-white rounded-md border border-gray-200 overflow-hidden">
                 <div
@@ -2708,6 +2760,21 @@ const Header = () => {
               </div>
               {/* Quick links moved from top bar (mobile) */}
               <div className="mt-3 grid grid-cols-2 gap-2">
+                <Link
+                  href="/deals-offer"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="col-span-2 flex items-center justify-between rounded-xl px-3.5 py-2.5 shadow-xs text-black font-bold text-xs transition-transform active:scale-[0.98]"
+                  style={{
+                    background: "linear-gradient(135deg, #00b4db 0%, #f44336 55%, #ffc107 100%)",
+                  }}
+                  title="View Deals & Special Offers"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm">🔥</span>
+                    <span className="tracking-wide">Deals & Special Offers</span>
+                  </span>
+                  <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded text-white font-semibold">View →</span>
+                </Link>
                 <Link
                   href="/contact"
                   onClick={() => setIsMobileMenuOpen(false)}
