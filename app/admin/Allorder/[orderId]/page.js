@@ -445,6 +445,12 @@ const OrderDetails = () => {
   };
 
   const handlePlaceOrder = async () => {
+    const assignedStore = String(order?.pickup_type || "").trim();
+    if (!assignedStore) {
+      toast.error("Please assign store first before Place Order");
+      return;
+    }
+
     setPlacingOrder(true);
     try {
       const res = await fetch(`/api/orders_new/${orderId}/wondersoft-send`, {
