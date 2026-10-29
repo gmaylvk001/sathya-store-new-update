@@ -621,7 +621,20 @@ const Header = () => {
   const checkAuthStatus = async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) return;
+      const isStrictlyValidToken = Boolean(
+        token &&
+        typeof token === 'string' &&
+        token !== 'undefined' &&
+        token !== 'null' &&
+        token.trim() !== ''
+      );
+
+      if (!isStrictlyValidToken) {
+        clearBrowserAuth();
+        setIsLoggedIn(false);
+        setUserData(null);
+        return;
+      }
 
       const response = await fetch('/api/auth/check', {
         method: 'GET',
@@ -636,6 +649,7 @@ const Header = () => {
         if (!data.loggedIn) {
           clearBrowserAuth();
           setIsLoggedIn(false);
+          setUserData(null);
           return;
         }
         setIsLoggedIn(true);
@@ -666,7 +680,7 @@ const Header = () => {
       } else {
         clearBrowserAuth();
         setIsLoggedIn(false);
-        setShowAuthModal(true);
+        setUserData(null);
       }
     } catch (error) {
       console.error("Error checking auth status:", error);
@@ -1500,12 +1514,18 @@ const Header = () => {
     setIsLoggedIn(false);
     setUserData(null);
     setIsAdmin(false);
+    setDropdownOpen(false);
     // CHANGE: broadcast clear to all tabs
     setCartCountSynced(0);
     // ADD: clear cartData everywhere
     try { localStorage.removeItem(CART_DATA_KEY); } catch { }
     setCartData(null);
-    location.reload();
+    if (typeof window !== "undefined") {
+      const protectedPaths = ["/profile", "/orders", "/address"];
+      if (protectedPaths.some((p) => window.location.pathname.startsWith(p))) {
+        router.push("/");
+      }
+    }
   };
   useEffect(() => {
     const fetchOffers = async () => {
@@ -2187,8 +2207,10 @@ const Header = () => {
                 </div>
                 <span className={`text-[8px] hidden ${HEADER_ACTION_LABEL_CLASS}`}>Cart</span>
               </Link>
-              {/* Mobile Deals Offer PDF Button */}
-              <DealsPdfButton className="scale-90" />
+              {/* Mobile Deals Offer PDF Button - Visible ONLY for Authenticated Users */}
+              {Boolean(isLoggedIn && userData) && (
+                <DealsPdfButton className="scale-90" />
+              )}
 
               <div className="relative flex-shrink-0 px-0.5">
                 {userData ? (
@@ -2606,7 +2628,9 @@ const Header = () => {
               </div>
 
               {/* Deals Offer PDF Export Icon - Visible ONLY for Authenticated Users */}
-              <DealsPdfButton />
+              {Boolean(isLoggedIn && userData) && (
+                <DealsPdfButton />
+              )}
 
               {/* User Account */}
               <div className="relative">
