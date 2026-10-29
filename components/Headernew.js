@@ -2556,13 +2556,6 @@ const Header = () => {
                 </span>
               </button>
 
-              <Link href="/contact" className={`${HEADER_ACTION_LINK_CLASS} hidden sm:flex min-w-[52px]`}>
-                <div className={HEADER_ACTION_ICON_WRAP_CLASS}>
-                  <HiOutlinePhone size={18} strokeWidth={1.75} />
-                </div>
-                <span className={`text-[10px] ${HEADER_ACTION_LABEL_CLASS}`}>Contact</span>
-              </Link>
-
               <a
                 href="https://sathya.adtarbo.com/stores"
                 target="_blank"
@@ -2612,9 +2605,8 @@ const Header = () => {
                   title="Menu"
                 >
                   <div
-                    className={`${HEADER_ACTION_ICON_WRAP_CLASS} ${
-                      isMoreMenuOpen ? "!border-[#ED1C24] !bg-[#FFF200] !text-[#C4161D] shadow-[0_4px_10px_rgba(215,40,40,0.18)]" : ""
-                    }`}
+                    className={`${HEADER_ACTION_ICON_WRAP_CLASS} ${isMoreMenuOpen ? "!border-[#ED1C24] !bg-[#FFF200] !text-[#C4161D] shadow-[0_4px_10px_rgba(215,40,40,0.18)]" : ""
+                      }`}
                   >
                     <HiOutlineBars3 size={19} strokeWidth={1.75} />
                   </div>
@@ -2649,6 +2641,20 @@ const Header = () => {
                         </span>
                         <span className="text-[13px] font-medium">All Brands</span>
                       </Link>
+
+                      <div className="h-px bg-gray-100 my-1 mx-2" />
+
+                      <Link
+                        href="/contact"
+                        onClick={() => setIsMoreMenuOpen(false)}
+                        className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                          <HiOutlinePhone size={16} strokeWidth={1.8} />
+                        </span>
+                        <span className="text-[13px] font-medium">Contact</span>
+                      </Link>
+
                     </div>
                   </div>
                 )}
@@ -2737,6 +2743,65 @@ const Header = () => {
                     Login
                   </button>
                 )}
+              {/* Featured Mobile Navigation Cards (Loyalty, All Brands, Store, Contact) */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <Link
+                  href="/loyalty"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white p-2.5 text-[#ED1C24] shadow-sm active:scale-95 transition-all"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/70 text-[#C4161D] shrink-0">
+                    <HiOutlineGift size={18} strokeWidth={1.75} />
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[12px] font-bold leading-tight">Loyalty</span>
+                    <span className="text-[10px] text-gray-500 font-normal truncate">Rewards & Points</span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/brands"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white p-2.5 text-[#ED1C24] shadow-sm active:scale-95 transition-all"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/70 text-[#C4161D] shrink-0">
+                    <HiOutlineTag size={18} strokeWidth={1.75} />
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[12px] font-bold leading-tight">All Brands</span>
+                    <span className="text-[10px] text-gray-500 font-normal truncate">Official Partners</span>
+                  </div>
+                </Link>
+
+                <a
+                  href="https://sathya.adtarbo.com/stores"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white p-2.5 text-[#ED1C24] shadow-sm active:scale-95 transition-all"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/70 text-[#C4161D] shrink-0">
+                    <HiOutlineBuildingStorefront size={18} strokeWidth={1.75} />
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[12px] font-bold leading-tight">Stores</span>
+                    <span className="text-[10px] text-gray-500 font-normal truncate">Find Nearby</span>
+                  </div>
+                </a>
+
+                <Link
+                  href="/contact"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white p-2.5 text-[#ED1C24] shadow-sm active:scale-95 transition-all"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/70 text-[#C4161D] shrink-0">
+                    <HiOutlinePhone size={18} strokeWidth={1.75} />
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[12px] font-bold leading-tight">Contact</span>
+                    <span className="text-[10px] text-gray-500 font-normal truncate">Customer Support</span>
+                  </div>
+                </Link>
               </div>
 
               {/* Mobile Category Block (accordion) */}
@@ -2758,12 +2823,12 @@ const Header = () => {
                   </div>
                 )}
               </div>
-              {/* Quick links moved from top bar (mobile) */}
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              {/* Deals & Special Offers Link */}
+              <div className="mt-3">
                 <Link
                   href="/deals-offer"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="col-span-2 flex items-center justify-between rounded-xl px-3.5 py-2.5 shadow-xs text-black font-bold text-xs transition-transform active:scale-[0.98]"
+                  className="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 shadow-xs text-black font-bold text-xs transition-transform active:scale-[0.98]"
                   style={{
                     background: "linear-gradient(135deg, #00b4db 0%, #f44336 55%, #ffc107 100%)",
                   }}
@@ -2774,48 +2839,6 @@ const Header = () => {
                     <span className="tracking-wide">Deals & Special Offers</span>
                   </span>
                   <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded text-white font-semibold">View →</span>
-                </Link>
-                <Link
-                  href="/contact"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
-                    <HiOutlinePhone size={18} strokeWidth={1.75} />
-                  </span>
-                  <span className="text-[11px] font-semibold">Contact</span>
-                </Link>
-                <a
-                  href="https://sathya.adtarbo.com/stores"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
-                    <HiOutlineBuildingStorefront size={18} strokeWidth={1.75} />
-                  </span>
-                  <span className="text-[11px] font-semibold">Store</span>
-                </a>
-                <Link
-                  href="/loyalty"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
-                    <HiOutlineGift size={18} strokeWidth={1.75} />
-                  </span>
-                  <span className="text-[11px] font-semibold">Loyalty</span>
-                </Link>
-                <Link
-                  href="/brands"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
-                    <HiOutlineTag size={18} strokeWidth={1.75} />
-                  </span>
-                  <span className="text-[11px] font-semibold">All Brands</span>
                 </Link>
               </div>
             </div>

@@ -10,6 +10,7 @@ import CompareButton from "@/components/CompareButton";
 import PriceBlock from "@/components/product/PriceBlock";
 import BestPriceStrip from "@/components/product/BestPriceStrip";
 import ProductCardTrustBadge from "@/components/product/ProductCardTrustBadge";
+import LowestPriceBadge from "@/components/product/LowestPriceBadge";
 import { getBestPriceData } from "@/lib/offers/bestPriceUtils";
 import { BankOffersModal } from "@/components/ProductOffersSection";
 import { isMovementAllowed as checkMovementAllowed } from "@/lib/addCartConfig";
@@ -84,6 +85,11 @@ export default function ProductCard({
 
   const productUrl = `/product/${slug}`;
 
+  // Detect LSP for special card border
+  const rawLsp = product?.lsp ?? product?.rawProduct?.lsp;
+  const lspNum = Number(rawLsp);
+  const hasLsp = Boolean((lspNum && !isNaN(lspNum) && lspNum > 0) || product?.hasLspPrice);
+
   const [isOffersModalOpen, setIsOffersModalOpen] = useState(false);
   const bestPriceData = React.useMemo(() => getBestPriceData(product), [product]);
 
@@ -117,8 +123,15 @@ export default function ProductCard({
 
   return (
     <div
-      className={`group relative bg-white rounded-[16px] border border-red-200/90 hover:border-[#d72828] shadow-2xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full overflow-hidden w-full min-w-0 select-none ${className}`}
+      className={`group relative bg-white rounded-[16px] border hover:-translate-y-1 transition-all duration-300 flex flex-col h-full overflow-hidden w-full min-w-0 select-none ${
+        hasLsp
+          ? "lsp-card shadow-sm hover:shadow-xl"
+          : "border-red-200/90 hover:border-[#d72828] shadow-2xs hover:shadow-xl"
+      } ${className}`}
     >
+      {/* Top-left Lowest Price Badge (conditional on product.lsp > 0) */}
+      <LowestPriceBadge product={product} variant="card" />
+
       {/* Top Image Container */}
       <div
         className={`relative w-full bg-[#f9fafb] flex items-center justify-center overflow-hidden ${
@@ -130,11 +143,11 @@ export default function ProductCard({
 
         {/* Top-right Wishlist + Compare buttons */}
         <div
-          className={`absolute ${
+          className={`absolute z-10 flex flex-col ${
             compactMobile
               ? "top-1.5 right-1.5 sm:top-2.5 sm:right-2.5 gap-1 sm:gap-1.5"
               : "top-2.5 right-2.5 gap-1.5"
-          } z-10 flex flex-col`}
+          }`}
         >
           <AddToWishlistButton
             productId={_id}

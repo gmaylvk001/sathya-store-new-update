@@ -584,3 +584,26 @@ body::-webkit-scrollbar {
 }
 
 
+
+/* ─── Lowest Price Card — Animated Border ──────────────────────────────────── */
+@keyframes lsp-border-pulse {
+  0%, 100% {
+    border-color: rgba(237, 28, 36, 0.55);
+    box-shadow: 0 0 0 0px rgba(237, 28, 36, 0.12), 0 1px 4px rgba(0,0,0,0.08);
+  }
+  50% {
+    border-color: rgba(237, 28, 36, 1);
+    box-shadow: 0 0 0 3px rgba(237, 28, 36, 0.13), 0 2px 10px rgba(237, 28, 36, 0.18);
+  }
+}
+
+.lsp-card {
+  border-color: rgba(237, 28, 36, 0.7) !important;
+  animation: lsp-border-pulse 2.2s ease-in-out infinite;
+}
+
+.lsp-card:hover {
+  border-color: #d72828 !important;
+  animation: none;
+  box-shadow: 0 8px 28px rgba(237, 28, 36, 0.18), 0 2px 8px rgba(0,0,0,0.08) !important;
+}

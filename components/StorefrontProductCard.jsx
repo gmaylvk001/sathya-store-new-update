@@ -9,6 +9,7 @@ import CompareButton from "@/components/CompareButton";
 import PriceBlock from "@/components/product/PriceBlock";
 import BestPriceStrip from "@/components/product/BestPriceStrip";
 import ProductCardTrustBadge from "@/components/product/ProductCardTrustBadge";
+import LowestPriceBadge from "@/components/product/LowestPriceBadge";
 import { getBestPriceData } from "@/lib/offers/bestPriceUtils";
 import { BankOffersModal } from "@/components/ProductOffersSection";
 import { getDiscountInfo } from "@/lib/discountHelper";
@@ -117,6 +118,11 @@ export default function StorefrontProductCard({
   const [isOffersModalOpen, setIsOffersModalOpen] = useState(false);
   const bestPriceData = React.useMemo(() => getBestPriceData(product), [product]);
 
+  // Detect LSP for special card border
+  const rawLspSf = product?.lsp ?? product?.rawProduct?.lsp;
+  const lspNumSf = Number(rawLspSf);
+  const hasLsp = Boolean((lspNumSf && !isNaN(lspNumSf) && lspNumSf > 0) || product?.hasLspPrice);
+
   const handleClick = () => {
     if (onProductClick) {
       onProductClick(product);
@@ -125,8 +131,15 @@ export default function StorefrontProductCard({
 
   return (
     <div
-      className={`group relative bg-white rounded-[16px] border border-red-200/90 hover:border-[#d72828] shadow-2xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full overflow-hidden w-full min-w-0 select-none ${className}`}
+      className={`group relative bg-white rounded-[16px] border hover:-translate-y-1 transition-all duration-300 flex flex-col h-full overflow-hidden w-full min-w-0 select-none ${
+        hasLsp
+          ? "lsp-card shadow-sm hover:shadow-xl"
+          : "border-red-200/90 hover:border-[#d72828] shadow-2xs hover:shadow-xl"
+      } ${className}`}
     >
+      {/* Top-left Lowest Price Badge (conditional on product.lsp > 0) */}
+      <LowestPriceBadge product={product} variant="card" />
+
       {/* Top Image Container */}
       <div
         className={`relative w-full bg-[#f9fafb] flex items-center justify-center overflow-hidden ${
@@ -136,11 +149,11 @@ export default function StorefrontProductCard({
 
         {/* Top-right Wishlist + Compare buttons */}
         <div
-          className={`absolute ${
+          className={`absolute z-10 flex flex-col ${
             compactMobile
               ? "top-1.5 right-1.5 sm:top-2.5 sm:right-2.5 gap-1 sm:gap-1.5"
               : "top-2.5 right-2.5 gap-1.5"
-          } z-10 flex flex-col`}
+          }`}
         >
           <AddToWishlistButton
             productId={product._id}

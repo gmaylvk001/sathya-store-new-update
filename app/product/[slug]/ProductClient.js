@@ -8,6 +8,7 @@ const ProductDetailsSection = dynamic(() => import("@/components/ProductDetailsS
   loading: () => <div className="h-48 w-full animate-pulse bg-gray-100 rounded-lg my-6" />,
 });
 import OfferRibbonBadge from "@/components/OfferRibbonBadge";
+
 const FlixMediaLoader = dynamic(() => import("@/components/FlixMediaLoader"), {
   ssr: false,
   loading: () => null,
@@ -1693,6 +1694,7 @@ export default function ProductClient({ initialProduct = null }) {
                 labelText={highlightOffer?.labelText}
                 labelColor={highlightOffer?.labelColor}
               />
+
               <div
                 className="relative aspect-square w-full px-4"
                 onClick={() => openLightbox(0)}
@@ -1748,6 +1750,7 @@ export default function ProductClient({ initialProduct = null }) {
 
             {/* Price */}
             <div className={`mt-3 border-t border-gray-200 pt-3 ${hasExchangeOffers ? "hidden" : ""}`}>
+
               <div className="flex flex-col leading-tight">
                 <span className="text-2xl font-bold text-[#d72828]">
                   ₹ {Number((product.special_price > 0 ? product.special_price : product.price) + (selectedWarrantyAmount || 0)).toLocaleString('en-IN')}
@@ -2260,6 +2263,7 @@ export default function ProductClient({ initialProduct = null }) {
                   labelText={highlightOffer?.labelText}
                   labelColor={highlightOffer?.labelColor}
                 />
+
                 <div
                   className="relative aspect-square w-full px-4 flex items-center justify-center cursor-pointer"
                   onMouseMove={handleMouseMove}
@@ -2409,6 +2413,7 @@ export default function ProductClient({ initialProduct = null }) {
 
                 {/* Price & Offer Block */}
                 <div className={`border-t border-b border-gray-200 py-3 my-1 ${hasExchangeOffers ? "hidden" : ""}`}>
+
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className="text-3xl font-black text-[#d72828]">
                       ₹ {Number((product.special_price > 0 ? product.special_price : product.price) + (isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0)).toLocaleString('en-IN')}
