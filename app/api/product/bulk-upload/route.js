@@ -108,17 +108,34 @@ export async function POST(req) {
 
     // Detect column index for movement dynamically from header row
     const headerRow = (Array.isArray(products) && products[0]) || (Array.isArray(validProducts) && validProducts[0]) || [];
-    let movementColIdx = -1;
-    if (Array.isArray(headerRow)) {
-      movementColIdx = headerRow.findIndex(cell => 
-        typeof cell === 'string' && /movement/i.test(cell.trim())
+    const findHeaderIndex = (matcher) => {
+      if (!Array.isArray(headerRow)) return -1;
+      return headerRow.findIndex(
+        (cell) => typeof cell === "string" && matcher.test(String(cell).trim())
       );
-    }
+    };
+    let movementColIdx = findHeaderIndex(/^movement$/i);
     if (movementColIdx === -1 && Array.isArray(validProducts[0])) {
       movementColIdx = validProducts[0].findIndex(cell => 
         typeof cell === 'string' && /movement/i.test(cell.trim())
       );
     }
+
+    // Optional identity / barcode / meta columns from product model (appended after existing sample columns)
+    const commonItemCodeColIdx = findHeaderIndex(/^common[_\s-]?item[_\s-]?code$/i);
+    const outdoorItemCodeColIdx = findHeaderIndex(/^outdoor[_\s-]?item[_\s-]?code$/i);
+    const eanColIdx = findHeaderIndex(/^ean$/i);
+    const indoorEanColIdx = findHeaderIndex(/^indoor[_\s-]?ean$/i);
+    const outdoorEanColIdx = findHeaderIndex(/^outdoor[_\s-]?ean$/i);
+    const metaTitleColIdx = findHeaderIndex(/^meta[_\s-]?title$/i);
+    const metaDescriptionColIdx = findHeaderIndex(/^meta[_\s-]?description$/i);
+    const productTypeColIdx = findHeaderIndex(/^product[_\s-]?type$/i);
+    const highlightsColIdx = findHeaderIndex(/^(product[_\s-]?)?highlights$/i);
+
+    const readOptionalCell = (row, colIdx) => {
+      if (colIdx === -1 || row[colIdx] === undefined || row[colIdx] === null) return null;
+      return String(row[colIdx]).trim();
+    };
 
     const totalProducts = validProducts.length - 1;
     let createdCount = 0;
@@ -193,8 +210,15 @@ export async function POST(req) {
         }
         
         let highlights = [];
-        if (row[21] && typeof row[21] === 'string') {
-          highlights = row[21].split(',').map(item => item.trim()).filter(Boolean);
+        // Prefer named highlights column; fall back to legacy index 21 only when the new EAN columns are absent
+        const highlightsRaw =
+          highlightsColIdx !== -1
+            ? row[highlightsColIdx]
+            : commonItemCodeColIdx === -1 && eanColIdx === -1
+              ? row[21]
+              : undefined;
+        if (highlightsRaw && typeof highlightsRaw === "string") {
+          highlights = highlightsRaw.split(",").map((item) => item.trim()).filter(Boolean);
         }
         
         let key_specifications = [];
@@ -260,6 +284,71 @@ export async function POST(req) {
           productData.movement = existingProduct.movement;
         } else {
           productData.movement = movement || "";
+        }
+
+        const commonItemCode = readOptionalCell(row, commonItemCodeColIdx);
+        const outdoorItemCode = readOptionalCell(row, outdoorItemCodeColIdx);
+        const ean = readOptionalCell(row, eanColIdx);
+        const indoorEan = readOptionalCell(row, indoorEanColIdx);
+        const outdoorEan = readOptionalCell(row, outdoorEanColIdx);
+        const metaTitle = readOptionalCell(row, metaTitleColIdx);
+        const metaDescription = readOptionalCell(row, metaDescriptionColIdx);
+        const productTypeRaw = readOptionalCell(row, productTypeColIdx);
+
+        if (commonItemCode !== null) {
+          productData.common_item_code = commonItemCode;
+        } else if (existingProduct?.common_item_code) {
+          productData.common_item_code = existingProduct.common_item_code;
+        }
+
+        if (outdoorItemCode !== null) {
+          productData.outdoor_item_code = outdoorItemCode;
+        } else if (existingProduct?.outdoor_item_code) {
+          productData.outdoor_item_code = existingProduct.outdoor_item_code;
+        }
+
+        if (ean !== null) {
+          productData.ean = ean;
+        } else if (existingProduct?.ean) {
+          productData.ean = existingProduct.ean;
+        }
+
+        if (indoorEan !== null) {
+          productData.indoor_ean = indoorEan;
+        } else if (existingProduct?.indoor_ean) {
+          productData.indoor_ean = existingProduct.indoor_ean;
+        }
+
+        if (outdoorEan !== null) {
+          productData.outdoor_ean = outdoorEan;
+        } else if (existingProduct?.outdoor_ean) {
+          productData.outdoor_ean = existingProduct.outdoor_ean;
+        }
+
+        if (metaTitle !== null) {
+          productData.meta_title = metaTitle;
+        } else if (existingProduct?.meta_title) {
+          productData.meta_title = existingProduct.meta_title;
+        }
+
+        if (metaDescription !== null) {
+          productData.meta_description = metaDescription;
+        } else if (existingProduct?.meta_description) {
+          productData.meta_description = existingProduct.meta_description;
+        }
+
+        // product_type: save only normal/gift (case-insensitive); empty keeps existing
+        if (productTypeRaw !== null) {
+          const normalizedType = productTypeRaw.toLowerCase();
+          if (normalizedType === "normal" || normalizedType === "gift") {
+            productData.product_type = normalizedType;
+          } else if (productTypeRaw === "") {
+            // explicit empty cell → do not overwrite existing on update
+            if (!existingProduct) productData.product_type = "";
+            else if (existingProduct?.product_type) productData.product_type = existingProduct.product_type;
+          }
+        } else if (existingProduct?.product_type) {
+          productData.product_type = existingProduct.product_type;
         }
 
         // Only update images if new ones are provided in Excel

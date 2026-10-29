@@ -1431,12 +1431,107 @@ export default function BulkUploadPage() {
   };
 
   const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = `/uploads/files/SampleFormat.xlsx?t=${Date.now()}`;
-    link.download = 'SampleFormat.xlsx';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Existing All Details columns + EAN fields + meta_title, meta_description, product_type
+    const XLSX = require("xlsx");
+    const headers = [
+      "Item No.",
+      "Product Name",
+      "StockQty",
+      "Category",
+      "Subcategory",
+      "Brand",
+      "Size",
+      "Star",
+      "Movement",
+      "MRP PRICE",
+      "Special Price",
+      "Description",
+      "Key Features",
+      "image1",
+      "image2",
+      "image3",
+      "overview images",
+      "overview_description",
+      "variants",
+      "Status",
+      "Extend Warranty",
+      "common_item_code",
+      "outdoor_item_code",
+      "ean",
+      "indoor_ean",
+      "outdoor_ean",
+      "meta_title",
+      "meta_description",
+      "product_type",
+    ];
+    const sampleRows = [
+      [
+        "VGACTTTROLLEY",
+        "TT TROLLEY FOR UPS BATTERY V-GUARD ACCESSORIES",
+        16,
+        "Accessories",
+        "Fabrics Cover & Stand",
+        "V-Guard",
+        "",
+        "",
+        "",
+        1499,
+        1499,
+        "Trolley Display ( Battery Space ) Dimension : LENGTH - 55 , HEIGHT - 50 , WIDTH - 30.Trolley Weight - 5.3 kg , Loading Capacity - 70 kg.Screw - less easy installation.Suitable for all type single inverter - batteries ( flat and tall tubular batteries both ).Prevents battery acid water spillage.5 Wheels, 2 Sides Part,1 Base Part,1 Top Part, 1 Front Cover.( No Back Cover )Top can be removed for filling water in the battery.",
+        "",
+        "HUpizgrlAGIIbGDC.jpg",
+        "iC7MPdTJcQ5XPD5U.jpg",
+        "HSGrqhSBymfLIdqa.jpg",
+        "",
+        "",
+        "",
+        "Active",
+        '[{"year":2,"amount":1500},{"year":3,"amount":2000}]',
+        "",
+        "",
+        "",
+        "",
+        "",
+        "Buy V-Guard TT Trolley Online | Sathya Store",
+        "Shop V-Guard TT Trolley for UPS battery at Sathya Store. Durable trolley with easy installation.",
+        "normal",
+      ],
+      [
+        "VGACCWINDZYTROL",
+        "WINDZY T-N TROLLY AIRCOOLER V-GUARD ACCESSORIES",
+        6,
+        "Accessories",
+        "Fabrics Cover & Stand",
+        "V-Guard",
+        "",
+        "",
+        "",
+        1190,
+        412,
+        "Sturdy and durable construction : The air cooler trolley is a high-quality, sturdy and durable product designed to provide a secure and stable base for your air cooler.",
+        "",
+        "KY1ixc23rwkD0bPb.jpg",
+        "g9J8PEMl50b6oJgh.jpg",
+        "",
+        "",
+        "",
+        "",
+        "Active",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "Buy V-Guard Windzy Trolley Online | Sathya Store",
+        "Shop V-Guard Windzy air cooler trolley at Sathya Store. Easy mobility with castor wheels.",
+        "gift",
+      ],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Products");
+    XLSX.writeFile(wb, "SampleFormat.xlsx");
   };
 
   const handleZipDownload = () => {

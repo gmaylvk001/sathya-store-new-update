@@ -34,7 +34,7 @@ import {
 } from 'lucide-react';
 import { useCompare } from '@/context/CompareContext';
 import { useCart } from '@/context/CartContext';
-import { normalizeAttributes, parseNumericValue, formatBrandName, checkProductAvailability } from '@/utils/compareHelpers';
+import { normalizeAttributes, parseNumericValue, formatBrandName, checkProductAvailability, stripHtml } from '@/utils/compareHelpers';
 import { toast } from 'react-toastify';
 import { getDiscountInfo } from "@/lib/discountHelper";
 
@@ -793,7 +793,7 @@ function DesktopTable({ products, rows }) {
               style={{ gridTemplateColumns: colTemplate }}
             >
               <div className={`px-5 py-3 flex items-center justify-between border-r border-gray-100 ${isEven ? 'bg-gray-50/60' : 'bg-white'}`}>
-                <span className="text-xs font-semibold text-gray-700">{key}</span>
+                <span className="text-xs font-semibold text-gray-700">{stripHtml(key)}</span>
                 {isDifferent && (
                   <span className="text-[9px] font-extrabold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
                     Diff
@@ -802,6 +802,7 @@ function DesktopTable({ products, rows }) {
               </div>
 
               {values.map((val, colIdx) => {
+                const displayVal = stripHtml(val);
                 return (
                   <div
                     key={colIdx}
@@ -809,9 +810,9 @@ function DesktopTable({ products, rows }) {
                       isEven ? 'bg-white' : 'bg-gray-50/30'
                     }`}
                   >
-                    {val !== null && val !== undefined && String(val).trim() !== '' ? (
-                      <span className="text-xs text-center leading-snug text-gray-700">
-                        {String(val)}
+                    {displayVal ? (
+                      <span className="text-xs text-center leading-snug text-gray-700 whitespace-pre-line">
+                        {displayVal}
                       </span>
                     ) : (
                       <span className="text-gray-300 text-xs">—</span>
@@ -966,9 +967,11 @@ function MobileCards({ products, rows }) {
             {/* Mobile Specs List */}
             <div className="divide-y divide-gray-100 px-4 py-2 text-xs">
               {rows.slice(0, 10).map(({ key, values }, rIdx) => (
-                <div key={rIdx} className="py-2 flex justify-between items-center">
-                  <span className="text-gray-500 font-medium">{key}</span>
-                  <span className="font-semibold text-gray-800 text-right">{values[colIdx] || '—'}</span>
+                <div key={rIdx} className="py-2 flex justify-between items-center gap-3">
+                  <span className="text-gray-500 font-medium">{stripHtml(key)}</span>
+                  <span className="font-semibold text-gray-800 text-right whitespace-pre-line">
+                    {stripHtml(values[colIdx]) || '—'}
+                  </span>
                 </div>
               ))}
             </div>

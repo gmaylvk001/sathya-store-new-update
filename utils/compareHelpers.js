@@ -39,6 +39,115 @@ export function checkProductAvailability(product) {
   return { inStock: true, canAddToCart: true, label: `In Stock (${qty} units)` };
 }
 
+// ─── HTML helpers (product description/specs often stored as <ul><li>...) ────
+
+function stripHtmlBasic(input) {
+  return String(input ?? '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+/** Remove HTML tags for safe display — never drops the actual text content. */
+export function stripHtml(input) {
+  if (input === null || input === undefined) return '';
+  return stripHtmlBasic(input).replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Split HTML/plain specs into individual lines.
+ * Supports closed <li>...</li> and messy unclosed <li>Item<li>Item2 patterns.
+ */
+function extractListLines(str) {
+  const text = String(str ?? '');
+  if (!text.trim()) return [];
+
+  // 1) Properly closed <li>...</li>
+  const closed = [];
+  text.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (_, inner) => {
+    const cleaned = stripHtmlBasic(inner).replace(/\s+/g, ' ').trim();
+    if (cleaned) closed.push(cleaned);
+    return '';
+  });
+  if (closed.length) return closed;
+
+  // 2) Unclosed / broken list: split on <li ...>
+  if (/<li[\s>]/i.test(text)) {
+    const parts = text
+      .split(/<li[^>]*>/i)
+      .map((part) => stripHtmlBasic(part).replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      // drop leftover wrapper words like "ul" noise already stripped
+      .filter((part) => !/^(ul|ol|div|span)$/i.test(part));
+    if (parts.length) return parts;
+  }
+
+  // 3) Plain text / other HTML → single cleaned blob, then split lines
+  const plain = stripHtmlBasic(text);
+  if (!plain) return [];
+  return plain
+    .split(/\n+/)
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
+/**
+ * Turn key_specifications / highlights (plain or HTML) into clean lines
+ * like "Display: HD LED" / "Connectivity: 2 HDMI | 1 USB".
+ */
+function flattenSpecEntries(raw) {
+  const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  // Join array fragments first — CMS often stores broken HTML across array items
+  const joined = list
+    .map((item) => (item === null || item === undefined ? '' : String(item)))
+    .filter((s) => s.trim() !== '')
+    .join('');
+
+  if (!joined.trim()) return [];
+
+  // If any HTML list markers exist, parse the whole joined string as one HTML block
+  if (/<li[\s>]|<\/li>|<ul[\s>]|<ol[\s>]/i.test(joined)) {
+    return extractListLines(joined);
+  }
+
+  // Otherwise keep each array item as its own plain line
+  const entries = [];
+  list.forEach((item) => {
+    extractListLines(item).forEach((line) => entries.push(line));
+  });
+  return entries;
+}
+
+/** Parse "Key: Value" only when key looks like a real label (not leftover HTML junk). */
+function parseKeyValueLine(line) {
+  const clean = stripHtml(line);
+  if (!clean || !clean.includes(':')) return null;
+
+  const colonIdx = clean.indexOf(':');
+  const key = clean.slice(0, colonIdx).trim();
+  const value = clean.slice(colonIdx + 1).trim();
+
+  if (!key || !value) return null;
+  // Reject garbage keys that still look like markup leftovers
+  if (/[<>]|\/li|\/ul|\/ol/i.test(key)) return null;
+  if (key.length > 60) return null;
+
+  return { key, value };
+}
+
 // ─── Smart Spec Extraction ───────────────────────────────────────────────────
 
 /**
@@ -49,11 +158,13 @@ function extractSmartSpecs(product) {
   const specs = new Map();
   if (!product) return specs;
 
-  const rawHighlights = Array.isArray(product.product_highlights) ? product.product_highlights : [];
-  const rawKeySpecs = Array.isArray(product.key_specifications) ? product.key_specifications : [];
+  const rawHighlights = flattenSpecEntries(product.product_highlights);
+  const rawKeySpecs = flattenSpecEntries(product.key_specifications);
+  // Keep description short after strip — huge HTML blobs slow compare regexes
+  const plainDescription = stripHtml(product.description || '').slice(0, 1500);
   const text = [
     product.name || '',
-    product.description || '',
+    plainDescription,
     ...rawHighlights,
     ...rawKeySpecs,
   ].join(' ');
@@ -244,17 +355,34 @@ export function normalizeAttributes(products) {
     const smartSpecs = extractSmartSpecs(product);
     smartSpecs.forEach((val, k) => map.set(k, val));
 
-    // 2. Parse "Key: Value" strings from key_specifications
-    if (Array.isArray(product?.key_specifications)) {
-      product.key_specifications.forEach((spec) => {
-        if (typeof spec === 'string' && spec.includes(':')) {
-          const colonIdx = spec.indexOf(':');
-          const key = spec.slice(0, colonIdx).trim();
-          const value = spec.slice(colonIdx + 1).trim();
-          if (key && value && !map.has(key)) map.set(key, value);
+    // 2. Parse "Key: Value" lines from key_specifications / highlights (HTML-safe)
+    //    Keeps list content like Display / Connectivity / Sound / USP intact.
+    const addSpecLines = (raw) => {
+      flattenSpecEntries(raw).forEach((line) => {
+        const parsed = parseKeyValueLine(line);
+        if (parsed && !map.has(parsed.key)) {
+          map.set(parsed.key, parsed.value);
+        } else if (!parsed) {
+          // Non key:value list item (e.g. "Dolby Atmos", "60 Hz Refresh Rate")
+          const plain = stripHtml(line);
+          if (plain && plain.length <= 80 && !map.has(plain)) {
+            // Prefer attaching known feature phrases under a stable label when possible
+            if (/hz|refresh/i.test(plain) && !map.has('Refresh Rate')) {
+              map.set('Refresh Rate', plain);
+            } else if (/dolby|atmos|speaker|sound/i.test(plain) && map.has('Sound')) {
+              map.set('Sound', `${map.get('Sound')}; ${plain}`);
+            } else if (!map.has(plain)) {
+              // store as feature row only if it doesn't look like a sentence
+              if (!/\.$/.test(plain) && plain.split(' ').length <= 8) {
+                map.set(plain, 'Yes');
+              }
+            }
+          }
         }
       });
-    }
+    };
+    addSpecLines(product?.key_specifications);
+    addSpecLines(product?.product_highlights);
 
     // 3. Top-level filter object keys (e.g. { capacity: "1.5 Ton", star_rating: "5 Star" })
     if (product?.filter && typeof product.filter === 'object') {
