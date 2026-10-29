@@ -50,6 +50,7 @@ export default function CategoryBrandComponent({ categorySlug, brandSlug }) {
   const [isFiltering, setIsFiltering] = useState(false);
   const skipNextFilterFetch = useRef(true);
   const lastFetchedFiltersKeyRef = useRef("");
+  const resolvedSlugsRef = useRef({ categorySlug, brandSlug, brandId: null });
   const [sortOption, setSortOption] = useState('');
   const [wishlist, setWishlist] = useState([]); 
   const [nofound, setNofound] = useState(false);
@@ -101,7 +102,20 @@ export default function CategoryBrandComponent({ categorySlug, brandSlug }) {
       setFilterUrlReady(false);
       const res = await fetch(`/api/brand/categories/${categorySlug}/brand/${brandSlug}`);
       const data = await res.json();
-      //console.log("Initial data fetched:", data);
+      if (!res.ok || data.error) {
+        setProducts([]);
+        setNofound(true);
+        setLoading(false);
+        setFilterUrlReady(true);
+        return;
+      }
+      if (data.category?.category_slug && data.brand?.brand_slug) {
+        resolvedSlugsRef.current = {
+          categorySlug: data.category.category_slug,
+          brandSlug: data.brand.brand_slug,
+          brandId: data.brand._id,
+        };
+      }
       setCategoryData({
         ...data,
         allCategoryIds: data.allCategoryIds || []
@@ -191,9 +205,13 @@ export default function CategoryBrandComponent({ categorySlug, brandSlug }) {
       brandSlug;
     const query = new URLSearchParams();
 
+    const activeCatSlug = resolvedSlugsRef.current.categorySlug || categoryData.category?.category_slug || categorySlug;
+    const activeBrSlug = resolvedSlugsRef.current.brandSlug || categoryData.brand?.brand_slug || brandSlug;
+    const currentBrandId = resolvedSlugsRef.current.brandId || categoryData.brand?._id;
+
     // ✅ Always restrict by brand
-    if (categoryData.brand?._id) {
-      query.set('brands', categoryData.brand._id);
+    if (currentBrandId) {
+      query.set('brands', currentBrandId);
     }
 
     if (activeFilters.categories.length > 0) {
@@ -204,8 +222,8 @@ export default function CategoryBrandComponent({ categorySlug, brandSlug }) {
       query.set('subcategoryIds', activeFilters.subcategories.join(','));
     }
 
-    query.set('categorySlug', categorySlug);
-    query.set('brandSlug', brandSlug);
+    query.set('categorySlug', activeCatSlug);
+    query.set('brandSlug', activeBrSlug);
 
     query.set('page', pageNum);
     query.set('limit', itemsPerPage);

@@ -55,14 +55,45 @@ export async function GET(request, { params }) {
     const { categoryslug, brandslug } = await params;
     console.log("Fetching data for:", categoryslug, brandslug);
    
-    // Fetch category
-    const category = await ecom_category_info.findOne({ category_slug: categoryslug });
+    // Fetch category and brand (supporting bidirectional URL order: category/brand or brand/category)
+    let category = await ecom_category_info.findOne({
+      $or: [
+        { category_slug: categoryslug },
+        { category_slug: { $regex: new RegExp(`^${categoryslug}$`, "i") } },
+      ],
+    });
+    let brand = await Brand.findOne({
+      $or: [
+        { brand_slug: brandslug },
+        { brand_slug: { $regex: new RegExp(`^${brandslug}$`, "i") } },
+      ],
+    });
+
+    // If not found in direct order, try swapped order
+    if (!category || !brand) {
+      const swappedCategory = await ecom_category_info.findOne({
+        $or: [
+          { category_slug: brandslug },
+          { category_slug: { $regex: new RegExp(`^${brandslug}$`, "i") } },
+        ],
+      });
+      const swappedBrand = await Brand.findOne({
+        $or: [
+          { brand_slug: categoryslug },
+          { brand_slug: { $regex: new RegExp(`^${categoryslug}$`, "i") } },
+        ],
+      });
+
+      if (swappedCategory && swappedBrand) {
+        category = swappedCategory;
+        brand = swappedBrand;
+      }
+    }
+
     if (!category) {
       return Response.json({ error: "Category not found" }, { status: 404 });
     }
    
-    // Fetch brand
-    const brand = await Brand.findOne({ brand_slug: brandslug });
     if (!brand) {
       return Response.json({ error: "Brand not found" }, { status: 404 });
     }
