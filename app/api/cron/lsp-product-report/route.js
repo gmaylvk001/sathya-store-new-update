@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import CronRunLog from "@/models/cron_run_log";
 import { runLspProductReport } from "@/lib/lspProductReport";
-import { isLspCronEnabled, isLspCronMailEnabled, LSP_CRON_STRICTLY_DISABLED } from "@/lib/lspPriceCron";
+import { isLspCronEnabled, isLspCronMailEnabled } from "@/lib/lspPriceCron";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -25,25 +25,30 @@ function todayInKolkata() {
 /**
  * GET/POST /api/cron/lsp-product-report
  *
- * STRICT PRODUCTION ISOLATION:
- * LSP Cron is strictly deactivated and isolated across dev and live/production.
+ * External schedule only (crontab / curl / browser). No first_time / run_count in app.
+ *
+ * Auth: Authorization: Bearer <LSP_REPORT_API_TOKEN>  or  ?secret=<token>
+ * Gate: cron_lsp_price_run_dev=on (off/missing => 403)
+ * Mail: cron_lsp_price_mail_send (default). Override: ?mail=0 off, ?mail=1 on
+ *
+ * Examples:
+ *   curl "http://localhost:3000/api/cron/lsp-product-report?secret=TOKEN"
+ *   curl -H "Authorization: Bearer TOKEN" "https://yoursite.com/api/cron/lsp-product-report"
+ *   Browser: https://yoursite.com/api/cron/lsp-product-report?secret=TOKEN
  */
 async function handle(req) {
-  // 🛑 STRICT ISOLATION GUARD: Immediate early exit before any auth/db/fetch logic
-  if (LSP_CRON_STRICTLY_DISABLED || !isLspCronEnabled()) {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (!isLspCronEnabled()) {
     return NextResponse.json(
       {
         success: false,
-        disabled: true,
-        error: "Forbidden",
-        message: "LSP Cron and product reporting is strictly disabled and isolated in this build.",
+        error: "LSP cron is off. Set cron_lsp_price_run_dev=on to allow runs.",
       },
       { status: 403 }
     );
-  }
-
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
   const mailParam = req.nextUrl.searchParams.get("mail");
