@@ -2,6 +2,8 @@
 import dbConnect from "@/lib/db";
 import Brand from "@/models/ecom_brand_info";
 import Product from "@/models/product";
+import CategoryPage from "@/models/categoryPage";
+import { PAGE_TYPES } from "@/lib/categoryPageComponents/registry";
 import { NextResponse } from "next/server";
 
 export async function GET(req) {
@@ -31,6 +33,51 @@ export async function GET(req) {
         .sort({ brand_name: 1 })
         .lean();
     }
+
+    // Check overview availability for all found brands
+    const brandIds = brands.map((b) => b._id).filter(Boolean);
+    const brandSlugs = brands.map((b) => b.brand_slug).filter(Boolean);
+
+    let activeBrandPages = [];
+    try {
+      activeBrandPages = await CategoryPage.find({
+        pageType: PAGE_TYPES.BRAND,
+        status: "active",
+        $or: [
+          { categoryId: { $in: brandIds } },
+          { categorySlug: { $in: brandSlugs } },
+          { brandSlug: { $in: brandSlugs } },
+        ],
+      })
+        .select("categoryId categorySlug brandSlug components")
+        .lean();
+    } catch (pageErr) {
+      console.warn("Failed to check brand overview pages in /api/brand/get:", pageErr);
+    }
+
+    const designedBrandIds = new Set();
+    const designedSlugs = new Set();
+    for (const page of activeBrandPages) {
+      const hasActiveComponents = (page?.components || []).some(
+        (c) => c.isActive !== false
+      );
+      if (hasActiveComponents) {
+        if (page.categoryId) designedBrandIds.add(String(page.categoryId));
+        if (page.categorySlug)
+          designedSlugs.add(String(page.categorySlug).toLowerCase().trim());
+        if (page.brandSlug)
+          designedSlugs.add(String(page.brandSlug).toLowerCase().trim());
+      }
+    }
+
+    const checkBrandOverview = (b) => {
+      const idStr = b?._id ? String(b._id) : (b?.id ? String(b.id) : "");
+      const slugStr = String(b?.brand_slug || "").toLowerCase().trim();
+      return (
+        (Boolean(idStr) && designedBrandIds.has(idStr)) ||
+        (Boolean(slugStr) && designedSlugs.has(slugStr))
+      );
+    };
 
     if (isHomePage || minProductsParam !== null) {
       // Default to at least 50 products for home page, or custom minProducts threshold
@@ -74,6 +121,7 @@ export async function GET(req) {
             brand_slug: brand?.brand_slug || "",
             image: brand?.image || "",
             productCount: count,
+            hasOverview: checkBrandOverview(brand),
           };
         })
         .filter((brand) => brand.productCount >= minCount && brand.image)
@@ -91,7 +139,8 @@ export async function GET(req) {
         id: brand?._id ? brand._id.toString() : "",
         brand_name: brand?.brand_name || "",
         brand_slug: brand?.brand_slug || "",
-        image: brand?.image || ""
+        image: brand?.image || "",
+        hasOverview: checkBrandOverview(brand),
       }))
     }, { status: 200 });
 
