@@ -26,6 +26,7 @@ import { Navigation, Scrollbar } from 'swiper/modules';
 import { useHeaderdetails } from "@/context/HeaderContext";
 import { useRegion } from "@/context/RegionContext";
 import HeaderOfferTimer from "@/components/HeaderOfferTimer";
+import DealsPdfButton from "@/components/deals-offer/DealsPdfButton";
 import { filterAndRankProducts } from '@/lib/searchMatch';
 import { uniqueById } from '@/lib/uniqueById';
 import { PAGE_TYPES } from '@/lib/categoryPageComponents/registry';
@@ -101,6 +102,7 @@ const splitByNearestSpace = (text, maxChars = 24) => {
   }
 
   if (lines.length <= 1) return text;
+
 
   return (
     <>
@@ -312,23 +314,23 @@ const Header = () => {
   const profileDropdownRef = useRef(null);
   const profileButtonRef = useRef(null);
   const mobileProfileButtonRef = useRef(null);
-  const moreMenuRef = useRef(null);
-  const moreMenuTimeoutRef = useRef(null);
-  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const accountMenuRef = useRef(null);
+  const accountMenuTimeoutRef = useRef(null);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
 
   const handleMenuMouseEnter = () => {
-    if (moreMenuTimeoutRef.current) {
-      clearTimeout(moreMenuTimeoutRef.current);
+    if (accountMenuTimeoutRef.current) {
+      clearTimeout(accountMenuTimeoutRef.current);
     }
-    setIsMoreMenuOpen(true);
+    setIsAccountMenuOpen(true);
   };
 
   const handleMenuMouseLeave = () => {
-    if (moreMenuTimeoutRef.current) {
-      clearTimeout(moreMenuTimeoutRef.current);
+    if (accountMenuTimeoutRef.current) {
+      clearTimeout(accountMenuTimeoutRef.current);
     }
-    moreMenuTimeoutRef.current = setTimeout(() => {
-      setIsMoreMenuOpen(false);
+    accountMenuTimeoutRef.current = setTimeout(() => {
+      setIsAccountMenuOpen(false);
     }, 150);
   };
   const [activeTab, setActiveTab] = useState('login');
@@ -352,6 +354,12 @@ const Header = () => {
     normalTopBanner,
     setNormalTopBanner,
   } = useHeaderdetails();
+
+  // Standard unified authentication state check for Header
+  const isAuthenticated = Boolean(isLoggedIn || userData);
+  const userDisplayName = (userData?.name && String(userData.name).trim())
+    ? String(userData.name).trim().split(' ')[0]
+    : (userData?.mobile ? String(userData.mobile).slice(-4) : (userData?.username || 'Account'));
 
   useEffect(() => {
     let timerExpiryTimeout = null;
@@ -620,7 +628,20 @@ const Header = () => {
   const checkAuthStatus = async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) return;
+      const isStrictlyValidToken = Boolean(
+        token &&
+        typeof token === 'string' &&
+        token !== 'undefined' &&
+        token !== 'null' &&
+        token.trim() !== ''
+      );
+
+      if (!isStrictlyValidToken) {
+        clearBrowserAuth();
+        setIsLoggedIn(false);
+        setUserData(null);
+        return;
+      }
 
       const response = await fetch('/api/auth/check', {
         method: 'GET',
@@ -635,15 +656,24 @@ const Header = () => {
         if (!data.loggedIn) {
           clearBrowserAuth();
           setIsLoggedIn(false);
+          setUserData(null);
           return;
         }
+        const fullUser = {
+          userId: data.userId || data.user?.userId || data.user?._id,
+          name: data.name || data.user?.name || '',
+          last_name: data.last_name || data.user?.last_name || '',
+          email: data.email || data.user?.email || '',
+          mobile: data.phone || data.user?.mobile || '',
+          role: data.role || data.user?.role || 'user',
+          store_id: data.store_id || data.user?.store_id || '',
+        };
         setIsLoggedIn(true);
-        if (data.role == "admin") {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-        }
-        setUserData(data.user);
+        setIsAdmin(data.role === "admin" || fullUser.role === "admin");
+        setUserData(fullUser);
+        try {
+          localStorage.setItem('sathya_user', JSON.stringify(fullUser));
+        } catch {}
         // Ensure session lock exists once (avoid rewriting sessionId on every load)
         const uid = data.userId || data.user?.userId || data.user?._id;
         const hasLock = Boolean(localStorage.getItem("sathya_auth_session"));
@@ -665,7 +695,7 @@ const Header = () => {
       } else {
         clearBrowserAuth();
         setIsLoggedIn(false);
-        setShowAuthModal(true);
+        setUserData(null);
       }
     } catch (error) {
       console.error("Error checking auth status:", error);
@@ -1069,8 +1099,8 @@ const Header = () => {
       setDropdownOpen(false);
     }
 
-    if (moreMenuRef.current && !moreMenuRef.current.contains(event.target)) {
-      setIsMoreMenuOpen(false);
+    if (accountMenuRef.current && !accountMenuRef.current.contains(event.target)) {
+      setIsAccountMenuOpen(false);
     }
   };
 
@@ -1079,18 +1109,18 @@ const Header = () => {
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      if (moreMenuTimeoutRef.current) clearTimeout(moreMenuTimeoutRef.current);
+      if (accountMenuTimeoutRef.current) clearTimeout(accountMenuTimeoutRef.current);
     };
   }, []);
 
   useEffect(() => {
-    if (!isMoreMenuOpen) return;
+    if (!isAccountMenuOpen) return;
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') setIsMoreMenuOpen(false);
+      if (e.key === 'Escape') setIsAccountMenuOpen(false);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isMoreMenuOpen]);
+  }, [isAccountMenuOpen]);
 
   useLayoutEffect(() => {
     if (!dropdownOpen) {
@@ -1446,15 +1476,26 @@ const Header = () => {
           return;
         }
 
+        const fullUser = {
+          userId: incomingUserId,
+          name: data.user?.name || '',
+          email: data.user?.email || '',
+          mobile: data.user?.mobile || otpMobile || '',
+          role: data.user?.role || 'user',
+        };
+        try {
+          localStorage.setItem('sathya_user', JSON.stringify(fullUser));
+        } catch {}
         establishSession({
           token: data.token,
           userId: incomingUserId,
-          role: data.user?.role || "user",
-          source: "store",
+          role: fullUser.role,
+          source: 'store',
+          user: fullUser,
         });
         setIsLoggedIn(true);
-        setIsAdmin(data.user.role === "admin");
-        setUserData(data.user);
+        setIsAdmin(fullUser.role === "admin");
+        setUserData(fullUser);
         setShowAuthModal(false);
 
         // reset OTP states
@@ -1493,18 +1534,26 @@ const Header = () => {
   };
   useEffect(() => {
     setHasMounted(true);
+    // Verify auth status immediately on mount
+    checkAuthStatus();
   }, []);
   const handleLogout = () => {
     clearBrowserAuth();
     setIsLoggedIn(false);
     setUserData(null);
     setIsAdmin(false);
+    setDropdownOpen(false);
     // CHANGE: broadcast clear to all tabs
     setCartCountSynced(0);
     // ADD: clear cartData everywhere
     try { localStorage.removeItem(CART_DATA_KEY); } catch { }
     setCartData(null);
-    location.reload();
+    if (typeof window !== "undefined") {
+      const protectedPaths = ["/profile", "/orders", "/address"];
+      if (protectedPaths.some((p) => window.location.pathname.startsWith(p))) {
+        router.push("/");
+      }
+    }
   };
   useEffect(() => {
     const fetchOffers = async () => {
@@ -2044,7 +2093,7 @@ const Header = () => {
                 display:flex;
                 align-items:center;
                 width:100%;
-                max-width:680px;
+                max-width:530px;
                 margin:0 auto;
                 height:var(--search-h);
                 background:#fff;
@@ -2061,15 +2110,19 @@ const Header = () => {
               .header-search-select-wrap{
                 position:relative;
                 flex:0 0 auto;
+                flex-shrink:0;
                 height:100%;
                 border-right:1px solid #eee;
                 background:#fafafa;
+                display:flex;
+                align-items:center;
               }
               .header-search-select{
                 height:100%;
-                min-width:120px;
-                max-width:160px;
-                padding:0 28px 0 14px;
+                width:auto;
+                min-width:105px;
+                max-width:145px;
+                padding:0 24px 0 12px;
                 border:0;
                 background:transparent;
                 color:#111;
@@ -2079,6 +2132,10 @@ const Header = () => {
                 outline:none;
                 -webkit-appearance:none;
                 appearance:none;
+                flex-shrink:0;
+                white-space:nowrap;
+                text-overflow:ellipsis;
+                overflow:hidden;
               }
               .header-search-select-wrap::after{
                 content:'';
@@ -2128,8 +2185,14 @@ const Header = () => {
               .header-search-btn:active{ transform:scale(0.98); }
               @media (max-width:640px){
                 :root{ --search-h:40px; --search-radius:12px; }
-                .header-search-select{ min-width:78px; max-width:92px; font-size:11px; padding:0 22px 0 8px; }
+                .header-search-select{ min-width:85px; max-width:130px; font-size:11px; padding:0 22px 0 8px; }
                 .header-search-btn{ min-width:42px; padding:0 12px; }
+              }
+              @media (min-width:641px) and (max-width:1024px){
+                .header-search-select{ min-width:110px; max-width:185px; font-size:12px; padding:0 26px 0 10px; }
+              }
+              @media (min-width:1025px){
+                .header-search-select{ min-width:110px; max-width:150px; font-size:12.5px; padding:0 24px 0 12px; }
               }
             `}</style>
         {/* Main Header */}
@@ -2149,53 +2212,80 @@ const Header = () => {
               }
               : undefined
           }>
-          {/* NEW MOBILE TOP ROW — compact so it never overflows viewport */}
-          <div className="sm:hidden flex items-center justify-between w-full max-w-full min-w-0 relative">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <Link href="/" className={`p-1 rounded-lg flex-shrink-0 ${currentBannerUrl ? "bg-transparent" : "bg-white"}`}>
-                <img src="/uploads/sathya-header-logo.webp" alt="Logo" width={64} height={40} className="h-9 w-auto" />
+          {/* NEW MOBILE TOP ROW — compact & collision-free layout */}
+          <div className="sm:hidden flex items-center justify-between w-full max-w-full min-w-0 relative gap-1">
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 min-w-0">
+              <Link href="/" className={`p-0.5 sm:p-1 rounded-lg flex-shrink-0 ${currentBannerUrl ? "bg-transparent" : "bg-white"}`}>
+                <img src="/uploads/sathya-header-logo.webp" alt="Logo" width={58} height={36} className="h-8 sm:h-9 w-auto" />
               </Link>
               <button
                 type="button"
                 onClick={openRegionModal}
-                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 hover:bg-red-100 text-[#d72828] text-[10px] font-bold border border-red-200/80 transition-all flex-shrink-0 max-w-[95px]"
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 hover:bg-red-100 text-[#d72828] text-[10px] font-bold border border-red-200/80 transition-all flex-shrink-0 max-w-[82px] sm:max-w-[95px]"
                 title={`Deliver to: ${city || 'Chennai'}, ${pincode || '600001'}`}
+                suppressHydrationWarning
               >
-                <FiMapPin size={11} className="text-[#d72828] flex-shrink-0" />
-                <span className="truncate">{pincode ? pincode : (selectedRegion?.code || 'TN')}</span>
+                <FiMapPin size={10} className="text-[#d72828] flex-shrink-0" />
+                <span className="truncate" suppressHydrationWarning>{pincode ? pincode : (selectedRegion?.code || 'TN')}</span>
                 <span className="text-[9px] opacity-70">▾</span>
               </button>
+              {/* Mobile Deals Button (Compact & strictly isolated) */}
+              <Link
+                href="/deals-offer"
+                className="inline-flex items-center justify-center px-2 py-0.5 h-[26px] sm:h-[28px] rounded-md text-[#000000] font-bold text-[10.5px] sm:text-[11px] leading-tight transition-all duration-200 shadow-xs hover:shadow hover:opacity-95 active:scale-95 flex-shrink-0 self-center"
+                style={{
+                  background: "linear-gradient(135deg, #00b4db 0%, #f44336 55%, #ffc107 100%)",
+                }}
+                title="View Deals & Special Offers"
+              >
+                Deals
+              </Link>
             </div>
-            <div className="flex items-center gap-1.5 text-brandRed flex-shrink-0">
-              <Link href="/wishlist" className={`${HEADER_ACTION_LINK_CLASS} relative min-w-[36px]`}>
+            <div className="flex items-center gap-1 sm:gap-1.5 text-brandRed flex-shrink-0">
+              <Link href="/wishlist" className={`${HEADER_ACTION_LINK_CLASS} relative min-w-[32px] sm:min-w-[36px]`}>
                 <div className={HEADER_ACTION_ICON_WRAP_SM_CLASS}>
                   <HiOutlineHeart size={15} strokeWidth={1.8} />
-                  <span className={HEADER_ACTION_BADGE_SM_CLASS}>
+                  <span className={HEADER_ACTION_BADGE_SM_CLASS} suppressHydrationWarning>
                     {wishlistCount}
                   </span>
                 </div>
                 <span className={`text-[8px] hidden ${HEADER_ACTION_LABEL_CLASS}`}>Wishlist</span>
               </Link>
-              <Link href="/cart" className={`${HEADER_ACTION_LINK_CLASS} relative min-w-[36px]`}>
+              <Link href="/cart" className={`${HEADER_ACTION_LINK_CLASS} relative min-w-[32px] sm:min-w-[36px]`}>
                 <div className={HEADER_ACTION_ICON_WRAP_SM_CLASS}>
                   <HiOutlineShoppingBag size={15} strokeWidth={1.8} />
-                  <span className={HEADER_ACTION_BADGE_SM_CLASS}>
+                  <span className={HEADER_ACTION_BADGE_SM_CLASS} suppressHydrationWarning>
                     {cartCount}
                   </span>
                 </div>
                 <span className={`text-[8px] hidden ${HEADER_ACTION_LABEL_CLASS}`}>Cart</span>
               </Link>
-              <div className="relative flex-shrink-0 px-0.5">
-                {userData ? (
-                  <button ref={mobileProfileButtonRef} type="button" onClick={() => setDropdownOpen(!dropdownOpen)} aria-label="Account">
-                    <FiUser size={16} />
-                  </button>
-                ) : (
-                  <button type="button" onClick={() => setShowAuthModal(true)} aria-label="Login">
-                    <FiUser size={16} />
-                  </button>
-                )}
-              </div>
+              {/* Mobile Deals Offer PDF Button - Visible ONLY for Authenticated Users */}
+              {Boolean(isLoggedIn && userData) && (
+                <DealsPdfButton className="scale-90" />
+              )}
+
+              {/* Mobile Profile / Login Action Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (isAuthenticated) {
+                    setIsMobileMenuOpen(true);
+                  } else {
+                    setShowAuthModal(true);
+                  }
+                }}
+                aria-label={isAuthenticated ? "Account" : "Login"}
+                className={`${HEADER_ACTION_LINK_CLASS} relative min-w-[32px] sm:min-w-[36px]`}
+                title={isAuthenticated ? (userData?.name || "Account") : "Login / Sign In"}
+              >
+                <div className={HEADER_ACTION_ICON_WRAP_SM_CLASS}>
+                  <FiUser size={15} strokeWidth={1.8} />
+                </div>
+                <span className={`text-[8px] hidden ${HEADER_ACTION_LABEL_CLASS}`}>
+                  {isAuthenticated ? userDisplayName : "Login"}
+                </span>
+              </button>
               <button
                 type="button"
                 onClick={toggleMobileMenu}
@@ -2390,7 +2480,7 @@ const Header = () => {
             </div>
 
             {/* Search Bar */}
-            <div className="header-search relative hidden sm:flex flex-1" role="search">
+            <div className="header-search relative hidden sm:flex flex-1 max-w-[460px] md:max-w-[490px] lg:max-w-[530px]" role="search">
               <div className="header-search-select-wrap">
                 <select
                   value={selectedCategory}
@@ -2403,6 +2493,7 @@ const Header = () => {
                   }}
                   className="header-search-select"
                   aria-label="Search category"
+                  title={selectedCategory}
                 >
                   <option value="All Category">All Category</option>
                   {categories.map((cat) => (
@@ -2468,28 +2559,46 @@ const Header = () => {
             )}
 
             {/* Icons Group */}
-            <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0 mt-0.5">
+            <div className="flex items-center gap-1.5 md:gap-2 lg:gap-2.5 xl:gap-3 flex-shrink-0 mt-0.5">
               {/* Mobile Search Button (Hidden on desktop) */}
               <button onClick={toggleMobileMenu} className="sm:hidden text-brandRed">
                 <FiSearch size={20} />
               </button>
 
+              {/* Deals Button (Live Sathya Style: Multi-color gradient, Title Case "Deals", Bold Black text, rounded-md) */}
+              <Link
+                href="/deals-offer"
+                className="hidden sm:inline-flex items-center justify-center px-3.5 py-1.5 rounded-md text-[#000000] font-bold text-[13px] leading-tight transition-all duration-200 shadow-xs hover:shadow hover:opacity-95 active:scale-95 shrink-0 self-center"
+                style={{
+                  background: "linear-gradient(135deg, #00b4db 0%, #f44336 55%, #ffc107 100%)",
+                }}
+                title="View Deals & Special Offers"
+              >
+                Deals
+              </Link>
+
               {/* State / Region Selector Button */}
               <button
                 type="button"
                 onClick={openRegionModal}
-                className={`${HEADER_ACTION_LINK_CLASS} hidden sm:flex min-w-[54px] cursor-pointer`}
+                className={`${HEADER_ACTION_LINK_CLASS} hidden sm:flex min-w-[50px] md:min-w-[54px] cursor-pointer`}
                 title={`Deliver to: ${city || 'Chennai'}, ${pincode || '600001'} (${selectedRegion?.name || 'Tamil Nadu'}). Click to change.`}
+                suppressHydrationWarning
               >
                 <div className={HEADER_ACTION_ICON_WRAP_CLASS}>
                   <FiMapPin size={18} strokeWidth={1.75} />
                 </div>
-                <span className={`text-[10px] ${HEADER_ACTION_LABEL_CLASS} max-w-[62px] truncate`}>
+                <span className={`text-[10px] ${HEADER_ACTION_LABEL_CLASS} max-w-[62px] truncate`} suppressHydrationWarning>
                   {pincode ? pincode : (selectedRegion?.code || 'Region')} ▾
                 </span>
               </button>
 
-              <Link href="/contact" className={`${HEADER_ACTION_LINK_CLASS} hidden sm:flex min-w-[52px]`}>
+              {/* Contact Button (Placed next to Pincode as requested) */}
+              <Link
+                href="/contact"
+                className={`${HEADER_ACTION_LINK_CLASS} hidden sm:flex min-w-[48px] md:min-w-[52px]`}
+                title="Contact Us"
+              >
                 <div className={HEADER_ACTION_ICON_WRAP_CLASS}>
                   <HiOutlinePhone size={18} strokeWidth={1.75} />
                 </div>
@@ -2511,7 +2620,7 @@ const Header = () => {
               <Link href="/wishlist" className={`${HEADER_ACTION_LINK_CLASS} flex min-w-[52px] relative`}>
                 <div className={HEADER_ACTION_ICON_WRAP_CLASS}>
                   <HiOutlineHeart size={18} strokeWidth={1.75} />
-                  <span className={HEADER_ACTION_BADGE_CLASS}>
+                  <span className={HEADER_ACTION_BADGE_CLASS} suppressHydrationWarning>
                     {wishlistCount}
                   </span>
                 </div>
@@ -2521,88 +2630,202 @@ const Header = () => {
               <Link href="/cart" className={`${HEADER_ACTION_LINK_CLASS} flex min-w-[52px] relative`}>
                 <div className={HEADER_ACTION_ICON_WRAP_CLASS}>
                   <HiOutlineShoppingBag size={18} strokeWidth={1.75} />
-                  <span className={HEADER_ACTION_BADGE_CLASS}>
+                  <span className={HEADER_ACTION_BADGE_CLASS} suppressHydrationWarning>
                     {cartCount}
                   </span>
                 </div>
                 <span className={`text-[10px] ${HEADER_ACTION_LABEL_CLASS}`}>Cart</span>
               </Link>
 
-              {/* More Menu Dropdown (Loyalty & All Brands) */}
+              {/* Deals Offer PDF Export Icon - Visible ONLY for Authenticated Users */}
+              {Boolean(isLoggedIn && userData) && (
+                <DealsPdfButton />
+              )}
+
+              {/* User Account / Login Dropdown (Replaces hamburger icon button) */}
               <div
                 className="relative hidden sm:block"
-                ref={moreMenuRef}
+                ref={accountMenuRef}
                 onMouseEnter={handleMenuMouseEnter}
                 onMouseLeave={handleMenuMouseLeave}
               >
                 <button
                   type="button"
-                  onClick={() => setIsMoreMenuOpen((prev) => !prev)}
-                  className={`${HEADER_ACTION_LINK_CLASS} min-w-[40px] focus:outline-none cursor-pointer`}
-                  aria-label="Menu"
-                  aria-expanded={isMoreMenuOpen}
+                  onClick={() => setIsAccountMenuOpen((prev) => !prev)}
+                  className={`${HEADER_ACTION_LINK_CLASS} min-w-[48px] md:min-w-[52px] focus:outline-none cursor-pointer`}
+                  aria-label={isAuthenticated ? "Account Menu" : "Login"}
+                  aria-expanded={isAccountMenuOpen}
                   aria-haspopup="true"
-                  title="Menu"
+                  title={isAuthenticated ? (userData?.name || userData?.mobile || "Account") : "Login / Sign In"}
                 >
                   <div
                     className={`${HEADER_ACTION_ICON_WRAP_CLASS} ${
-                      isMoreMenuOpen ? "!border-[#ED1C24] !bg-[#FFF200] !text-[#C4161D] shadow-[0_4px_10px_rgba(215,40,40,0.18)]" : ""
+                      isAccountMenuOpen ? "!border-[#ED1C24] !bg-[#FFF200] !text-[#C4161D] shadow-[0_4px_10px_rgba(215,40,40,0.18)]" : ""
                     }`}
                   >
-                    <HiOutlineBars3 size={19} strokeWidth={1.75} />
+                    <FiUser size={18} strokeWidth={1.75} />
                   </div>
+                  <span className={`text-[10px] ${HEADER_ACTION_LABEL_CLASS} max-w-[62px] truncate`} suppressHydrationWarning>
+                    {isAuthenticated ? userDisplayName : 'Login'}
+                  </span>
                 </button>
 
-                {isMoreMenuOpen && (
+                {isAccountMenuOpen && (
                   <div
                     className="absolute right-0 top-full pt-2 z-50 transition-all duration-200"
-                    style={{ minWidth: "185px" }}
+                    style={{ minWidth: "220px" }}
                   >
-                    <div className="w-48 bg-white rounded-xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.1)] border border-gray-100 py-1.5 animate-in fade-in slide-in-from-top-1 duration-150">
-                      <Link
-                        href="/loyalty"
-                        onClick={() => setIsMoreMenuOpen(false)}
-                        className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
-                      >
-                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
-                          <HiOutlineGift size={16} strokeWidth={1.8} />
-                        </span>
-                        <span className="text-[13px] font-medium">Loyalty</span>
-                      </Link>
+                    <div className="w-56 bg-white rounded-xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.15),0_8px_10px_-6px_rgba(0,0,0,0.1)] border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                      {isAuthenticated ? (
+                        /* Logged-In User Menu */
+                        <>
+                          <div className="p-3 bg-gradient-to-r from-red-50/80 to-amber-50/50 border-b border-gray-100">
+                            <p className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Signed In As</p>
+                            <p className="text-[13px] font-bold text-gray-900 truncate mt-0.5">
+                              {userData.name || userData.username || "My Account"}
+                            </p>
+                            {(userData.mobile || userData.email) && (
+                              <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                                {userData.mobile || userData.email}
+                              </p>
+                            )}
+                          </div>
 
-                      <div className="h-px bg-gray-100 my-1 mx-2" />
+                          <div className="py-1.5">
+                            {isAdmin && (
+                              <Link
+                                href="/admin/dashboard"
+                                onClick={() => setIsAccountMenuOpen(false)}
+                                className="flex items-center gap-3 px-3.5 py-2 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                              >
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                                  <FaUserShield size={14} />
+                                </span>
+                                <span className="text-[13px] font-medium">Admin Panel</span>
+                              </Link>
+                            )}
 
-                      <Link
-                        href="/brands"
-                        onClick={() => setIsMoreMenuOpen(false)}
-                        className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
-                      >
-                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
-                          <HiOutlineTag size={16} strokeWidth={1.8} />
-                        </span>
-                        <span className="text-[13px] font-medium">All Brands</span>
-                      </Link>
+                            <Link
+                              href="/profile"
+                              onClick={() => setIsAccountMenuOpen(false)}
+                              className="flex items-center gap-3 px-3.5 py-2 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                            >
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                                <FiUser size={15} strokeWidth={1.8} />
+                              </span>
+                              <span className="text-[13px] font-medium">My Profile</span>
+                            </Link>
+
+                            <Link
+                              href="/orders"
+                              onClick={() => setIsAccountMenuOpen(false)}
+                              className="flex items-center gap-3 px-3.5 py-2 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                            >
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                                <HiOutlineShoppingBag size={15} strokeWidth={1.8} />
+                              </span>
+                              <span className="text-[13px] font-medium">My Orders</span>
+                            </Link>
+
+                            <Link
+                              href="/address"
+                              onClick={() => setIsAccountMenuOpen(false)}
+                              className="flex items-center gap-3 px-3.5 py-2 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                            >
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                                <FiMapPin size={15} strokeWidth={1.8} />
+                              </span>
+                              <span className="text-[13px] font-medium">My Addresses</span>
+                            </Link>
+
+                            <div className="h-px bg-gray-100 my-1 mx-2" />
+
+                            <Link
+                              href="/loyalty"
+                              onClick={() => setIsAccountMenuOpen(false)}
+                              className="flex items-center gap-3 px-3.5 py-2 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                            >
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                                <HiOutlineGift size={16} strokeWidth={1.8} />
+                              </span>
+                              <span className="text-[13px] font-medium">Loyalty</span>
+                            </Link>
+
+                            <Link
+                              href="/brands"
+                              onClick={() => setIsAccountMenuOpen(false)}
+                              className="flex items-center gap-3 px-3.5 py-2 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                            >
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                                <HiOutlineTag size={16} strokeWidth={1.8} />
+                              </span>
+                              <span className="text-[13px] font-medium">All Brands</span>
+                            </Link>
+
+                            <div className="h-px bg-gray-100 my-1 mx-2" />
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAccountMenuOpen(false);
+                                handleLogout();
+                              }}
+                              className="w-full flex items-center gap-3 px-3.5 py-2 text-xs font-semibold text-red-600 hover:text-white hover:bg-[#ED1C24] transition-colors group/item cursor-pointer text-left"
+                            >
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600 group-hover/item:bg-white group-hover/item:text-[#ED1C24] transition-colors">
+                                <IoLogOut size={16} />
+                              </span>
+                              <span className="text-[13px] font-medium">Logout</span>
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        /* Guest State with Sign In Button */
+                        <>
+                          <div className="p-3 bg-gradient-to-r from-red-50/80 to-amber-50/50 border-b border-gray-100">
+                            <p className="text-[11px] text-gray-600 font-medium">Welcome to Sathya Store</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAccountMenuOpen(false);
+                                setShowAuthModal(true);
+                              }}
+                              className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#ED1C24] hover:bg-[#C4161D] text-white text-xs font-bold shadow-xs hover:shadow transition-all active:scale-95 cursor-pointer"
+                            >
+                              <FiUser size={14} />
+                              <span>Sign In / Register</span>
+                            </button>
+                          </div>
+
+                          <div className="py-1.5">
+                            <Link
+                              href="/loyalty"
+                              onClick={() => setIsAccountMenuOpen(false)}
+                              className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                            >
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                                <HiOutlineGift size={16} strokeWidth={1.8} />
+                              </span>
+                              <span className="text-[13px] font-medium">Loyalty</span>
+                            </Link>
+
+                            <div className="h-px bg-gray-100 my-1 mx-2" />
+
+                            <Link
+                              href="/brands"
+                              onClick={() => setIsAccountMenuOpen(false)}
+                              className="flex items-center gap-3 px-3.5 py-2.5 text-xs font-semibold text-gray-700 hover:text-brandRed hover:bg-red-50/80 transition-colors group/item"
+                            >
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-brandRed group-hover/item:bg-brandRed group-hover/item:text-white transition-colors">
+                                <HiOutlineTag size={16} strokeWidth={1.8} />
+                              </span>
+                              <span className="text-[13px] font-medium">All Brands</span>
+                            </Link>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-
-              {/* User Account */}
-              <div className="relative">
-                {userData ? (
-                  <>
-                    <button ref={profileButtonRef} onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center text-black focus:outline-none p-1 sm:p-0">
-                      <FiUser size={18} className="text-brandRed" />
-                      <span className="ml-1 font-bold text-xs sm:text-sm text-brandRed hidden lg:inline">
-                        Hi, {userData.name || userData.username || "User"}
-                      </span>
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={() => setShowAuthModal(true)} className="flex items-center text-black p-1 sm:p-0" aria-label="Sign in">
-                    <FiUser size={18} className="text-brandRed" />
-                    {/* <span className="ml-1 font-bold text-xs sm:text-sm text-brandRed hidden lg:inline">Sign In</span> */}
-                  </button>
                 )}
               </div>
             </div>
@@ -2627,6 +2850,151 @@ const Header = () => {
                 </button>
               </div>
 
+              {/* Mobile User Account Header (Replaces hidden top bar profile icon) */}
+              <div className="mb-3 p-2.5 rounded-xl bg-gradient-to-r from-red-50/80 to-amber-50/50 border border-red-100 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-[#d72828] text-white flex items-center justify-center flex-shrink-0">
+                    <FiUser size={15} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-gray-900 truncate">
+                      {isAuthenticated ? (userData?.name || userData?.username || (userData?.mobile ? `User (${userData.mobile})` : "My Account")) : "My Account"} 
+                    </p>
+                    <p className="text-[10px] text-gray-500 truncate">
+                      {isAuthenticated ? (userData?.mobile || userData?.email || "Manage profile") : "Login to view orders & offers"}
+                    </p>
+                  </div>
+                </div>
+                {isAuthenticated ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      router.push('/profile');
+                    }}
+                    className="text-[11px] font-bold text-[#d72828] hover:underline flex-shrink-0 ml-2"
+                  >
+                    Profile →
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      setShowAuthModal(true);
+                    }}
+                    className="text-[11px] font-bold px-3 py-1 rounded-md bg-[#d72828] text-white shadow-xs flex-shrink-0 ml-2"
+                  >
+                    Login
+                  </button>
+                )}
+              </div>
+
+              {/* Mobile Logged-in User Quick Actions */}
+              {isAuthenticated && (
+                <div className="mb-3 p-2 bg-gradient-to-r from-red-50/50 via-white to-amber-50/40 rounded-xl border border-gray-100 flex items-center justify-around text-center text-xs">
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex flex-col items-center gap-1 text-gray-700 hover:text-brandRed py-1 px-1.5"
+                  >
+                    <FiUser size={16} className="text-brandRed" />
+                    <span className="text-[11px] font-medium">Profile</span>
+                  </Link>
+                  <div className="w-px h-6 bg-gray-200" />
+                  <Link
+                    href="/orders"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex flex-col items-center gap-1 text-gray-700 hover:text-brandRed py-1 px-1.5"
+                  >
+                    <HiOutlineShoppingBag size={16} className="text-brandRed" />
+                    <span className="text-[11px] font-medium">Orders</span>
+                  </Link>
+                  <div className="w-px h-6 bg-gray-200" />
+                  <Link
+                    href="/address"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex flex-col items-center gap-1 text-gray-700 hover:text-brandRed py-1 px-1.5"
+                  >
+                    <FiMapPin size={16} className="text-brandRed" />
+                    <span className="text-[11px] font-medium">Addresses</span>
+                  </Link>
+                  <div className="w-px h-6 bg-gray-200" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      handleLogout();
+                    }}
+                    className="flex flex-col items-center gap-1 text-red-600 hover:text-red-700 py-1 px-1.5 cursor-pointer"
+                  >
+                    <IoLogOut size={16} />
+                    <span className="text-[11px] font-medium">Logout</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Featured Mobile Navigation Cards (Loyalty, All Brands, Store, Contact) */}
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <Link
+                  href="/loyalty"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white p-2.5 text-[#ED1C24] shadow-sm active:scale-95 transition-all"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/70 text-[#C4161D] shrink-0">
+                    <HiOutlineGift size={18} strokeWidth={1.75} />
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[12px] font-bold leading-tight">Loyalty</span>
+                    <span className="text-[10px] text-gray-500 font-normal truncate">Rewards & Points</span>
+                  </div>
+                </Link>
+
+                <Link
+                  href="/brands"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white p-2.5 text-[#ED1C24] shadow-sm active:scale-95 transition-all"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/70 text-[#C4161D] shrink-0">
+                    <HiOutlineTag size={18} strokeWidth={1.75} />
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[12px] font-bold leading-tight">All Brands</span>
+                    <span className="text-[10px] text-gray-500 font-normal truncate">Official Partners</span>
+                  </div>
+                </Link>
+
+                <a
+                  href="https://sathya.adtarbo.com/stores"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white p-2.5 text-[#ED1C24] shadow-sm active:scale-95 transition-all"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/70 text-[#C4161D] shrink-0">
+                    <HiOutlineBuildingStorefront size={18} strokeWidth={1.75} />
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[12px] font-bold leading-tight">Stores</span>
+                    <span className="text-[10px] text-gray-500 font-normal truncate">Find Nearby</span>
+                  </div>
+                </a>
+
+                <Link
+                  href="/contact"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white p-2.5 text-[#ED1C24] shadow-sm active:scale-95 transition-all"
+                >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/70 text-[#C4161D] shrink-0">
+                    <HiOutlinePhone size={18} strokeWidth={1.75} />
+                  </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-[12px] font-bold leading-tight">Contact</span>
+                    <span className="text-[10px] text-gray-500 font-normal truncate">Customer Support</span>
+                  </div>
+                </Link>
+              </div>
+
               {/* Mobile Category Block (accordion) */}
               <div className=" bg-white rounded-md border border-gray-200 overflow-hidden">
                 <div
@@ -2646,49 +3014,22 @@ const Header = () => {
                   </div>
                 )}
               </div>
-              {/* Quick links moved from top bar (mobile) */}
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              {/* Deals & Special Offers Link */}
+              <div className="mt-3">
                 <Link
-                  href="/contact"
+                  href="/deals-offer"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
+                  className="w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 shadow-xs text-black font-bold text-xs transition-transform active:scale-[0.98]"
+                  style={{
+                    background: "linear-gradient(135deg, #00b4db 0%, #f44336 55%, #ffc107 100%)",
+                  }}
+                  title="View Deals & Special Offers"
                 >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
-                    <HiOutlinePhone size={18} strokeWidth={1.75} />
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm">🔥</span>
+                    <span className="tracking-wide">Deals & Special Offers</span>
                   </span>
-                  <span className="text-[11px] font-semibold">Contact</span>
-                </Link>
-                <a
-                  href="https://sathya.adtarbo.com/stores"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
-                    <HiOutlineBuildingStorefront size={18} strokeWidth={1.75} />
-                  </span>
-                  <span className="text-[11px] font-semibold">Store</span>
-                </a>
-                <Link
-                  href="/loyalty"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
-                    <HiOutlineGift size={18} strokeWidth={1.75} />
-                  </span>
-                  <span className="text-[11px] font-semibold">Loyalty</span>
-                </Link>
-                <Link
-                  href="/brands"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-[#ED1C24]/20 bg-gradient-to-b from-[#fffdf5] to-white px-2 py-3 text-[#ED1C24] shadow-sm"
-                >
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#FFF200]/60">
-                    <HiOutlineTag size={18} strokeWidth={1.75} />
-                  </span>
-                  <span className="text-[11px] font-semibold">All Brands</span>
+                  <span className="text-[10px] bg-black/20 px-2 py-0.5 rounded text-white font-semibold">View →</span>
                 </Link>
               </div>
             </div>
@@ -3527,7 +3868,7 @@ const Header = () => {
           style={{
             top: `${searchDropdownTop}px`,
             left: `${searchDropdownLeft}px`,
-            width: `${searchDropdownWidth}px`,
+            width: `${Math.max(searchDropdownWidth, 360)}px`,
             maxHeight: '520px'
           }}
           role="listbox"

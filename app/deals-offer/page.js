@@ -349,6 +349,9 @@ export default function DealsOfferPage() {
 
             if (isMounted) {
               setActiveOfferTimers(matchedTimers);
+              if (typeof window !== "undefined") {
+                window.__dealsOfferTimers = matchedTimers;
+              }
 
               // Ensure the latest uploaded banner from top active offer shows as header background
               const latestTimer = matchedTimers[0] || null;
@@ -447,6 +450,9 @@ export default function DealsOfferPage() {
 
             if (isMounted) {
               setSections(organized);
+              if (typeof window !== "undefined") {
+                window.__dealsOfferSections = organized;
+              }
             }
           }
         }

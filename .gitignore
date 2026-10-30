@@ -20,6 +20,7 @@ _sathya_home.html
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+scratch/
 
 # Uploads & static assets (keep local / server-managed)
 public/

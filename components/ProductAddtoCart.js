@@ -10,11 +10,12 @@ import { trackAddToCart, ga4AddToCart } from "@/utils/nextjs-event-tracking.js";
 import { FaShoppingCart } from "react-icons/fa";
 import { isOpenBoxEligible } from "@/lib/openBoxHelper";
 import OpenBoxPopup from "@/components/OpenBoxPopup";
+import LowStockEnquiryPopup from "@/components/LowStockEnquiryPopup";
 
 import { v4 as uuidv4 } from "uuid";
 import { useRegion } from "@/context/RegionContext";
 
-const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts = [], extendedWarranty, selectedFrequentProducts = [], stockQuantity = 1, special_price, onSuccess, buttonLabel, buttonClassName, movement, productName, productSlug, warrantyData, variantValues, selectedVariant, color, exchangeOffer = null }) => {
+const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts = [], extendedWarranty, selectedFrequentProducts = [], stockQuantity = 1, special_price, onSuccess, buttonLabel, buttonClassName, movement, productName, productSlug, productCategory = "", warrantyData, variantValues, selectedVariant, color, exchangeOffer = null }) => {
   const { openAuthModal } = useModal();
   const { updateHeaderdetails, setIsLoggedIn, setUserData, setIsAdmin, userData } = useHeaderdetails();
   const [isLoading, setIsLoading] = useState(false);
@@ -22,9 +23,11 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
   const [authError, setAuthError] = useState('');
   const [cartSuccess, setCartSuccess] = useState(false);
   const [showOpenBoxPopup, setShowOpenBoxPopup] = useState(false);
+  const [showLowStockEnquiry, setShowLowStockEnquiry] = useState(false);
   const isOutOfStock = stockQuantity <= 0;
   const isprice = special_price <= 0;
   const isOpenBox = isOpenBoxEligible({ movement, quantity: stockQuantity });
+  const isLowStock = Number(stockQuantity) > 0 && Number(stockQuantity) < 10;
   const { cartCount, updateCartCount } = useCart();
   const { pincode: headerPincode, userLocation, region: currentRegion } = useRegion();
   const handleAddToCart = async () => {
@@ -47,6 +50,19 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
   }
   return;
 }
+      // Product qty < 10 → open least-stock enquiry modal (do not add to cart yet)
+      if (isLowStock) {
+        const isOnProductPage =
+          typeof window !== "undefined" &&
+          productSlug &&
+          window.location.pathname === `/product/${productSlug}`;
+        if (productSlug && !isOnProductPage) {
+          window.location.href = `/product/${productSlug}`;
+          return;
+        }
+        setShowLowStockEnquiry(true);
+        return;
+      }
       setIsLoading(true);
       // setAuthError('');
       setCartSuccess(false);
@@ -265,6 +281,15 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
         onClose={() => setShowOpenBoxPopup(false)}
         productName={productName}
         productSlug={productSlug}
+        stockQuantity={stockQuantity}
+      />
+    )}
+    {showLowStockEnquiry && (
+      <LowStockEnquiryPopup
+        onClose={() => setShowLowStockEnquiry(false)}
+        productName={productName}
+        productSlug={productSlug}
+        productCategory={productCategory}
         stockQuantity={stockQuantity}
       />
     )}

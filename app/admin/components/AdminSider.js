@@ -57,6 +57,13 @@ const menuItems = [
       { icon: 'mdi:card-account-phone-outline', label: 'Contacts', id: 'admin-contact', link: 'contact' },
     ]
   },
+  {
+    icon: 'mdi:database',
+    label: 'CRM',
+    submenu: [
+      { icon: 'mdi:chevron-double-right', label: 'Leads', id: 'crm-leads', link: 'leads', dotColor: 'bg-blue-500' },
+    ],
+  },
   // { icon: 'mdi:note-text-outline', label: 'Blog', link: 'blog' },
   {
     icon: 'mdi:post-outline',

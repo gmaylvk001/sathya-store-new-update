@@ -17,7 +17,7 @@ export async function GET(req) {
         { item_code: { $regex: q, $options: "i" } },
       ],
     })
-      .select("_id name item_code images price special_price slug")
+      .select("_id name item_code images price special_price slug lsp")
       .limit(10)
       .lean();
     

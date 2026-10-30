@@ -30,20 +30,35 @@ function getUserIdFromRequest(req) {
 // ─── Helper: fetch the user's full compare list with populated product data ──
 
 async function fetchCompareList(userId) {
+  const COMPARE_FIELDS =
+    'name slug images price special_price quantity stock_status movement brand model_number size star warranty item_code key_specifications product_highlights filter avgRating status brand_name brand_slug description';
+
   let items = await Compare.find({ userId })
     .sort({ added_at: 1 })          // stable order: oldest first
-    .populate('productId')           // join live product data from Product collection
+    .populate({
+      path: 'productId',
+      select: COMPARE_FIELDS,
+      populate: { path: 'brand', select: 'brand_name brand_slug' },
+    })
     .lean();
 
   // Gracefully handle deleted products — keep the entry but mark productData null
-  return items.map((item) => ({
-    _id:           item._id,
-    productId:     item.productId?._id || item.productId,
-    category_slug: item.category_slug,
-    added_at:      item.added_at,
-    // productData is null if the product was deleted from the Product collection
-    productData:   item.productId && item.productId._id ? item.productId : null,
-  }));
+  return items.map((item) => {
+    let productData = item.productId && item.productId._id ? item.productId : null;
+    if (productData?.description && String(productData.description).length > 2000) {
+      productData = { ...productData, description: String(productData.description).slice(0, 2000) };
+    }
+    if (Array.isArray(productData?.images) && productData.images.length > 1) {
+      productData = { ...productData, images: productData.images.slice(0, 1) };
+    }
+    return {
+      _id:           item._id,
+      productId:     item.productId?._id || item.productId,
+      category_slug: item.category_slug,
+      added_at:      item.added_at,
+      productData,
+    };
+  });
 }
 
 // ─── GET: return user's compare list OR fetch products by ?ids= ────────────────
@@ -63,11 +78,28 @@ export async function GET(req) {
         return NextResponse.json({ products: [], count: 0 }, { status: 200 });
       }
 
+      // Select only fields needed for compare UI — skip huge HTML blobs that slow the modal
+      const COMPARE_FIELDS =
+        'name slug images price special_price quantity stock_status movement brand model_number size star warranty item_code key_specifications product_highlights filter avgRating status brand_name brand_slug description';
+
       const products = await Product.find({ _id: { $in: validIds } })
+        .select(COMPARE_FIELDS)
         .populate('brand', 'brand_name brand_slug')
         .lean();
 
-      const map = new Map(products.map((p) => [String(p._id), p]));
+      // Trim oversized description HTML so payload stays small
+      const trimmed = products.map((p) => {
+        if (p?.description && String(p.description).length > 2000) {
+          return { ...p, description: String(p.description).slice(0, 2000) };
+        }
+        // Keep only first image for compare cards
+        if (Array.isArray(p?.images) && p.images.length > 1) {
+          return { ...p, images: p.images.slice(0, 1) };
+        }
+        return p;
+      });
+
+      const map = new Map(trimmed.map((p) => [String(p._id), p]));
       const ordered = validIds.map((id) => map.get(id)).filter(Boolean);
 
       return NextResponse.json({ products: ordered, count: ordered.length }, { status: 200 });

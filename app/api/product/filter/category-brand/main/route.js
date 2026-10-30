@@ -42,15 +42,89 @@ export async function GET(req) {
     }
 
     /* --------------------------------------------------
-       1️⃣ Resolve CATEGORY hierarchy (parent → child → sub-child)
+       1️⃣ Resolve CATEGORY & BRAND (with bidirectional order support)
     -------------------------------------------------- */
-    const parentCategory = await ecom_category_info.findOne({
-      category_slug: categorySlug,
+    let parentCategory = await ecom_category_info.findOne({
+      $or: [
+        { category_slug: categorySlug },
+        { category_slug: { $regex: new RegExp(`^${categorySlug}$`, "i") } },
+      ],
       status: "Active",
     });
 
+    let find_brand = await Brand.findOne({
+      $or: [
+        { brand_slug: brandSlug },
+        { brand_slug: { $regex: new RegExp(`^${brandSlug}$`, "i") } },
+      ],
+      status: "Active",
+    });
+
+    // If not found in direct order with status Active, try swapped order
+    if (!parentCategory || !find_brand) {
+      const swappedCategory = await ecom_category_info.findOne({
+        $or: [
+          { category_slug: brandSlug },
+          { category_slug: { $regex: new RegExp(`^${brandSlug}$`, "i") } },
+        ],
+        status: "Active",
+      });
+      const swappedBrand = await Brand.findOne({
+        $or: [
+          { brand_slug: categorySlug },
+          { brand_slug: { $regex: new RegExp(`^${categorySlug}$`, "i") } },
+        ],
+        status: "Active",
+      });
+
+      if (swappedCategory && swappedBrand) {
+        parentCategory = swappedCategory;
+        find_brand = swappedBrand;
+      }
+    }
+
+    // Fallback if status was not explicitly 'Active'
+    if (!parentCategory) {
+      parentCategory = await ecom_category_info.findOne({
+        $or: [
+          { category_slug: categorySlug },
+          { category_slug: { $regex: new RegExp(`^${categorySlug}$`, "i") } },
+        ],
+      });
+    }
+    if (!find_brand) {
+      find_brand = await Brand.findOne({
+        $or: [
+          { brand_slug: brandSlug },
+          { brand_slug: { $regex: new RegExp(`^${brandSlug}$`, "i") } },
+        ],
+      });
+    }
+    if (!parentCategory || !find_brand) {
+      const swappedCategory = await ecom_category_info.findOne({
+        $or: [
+          { category_slug: brandSlug },
+          { category_slug: { $regex: new RegExp(`^${brandSlug}$`, "i") } },
+        ],
+      });
+      const swappedBrand = await Brand.findOne({
+        $or: [
+          { brand_slug: categorySlug },
+          { brand_slug: { $regex: new RegExp(`^${categorySlug}$`, "i") } },
+        ],
+      });
+      if (swappedCategory && swappedBrand) {
+        parentCategory = swappedCategory;
+        find_brand = swappedBrand;
+      }
+    }
+
     if (!parentCategory) {
       return Response.json({ error: "Category not found" }, { status: 404 });
+    }
+
+    if (!find_brand) {
+      return Response.json({ error: "Brand not found" }, { status: 404 });
     }
 
     const childCategories = await ecom_category_info.find({
@@ -70,18 +144,6 @@ export async function GET(req) {
       ...childCategories.map((c) => c._id.toString()),
       ...subChildCategories.map((c) => c._id.toString()),
     ];
-
-    /* --------------------------------------------------
-       2️⃣ Resolve BRAND
-    -------------------------------------------------- */
-    const find_brand = await Brand.findOne({
-      brand_slug: brandSlug,
-      status: "Active",
-    });
-
-    if (!find_brand) {
-      return Response.json({ error: "Brand not found" }, { status: 404 });
-    }
 
     /* --------------------------------------------------
        3️⃣ Price logic (special_price priority)

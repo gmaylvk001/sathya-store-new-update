@@ -106,9 +106,29 @@ export const AuthModal = ({ onClose, onSuccess, error }) => {
         const details = await checkRes.json();
 
         if (details.loggedIn) {
-          updateHeaderdetails({ user: details.user });
+          const fullUser = {
+            userId: incomingUserId,
+            name: details.name || details.user?.name || data.user?.name || '',
+            last_name: details.last_name || '',
+            email: details.email || details.user?.email || data.user?.email || '',
+            mobile: details.phone || details.user?.mobile || data.user?.mobile || mobile || '',
+            role: details.role || data.user?.role || 'user',
+            store_id: details.store_id || '',
+          };
+          try {
+            localStorage.setItem('sathya_user', JSON.stringify(fullUser));
+          } catch {}
+          establishSession({
+            token: data.token,
+            userId: incomingUserId,
+            role: fullUser.role,
+            source: 'store',
+            user: fullUser,
+          });
+          updateHeaderdetails(fullUser);
           setIsLoggedIn(true);
-          if (details.role === 'admin') {
+          setUserData(fullUser);
+          if (details.role === 'admin' || fullUser.role === 'admin') {
             setIsAdmin(true);
           }
         } else {

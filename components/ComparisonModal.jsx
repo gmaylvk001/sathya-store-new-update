@@ -19,7 +19,10 @@ export default function ComparisonModal({ isOpen, onClose }) {
       return;
     }
 
+    // Show cached preview immediately so modal feels instant
+    setEnrichedList(compareList);
     setLoading(true);
+
     try {
       const ids = compareList.map((item) => String(item.productId)).join(",");
       const res = await fetch(`/api/compare?ids=${ids}`);
@@ -41,7 +44,6 @@ export default function ComparisonModal({ isOpen, onClose }) {
       setEnrichedList(merged);
     } catch (err) {
       console.error("[ComparisonModal] fetch error:", err);
-      // Fallback to whatever previewData exists in compareList
       setEnrichedList(compareList);
     } finally {
       setLoading(false);
@@ -180,7 +182,7 @@ export default function ComparisonModal({ isOpen, onClose }) {
 
         {/* Scrollable Comparison Content */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50">
-          {loading ? (
+          {enrichedList.length === 0 && loading ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-8">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="rounded-2xl bg-white border border-gray-100 shadow-xs overflow-hidden">
@@ -198,7 +200,12 @@ export default function ComparisonModal({ isOpen, onClose }) {
               <CompareEmptyState />
             </div>
           ) : (
-            <div className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden relative">
+              {loading && (
+                <div className="absolute top-2 right-3 z-10 text-[10px] font-semibold text-gray-500 bg-white/90 border border-gray-200 rounded-full px-2 py-0.5">
+                  Updating…
+                </div>
+              )}
               <CompareTable products={enrichedList} />
             </div>
           )}
