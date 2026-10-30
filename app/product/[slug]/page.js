@@ -3,6 +3,7 @@ import { getProductDataCached } from "@/lib/productFetcher";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { normalizeRegion, isKarnatakaPincode } from "@/lib/regionHelper";
+import { isLspPdpEnabled } from "@/lib/lspPriceCron";
 
 export async function generateMetadata({ params }) {
   const awaitedParams = await params;
@@ -68,5 +69,10 @@ export default async function ProductPage({ params }) {
     notFound();
   }
 
-  return <ProductClient initialProduct={product} />;
+  return (
+    <ProductClient
+      initialProduct={product}
+      lspPdpEnabled={isLspPdpEnabled()}
+    />
+  );
 }

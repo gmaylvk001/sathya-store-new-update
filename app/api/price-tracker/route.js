@@ -5,15 +5,31 @@ import {
   getNextSyncCountdown,
   getCompetitorDeals,
 } from "@/lib/priceTrackerService";
+import { isLspPdpEnabled } from "@/lib/lspPriceCron";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Live Market Price Comparison API
+ * Live Market Price Comparison API (product details page).
+ * Gate: lsp_pdp_live_comparison=on (separate from cron_lsp_price_run_dev)
  * Route: GET /api/price-tracker?sku=[code]&price=[sathyaPrice]&title=[title]
  */
 export async function GET(request) {
   try {
+    if (!isLspPdpEnabled()) {
+      return NextResponse.json(
+        {
+          success: true,
+          disabled: true,
+          matched: false,
+          deals: [],
+          message:
+            "PDP Live Market Comparison is off. Set lsp_pdp_live_comparison=on to enable.",
+        },
+        { status: 200 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const productCode =
       searchParams.get("product_code") ||

@@ -233,7 +233,7 @@ const getSharedBrandData = () => {
   return sharedBrandPromise;
 };
 
-export default function ProductClient({ initialProduct = null }) {
+export default function ProductClient({ initialProduct = null, lspPdpEnabled = false }) {
   const router = useRouter();
   const params = useParams();
   const slug = params?.sub_slug_one || params?.slug;
@@ -2022,7 +2022,9 @@ export default function ProductClient({ initialProduct = null }) {
                   onExternalCloseEmiModal={() => setShowEMIModal(false)}
                   onAvailabilityChange={setHasPaymentOffers}
                 />
-                <CompetitorPriceTracker product={product} className={hasPaymentOffers ? "mt-3" : "mt-0"} />
+                {lspPdpEnabled ? (
+                  <CompetitorPriceTracker product={product} className={hasPaymentOffers ? "mt-3" : "mt-0"} />
+                ) : null}
                 <ProductInstallationWarrantySection
                   product={product}
                   warranties={warranties}
@@ -2820,8 +2822,8 @@ export default function ProductClient({ initialProduct = null }) {
                     />
                   </div>
 
-                  {/* 5. LIVE MARKET PRICE COMPARISON (ePrice Tracker™) */}
-                  <CompetitorPriceTracker product={product} />
+                  {/* 5. LIVE MARKET PRICE COMPARISON (ePrice Tracker™) — lsp_pdp_live_comparison */}
+                  {lspPdpEnabled ? <CompetitorPriceTracker product={product} /> : null}
 
                 </div>
               </div>

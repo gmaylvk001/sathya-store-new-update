@@ -24,7 +24,7 @@ const getLogoPath = (platformName) => {
  * Defensively renders with zero CLS and graceful fallback.
  * Strictly displays verified competitor pricing for exact product matches only.
  */
-export default function CompetitorPriceTracker({ product, className = "" }) {
+export default function CompetitorPriceTracker({ product, className = "", enabled = true }) {
   const [trackerData, setTrackerData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentDay, setCurrentDay] = useState("");
@@ -46,6 +46,13 @@ export default function CompetitorPriceTracker({ product, className = "" }) {
   }, []);
 
   useEffect(() => {
+    // PDP gate: lsp_pdp_live_comparison (parent passes enabled=false when off)
+    if (!enabled) {
+      setTrackerData(null);
+      setIsLoading(false);
+      return;
+    }
+
     if (!product || (!productCode && !modelNumber && !ean) || sathyaPrice <= 0) {
       setTrackerData({ success: true, deals: [], unverified: true });
       setIsLoading(false);
@@ -85,7 +92,11 @@ export default function CompetitorPriceTracker({ product, className = "" }) {
     return () => {
       isMounted = false;
     };
-  }, [product?._id, productCode, modelNumber, ean, sathyaPrice]);
+  }, [enabled, product?._id, productCode, modelNumber, ean, sathyaPrice]);
+
+  if (!enabled) {
+    return null;
+  }
 
   // Loading state: return null to prevent layout shifts/flashing
   if (isLoading) {
