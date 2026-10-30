@@ -19,6 +19,7 @@ const ProductSchema = new mongoose.Schema({
   movement: String,
   model_number: String,
   ean: { type: String, default: "" },
+   sathya_old_id: { type: String, default: "", index: true },
   common_item_code: { type: String, default: "" },
   outdoor_item_code: { type: String, default: "" },
   indoor_ean: { type: String, default: "" },
