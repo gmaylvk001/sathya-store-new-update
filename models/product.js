@@ -2,11 +2,9 @@ import mongoose from "mongoose";
 
 const ProductSchema = new mongoose.Schema({
   name: String,
-  md5_name: String,
+  md5_name : String,
   slug: String,
   item_code: String,
-  sathya_old_id: { type: String, default: "", index: true },
-  product_type: { type: String, default: "" },
   brand_code: String,
   price: Number,
   special_price: Number,
@@ -21,7 +19,11 @@ const ProductSchema = new mongoose.Schema({
   movement: String,
   model_number: String,
   ean: { type: String, default: "" },
-  key_specifications: { type: [String], default: [] },
+  common_item_code: { type: String, default: "" },
+  outdoor_item_code: { type: String, default: "" },
+  indoor_ean: { type: String, default: "" },
+  outdoor_ean: { type: String, default: "" },
+  key_specifications : { type: [String], default: [] },
   status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
   stock_status: { type: String, enum: ["In Stock", "Out of Stock"], default: "In Stock" },
   hasVariants: { type: Boolean, default: false },
@@ -32,27 +34,27 @@ const ProductSchema = new mongoose.Schema({
     default: null,
     index: true,
   },
-  images: { type: [String], default: [] },
-  filter: { type: Object, default: {} },
-  overview_image: { type: [String], default: [] },
-  featured_products: { type: Object, default: {} },
-  related_products: {
-    type: [mongoose.Schema.Types.ObjectId],
-    ref: "Product",
-    default: []
-  },
-  add_ons: {
-    type: [mongoose.Schema.Types.ObjectId],
-    ref: "Product",
-    default: [],
-  },
+  images: { type: [String], default: [] }, 
+  filter : { type: Object, default: {} },
+  overview_image: { type: [String], default: [] }, 
+  featured_products :{ type: Object, default: {} },
+  related_products: { 
+  type: [mongoose.Schema.Types.ObjectId], 
+  ref: "Product", 
+  default: [] 
+},
+add_ons: {
+  type: [mongoose.Schema.Types.ObjectId],
+  ref: "Product",
+  default: [],
+},
 
-  warranty_ids: {
-    type: [String],
-    default: [],
-  },
+warranty_ids: {
+  type: [String],
+  default: [],
+},
   warranty: Number,
-  extended_warranty: Number,
+  extended_warranty:Number,
   extend_warranty: {
     type: [
       {
@@ -63,13 +65,9 @@ const ProductSchema = new mongoose.Schema({
     default: [],
   },
   overviewdescription: String,
-  product_highlights: { type: [String], default: [], },
+  product_highlights: {type: [String],default: [],},
   meta_title: { type: String, default: "" }, // Add meta_title field
-  meta_description: { type: String, default: "" },
-<<<<<<< Updated upstream
-  product_type: { type: String, default: "" },
-=======
->>>>>>> Stashed changes
+  meta_description: { type: String, default: "" }, 
   category_new: { type: String, default: "" },
   sub_category_new: { type: String, default: "" },
   search_keywords: { type: String, default: "" },
@@ -89,16 +87,18 @@ const ProductSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
-ProductSchema.index({ slug: 1, status: 1 });
-ProductSchema.index({ slug: 1 });
 ProductSchema.index({ createdAt: -1, _id: -1 });
 ProductSchema.index({ status: 1, brand: 1 });
 ProductSchema.index({ status: 1, name: 1 });
 ProductSchema.index({ status: 1, createdAt: -1 });
-ProductSchema.index({ status: 1, stock_status: 1, createdAt: -1 });
 ProductSchema.index({ status: 1, sub_category_new_name: 1 });
 ProductSchema.index({ status: 1, item_code: 1 });
 ProductSchema.index({ item_code: 1 });
+ProductSchema.index({ common_item_code: 1 });
+ProductSchema.index({ outdoor_item_code: 1 });
+ProductSchema.index({ ean: 1 });
+ProductSchema.index({ indoor_ean: 1 });
+ProductSchema.index({ outdoor_ean: 1 });
 ProductSchema.index({ status: 1, model_number: 1 });
 ProductSchema.index(
   {
