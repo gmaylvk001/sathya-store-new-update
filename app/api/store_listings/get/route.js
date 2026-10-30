@@ -28,7 +28,21 @@ export async function GET(req) {
         console.warn("Store fallback error in store_listings/get:", fallbackErr);
       }
     }
-    return NextResponse.json(rows, {
+    const cleanNull = (v) => {
+      if (typeof v !== "string") return v;
+      const t = v.trim();
+      const u = t.toUpperCase();
+      return u === "NULL" || u === "UNDEFINED" ? null : t;
+    };
+    const sanitizedRows = (rows || []).map((row) => ({
+      ...row,
+      branch_code: cleanNull(row.branch_code),
+      phone: cleanNull(row.phone),
+      phone_afterhours: cleanNull(row.phone_afterhours),
+      address: cleanNull(row.address),
+    }));
+
+    return NextResponse.json(sanitizedRows, {
       status: 200,
       headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
     });

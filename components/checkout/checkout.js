@@ -22,6 +22,10 @@ import {
   filterStores,
   getDistrictsWithCounts,
   formatStorePhone,
+  getValidStoreBranchCode,
+  getStoreSelectValue,
+  isStoreSelected,
+  getStoreReactKey,
 } from "@/lib/storePickupHelper";
 import { useStorePickupFilter } from "@/hooks/useStorePickupFilter";
 
@@ -200,7 +204,7 @@ const StorePickupSelector = ({
   // Find currently selected store object (persists across filter/search changes)
   const currentSelectedStore = useMemo(() => {
     if (!selectedStore) return null;
-    return stores.find((s) => (s.branch_code || s._id) === selectedStore) || null;
+    return stores.find((s) => isStoreSelected(s, selectedStore)) || null;
   }, [stores, selectedStore]);
 
   // Close dropdown on outside click or escape key
@@ -228,7 +232,7 @@ const StorePickupSelector = ({
   }, [isOpen]);
 
   const handleSelect = (store) => {
-    const val = store.branch_code || store._id;
+    const val = getStoreSelectValue(store);
     onChange({ target: { name: 'selectedStore', value: val } });
     setIsOpen(false);
   };
@@ -402,17 +406,18 @@ const StorePickupSelector = ({
             className="mt-2 max-h-64 sm:max-h-72 overflow-y-auto divide-y divide-gray-100 pr-1 scrollbar-thin scrollbar-thumb-gray-200"
           >
             {filteredStores.length > 0 ? (
-              filteredStores.map((store) => {
-                const storeVal = store.branch_code || store._id;
-                const isSelected = selectedStore === storeVal;
+              filteredStores.map((store, index) => {
+                const storeVal = getStoreSelectValue(store);
+                const isSelected = isStoreSelected(store, selectedStore);
                 const storeDistrict = getStoreDistrict(store);
                 const title = store.title || store.organisation_name || 'Store';
                 const address = store.address || store.location || '';
                 const phone = formatStorePhone(store.phone);
+                const storeKey = getStoreReactKey(store, index);
 
                 return (
                   <button
-                    key={storeVal}
+                    key={storeKey}
                     type="button"
                     role="option"
                     aria-selected={isSelected}
@@ -1314,11 +1319,22 @@ export default function CheckoutPage() {
       try {
         const res = await fetch('/api/store_listings/get');
         const json = await res.json();
-        if (Array.isArray(json)) {
-          setStores(json);
-        } else if (json.data) {
-          setStores(json.data);
-        }
+        const rawList = Array.isArray(json) ? json : (json?.data || []);
+        const cleanList = rawList.map((s) => {
+          const cleanVal = (v) => {
+            if (typeof v !== 'string') return v;
+            const t = v.trim();
+            const u = t.toUpperCase();
+            return u === 'NULL' || u === 'UNDEFINED' ? null : t;
+          };
+          return {
+            ...s,
+            branch_code: cleanVal(s.branch_code),
+            phone: cleanVal(s.phone),
+            address: cleanVal(s.address),
+          };
+        });
+        setStores(cleanList);
       } catch (err) { console.error('Fetch stores error:', err); }
     };
     fetchStores();
@@ -1378,13 +1394,13 @@ export default function CheckoutPage() {
     const owner = String(store.store_owner || '').trim().toLowerCase();
     return isHeaderKarnataka ? owner === 'unilet' : owner === 'sathya';
   });
-  const matchesSelectedStore = (s) => s.branch_code === formData.selectedStore || s._id === formData.selectedStore;
+  const matchesSelectedStore = (s) => isStoreSelected(s, formData.selectedStore);
 
   const selectedStoreObj = pickupStores.find(matchesSelectedStore);
 
   useEffect(() => {
     if (!formData.selectedStore || !stores.length) return;
-    if (!pickupStores.some(matchesSelectedStore)) {
+    if (String(formData.selectedStore).toUpperCase() === 'NULL' || !pickupStores.some(matchesSelectedStore)) {
       setFormData((prev) => ({ ...prev, selectedStore: '' }));
     }
   }, [isHeaderKarnataka, formData.selectedStore, stores]);

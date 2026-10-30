@@ -102,10 +102,10 @@ export default function Profile() {
         const found = stores.find(
           (s) =>
             String(s._id) === currentStoreVal ||
-            String(s.location_id) === currentStoreVal ||
-            String(s.branch_code) === currentStoreVal ||
-            String(s.exist_id) === currentStoreVal ||
-            String(s.slug) === currentStoreVal
+            (s.location_id && String(s.location_id) !== 'NULL' && String(s.location_id) === currentStoreVal) ||
+            (s.branch_code && String(s.branch_code).toUpperCase() !== 'NULL' && String(s.branch_code) === currentStoreVal) ||
+            (s.exist_id && String(s.exist_id) !== 'NULL' && String(s.exist_id) === currentStoreVal) ||
+            (s.slug && String(s.slug) === currentStoreVal)
         );
         if (found) {
           setProfileData(prev => ({ ...prev, store: String(found._id) }));

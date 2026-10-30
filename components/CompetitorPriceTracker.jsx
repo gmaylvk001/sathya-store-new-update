@@ -103,7 +103,7 @@ export default function CompetitorPriceTracker({ product, className = "", enable
     return null;
   }
 
-  // Filter recognized deals (Amazon, Flipkart, Croma, Reliance Digital)
+  // Filter recognized deals (Amazon, Flipkart, Croma, Reliance Digital, Vijay Sales, Poorvika)
   const deals = (trackerData?.deals || [])
     .filter((deal) => {
       const plat = (deal?.platform || "").toLowerCase();
@@ -111,10 +111,12 @@ export default function CompetitorPriceTracker({ product, className = "", enable
         plat === "amazon" ||
         plat === "flipkart" ||
         plat === "croma" ||
-        plat.includes("reliance")
+        plat.includes("reliance") ||
+        plat.includes("vijay") ||
+        plat.includes("poorvika")
       );
     })
-    .slice(0, 3);
+    .slice(0, 4);
 
   // If no verified competitor deals exist for this exact product:
   if (!trackerData || !Array.isArray(deals) || deals.length === 0) {

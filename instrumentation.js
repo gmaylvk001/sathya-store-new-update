@@ -1,19 +1,10 @@
 export async function register() {
-  // LSP price updates are no longer scheduled inside Next.js.
-  // Trigger them with crontab / curl / browser:
-  //   GET|POST /api/cron/lsp-product-report?secret=<LSP_REPORT_API_TOKEN>
-  // Gate: cron_lsp_price_run_dev=on  |  Mail: cron_lsp_price_mail_send=on|off
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { isLspCronEnabled, isLspCronMailEnabled } = await import("./lib/lspPriceCron");
-    console.info(
-      `[lsp_cron] API mode — enabled=${isLspCronEnabled() ? "on" : "off"}, mail=${isLspCronMailEnabled() ? "on" : "off"} (no in-app schedule)`
-    );
-
     // Brand status sync cron — runs daily at cron_brand_sync_time (default 00:00 Asia/Kolkata).
     // Gate: cron_brand_sync_run=on (required to enable; missing/off = disabled).
     // Dev gate: cron_brand_sync_run_dev=on (required to run during `npm run dev`).
     // Manual trigger: GET|POST /api/cron/sync-brand-status?secret=<CRON_SECRET>
-    const { startBrandSyncCron, isEnvOn } = await import("./lib/brandSyncCron");
+    const { startBrandSyncCron, isEnvOn } = await import("./lib/brandSyncCron.js");
     const isProduction = process.env.NODE_ENV === "production";
     const brandEnabled = isEnvOn("cron_brand_sync_run");
     const devGate = isEnvOn("cron_brand_sync_run_dev");
