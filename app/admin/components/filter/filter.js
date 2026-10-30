@@ -472,7 +472,7 @@ export default function FilterComponent() {
               }}
               className="border px-3 py-2 rounded-md w-64"
             />
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => Modelopen(true)}
                 className="bg-red-500 text-white px-4 py-2 rounded-md"
@@ -488,12 +488,15 @@ export default function FilterComponent() {
                 Export
               </button>
 
-              {/* <button
-            onClick={() => setIsFilterModalOpen(true)}
-            className="bg-[#d72828] text-white px-4 py-2 rounded-md"
-          >
-            ⬆️ Bulk Upload
-          </button> */}
+              <a
+                href="/api/product/filter-bulk-upload/export-product-filters"
+                download="sathya_product_filters_export.xlsx"
+                className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 transition flex items-center gap-2 text-sm font-semibold"
+                title="Download matched product filters Excel"
+              >
+                <Icon icon="mdi:file-excel" className="w-4 h-4" />
+                Download Product Filters (Temp)
+              </a>
             </div>
           </div>
 

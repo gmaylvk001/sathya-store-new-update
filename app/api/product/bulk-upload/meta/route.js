@@ -156,6 +156,7 @@ export async function POST(req) {
                 );
 
                 updatedCount++;
+                console.log("count:", updatedCount);
             } catch (err) {
                 errors.push({
                     row: index + 2,
@@ -163,6 +164,8 @@ export async function POST(req) {
                 });
             }
         }
+
+        console.log("Total updated count:", updatedCount);
 
         return NextResponse.json(
             {

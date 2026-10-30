@@ -287,11 +287,19 @@ export default function FiltergroupComponent() {
   const pageCount = Math.ceil(filteredGroups.length / itemsPerPage);
   const startEntry = currentPage * itemsPerPage + 1;
   const endEntry = Math.min((currentPage + 1) * itemsPerPage, filteredGroups.length);
-
   return (
     <div className="container mx-auto">
-      <div className="flex justify-between items-center mb-5 mt-5">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5 mt-5">
         <h2 className="text-2xl font-bold">Filter Group List</h2>
+        <a
+          href="/api/product/filter-bulk-upload/export-product-filters"
+          download="sathya_product_filters_export.xlsx"
+          className="bg-emerald-600 text-white px-5 py-2.5 rounded-lg hover:bg-emerald-700 shadow-md transition flex items-center gap-2 text-sm font-semibold"
+          title="Download matched product filters Excel"
+        >
+          <Icon icon="mdi:file-excel" className="w-5 h-5" />
+          📥 Download Product Filters Excel (Temp)
+        </a>
       </div>
 
       {isLoading ? (
@@ -326,7 +334,15 @@ export default function FiltergroupComponent() {
                 <Icon icon="mdi:download" className="w-4 h-4" />
                 Export
               </button>
-
+              <a
+                href="/api/product/filter-bulk-upload/export-product-filters"
+                download="sathya_product_filters_export.xlsx"
+                className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 transition flex items-center gap-2 text-sm font-medium"
+                title="Download matched product filters Excel"
+              >
+                <Icon icon="mdi:file-excel" className="w-5 h-5" />
+                Export Product Filters (Temp)
+              </a>
             </div>
           </div>
 

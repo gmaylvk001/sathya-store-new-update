@@ -56,6 +56,7 @@ export default function CategoryComponent() {
     delivery_days: 1,
   });
   const [isSavingUnilet, setIsSavingUnilet] = useState(false);
+  const [isExportingNoBrand, setIsExportingNoBrand] = useState(false);
 
   const fetchUniletList = async () => {
     try {
@@ -1109,6 +1110,72 @@ export default function CategoryComponent() {
     );
   };
 
+  const exportProductsWithoutBrandToExcel = async () => {
+    try {
+      setIsExportingNoBrand(true);
+      let productList = products;
+      if (!productList || productList.length === 0) {
+        toast.info("Fetching products for export, please wait...");
+        const res = await fetch("/api/product/get");
+        const data = await res.json();
+        productList = Array.isArray(data) ? data : [];
+      }
+
+      const flatProducts = flattenProducts(productList);
+
+      // Build brand map for fast lookup
+      const brandMap = {};
+      brands.forEach(b => {
+        const bId = b._id || b.id;
+        if (bId) {
+          brandMap[bId.toString()] = b.brand_name || b.name;
+        }
+      });
+
+      const exportRows = [];
+      flatProducts.forEach(product => {
+        let brandName = '';
+        if (product.brand) {
+          if (typeof product.brand === 'object') {
+            brandName = product.brand.brand_name || product.brand.name || '';
+          } else {
+            brandName = brandMap[product.brand] || '';
+          }
+        }
+
+        // Check if product has no brand
+        if (!brandName || brandName.trim() === '' || brandName.toLowerCase() === 'no brand' || brandName.toLowerCase() === 'none' || brandName.toLowerCase() === 'brand not found') {
+          exportRows.push({
+            'item_code': product.item_code || '',
+            'product_name': product.name || '',
+            'brand': ''
+          });
+        }
+      });
+
+      if (exportRows.length === 0) {
+        toast.info("No products found without brand.");
+        return;
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(exportRows, {
+        header: ['item_code', 'product_name', 'brand']
+      });
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "No Brand Products");
+
+      const dateStr = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `products_without_brand_${dateStr}.xlsx`);
+      toast.success(`Exported ${exportRows.length} products without brand.`);
+    } catch (err) {
+      console.error("Error exporting products without brand:", err);
+      toast.error("Failed to export products without brand: " + (err.message || err));
+    } finally {
+      setIsExportingNoBrand(false);
+    }
+  };
+
 
   const [isBulkUploadModel, setIsBulkUploadModel] = useState({
     isOpen: false,
@@ -1806,6 +1873,19 @@ export default function CategoryComponent() {
           >
             <Icon icon="mdi:microsoft-excel" className="text-lg" />
             Export to Excel
+          </button>
+
+          <button
+            onClick={exportProductsWithoutBrandToExcel}
+            disabled={isExportingNoBrand}
+            className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white px-4 py-2 rounded-md flex items-center gap-2 shadow-sm transition-all"
+            title="Export products that do not have a brand"
+          >
+            <Icon
+              icon={isExportingNoBrand ? "eos-icons:loading" : "mdi:microsoft-excel"}
+              className="text-lg"
+            />
+            {isExportingNoBrand ? "Exporting..." : "Export No Brand Products"}
           </button>
 
           <Link href="/admin/product/create" className="bg-red-500 text-white px-4 py-2 rounded-md">

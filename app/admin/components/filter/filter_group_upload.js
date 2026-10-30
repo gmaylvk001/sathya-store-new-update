@@ -113,26 +113,39 @@ export default function BulkFilterGroupUploadPage() {
               required
             />
 
-            <button
-              type="button"
-              onClick={handleSampleDownload}
-              className="inline-flex items-center text-sm text-[#d72828] hover:text-[#d72828] mt-3"
-            >
-              <svg
-                className="w-4 h-4 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <div className="flex flex-wrap items-center gap-4 mt-3">
+              <button
+                type="button"
+                onClick={handleSampleDownload}
+                className="inline-flex items-center text-sm text-[#d72828] hover:text-[#d72828]"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                />
-              </svg>
-              Download Sample Format
-            </button>
+                <svg
+                  className="w-4 h-4 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                Download Sample Format
+              </button>
+
+              <a
+                href="/api/product/filter-bulk-upload/export-product-filters"
+                download="sathya_product_filters_export.xlsx"
+                className="inline-flex items-center text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-lg transition-colors"
+              >
+                <svg className="w-4 h-4 mr-1.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export Product Filters (Temp)
+              </a>
+            </div>
           </div>
 
           <div className="flex justify-end">
