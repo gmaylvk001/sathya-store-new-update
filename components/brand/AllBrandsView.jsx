@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { FiSearch, FiX } from "react-icons/fi";
+import { buildBrandHref } from "@/lib/categoryPageComponents/categoryHref";
 
 const ALPHABETS = [
   "ALL",
@@ -40,7 +41,7 @@ export default function AllBrandsView() {
       try {
         setLoading(true);
         // Fetch all active brands (no homePage filter, so all active brands are returned)
-        const res = await fetch("/api/brand/get");
+        const res = await fetch("/api/brand/get", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to fetch brands");
         const data = await res.json();
 
@@ -246,7 +247,7 @@ export default function AllBrandsView() {
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 sm:gap-4">
             {filteredBrands.map((brand) => {
               const brandSlug = brand.brand_slug || slugify(brand.brand_name);
-              const brandHref = `/brand/${brandSlug}`;
+              const brandHref = buildBrandHref(brandSlug, Boolean(brand.hasOverview));
               const imageUrl = getBrandImageUrl(brand.image);
               const hasError = failedImages[brand.id || brand.brand_name];
 

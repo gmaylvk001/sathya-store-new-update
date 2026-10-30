@@ -42,7 +42,7 @@ export default function LowestPriceBadge({
 
       {/* ─── Desktop (>= 1024px): Sleek Ribbon Badge (Full text, ZERO "...") ─── */}
       <div
-        className={`hidden lg:flex absolute -top-px -left-px z-20 pointer-events-none select-none items-center rounded-tl-[16px] rounded-tr-[7px] rounded-br-[9px] rounded-bl-none pl-2 pr-2.5 xl:pl-2.5 xl:pr-3 py-[2.5px] xl:py-[3.5px] shadow-[0_3px_8px_rgba(0,0,0,0.32)] max-w-[calc(100%-36px)] ${className}`}
+        className={`hidden lg:flex absolute -top-px -left-px z-20 pointer-events-none select-none items-center rounded-tl-[16px]  rounded-br-[9px] rounded-bl-none pl-2 pr-2.5 xl:pl-2.5 xl:pr-3 py-[2.5px] xl:py-[2.5px] shadow-[0_3px_8px_rgba(0,0,0,0.32)] max-w-[calc(100%-36px)] ${className}`}
         style={{
           background: "linear-gradient(90deg, #E71B23 0%, #A01A1A 100%)",
         }}
@@ -50,7 +50,7 @@ export default function LowestPriceBadge({
         title="Lowest Price Across Retailers"
       >
         <span
-          className="text-white font-[800] uppercase whitespace-nowrap leading-tight text-[7.5px] min-[1280px]:text-[8.5px] min-[1440px]:text-[9.5px]"
+          className="text-white font-[600] uppercase whitespace-nowrap leading-tight text-[7.5px] min-[1280px]:text-[9px] min-[1440px]:text-[9.5px]"
           style={{
             fontFamily: "inherit",
             letterSpacing: "0.02em",
