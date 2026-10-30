@@ -776,12 +776,43 @@ export async function POST(req) {
       Array.isArray(savedOrders) &&
       savedOrders.length > 0
     ) {
+      // Header / checkout pincode → Invenzo store_create body.pincode (required)
+      const pickPin = (v) => {
+        const m = String(v ?? "").match(/\b(\d{6})\b/);
+        if (m) return m[1];
+        const d = String(v ?? "").replace(/\D/g, "");
+        return d.length >= 6 ? d.slice(0, 6) : "";
+      };
+      let headerPincode = "";
+      try {
+        const { cookies } = await import("next/headers");
+        const cookieStore = await cookies();
+        const rawLoc = cookieStore.get("sathya_location")?.value;
+        if (rawLoc) {
+          const decoded = decodeURIComponent(rawLoc);
+          const parsed = JSON.parse(decoded);
+          headerPincode = pickPin(parsed?.pincode);
+        }
+      } catch {
+        headerPincode = "";
+      }
+      const checkoutPincode =
+        pickPin(body.pincode) ||
+        pickPin(body.postCode) ||
+        pickPin(body.postal_code) ||
+        pickPin(body.delivery_pincode) ||
+        headerPincode ||
+        pickPin(order_deliveryaddress) ||
+        pickPin(body.order_billingaddress) ||
+        (pinMatch ? pinMatch[0] : "");
+
       for (const saved of savedOrders) {
         try {
           const inv = await orderPlacedToStoreInvenzo({
             orderId: String(saved._id),
             orderNumber: saved.order_number,
             storeCode: saved.pickup_type || sharedFields.pickup_type || "",
+            pincode: checkoutPincode,
           });
           invenzoResults.push({
             order_number: saved.order_number,
