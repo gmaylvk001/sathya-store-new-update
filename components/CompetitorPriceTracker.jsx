@@ -24,7 +24,14 @@ const getLogoPath = (platformName) => {
  * Defensively renders with zero CLS and graceful fallback.
  * Strictly displays verified competitor pricing for exact product matches only.
  */
+// Feature approval pending from management — strictly disabled
+export const IS_PRICE_TRACKER_ENABLED = false;
+
 export default function CompetitorPriceTracker({ product, className = "", enabled = true }) {
+  // Feature approval pending from management — strictly disabled (ZERO DOM render)
+  if (!IS_PRICE_TRACKER_ENABLED) {
+    return null;
+  }
   const [trackerData, setTrackerData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [currentDay, setCurrentDay] = useState("");

@@ -15,6 +15,17 @@ export const dynamic = "force-dynamic";
  * Route: GET /api/price-tracker?sku=[code]&price=[sathyaPrice]&title=[title]
  */
 export async function GET(request) {
+  // Feature approval pending from management — strictly block all external HTTP calls and PDP price comparisons
+  return NextResponse.json(
+    {
+      success: true,
+      disabled: true,
+      matched: false,
+      deals: [],
+      message: "PDP Live Market Comparison is disabled pending management approval.",
+    },
+    { status: 200 }
+  );
   try {
     if (!isLspPdpEnabled()) {
       return NextResponse.json(
