@@ -1881,7 +1881,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                 variant="text"
                 iconSize={14}
                 label="Compare"
-                activeLabel="✓ Compare"
+                activeLabel="Compare"
                 className={`w-full ${outlineActionBtnClass}`}
               />
               <AddToWishlistButton
@@ -2795,25 +2795,25 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                   </div>
 
                   {/* 2. ACTIONS BAR: Share | Compare | Wishlist (Clean single-line alignment) */}
-                  <div className="flex items-center justify-between border border-gray-200 py-2.5 px-3 text-xs sm:text-sm font-semibold text-gray-700 bg-gray-50 rounded-lg gap-2 whitespace-nowrap overflow-hidden">
+                  <div className="flex items-center justify-between border border-gray-200 py-2 px-2.5 sm:px-3 text-xs sm:text-sm font-semibold text-gray-700 bg-gray-50 rounded-lg gap-1.5 sm:gap-2 whitespace-nowrap">
                     <button
                       type="button"
                       onClick={handleShareProduct}
                       className="flex items-center gap-1.5 hover:text-[#d72828] transition cursor-pointer shrink-0"
                     >
-                      <FaShareAlt className="text-gray-500 w-3.5 h-3.5" />
-                      <span>Share</span>
+                      <FaShareAlt className="text-gray-500 w-3.5 h-3.5 shrink-0" />
+                      <span className="whitespace-nowrap">Share</span>
                     </button>
-                    <span className="text-gray-300 select-none">|</span>
+                    <span className="text-gray-300 select-none shrink-0">|</span>
                     <CompareButton
                       product={product}
                       variant="text"
                       iconSize={14}
                       label="Compare"
-                      activeLabel="✓ In Compare"
+                      activeLabel="In Compare"
                       className="flex items-center gap-1.5 hover:text-[#d72828] transition bg-transparent p-0 border-0 shadow-none text-xs sm:text-sm text-gray-700 font-semibold cursor-pointer shrink-0 whitespace-nowrap"
                     />
-                    <span className="text-gray-300 select-none">|</span>
+                    <span className="text-gray-300 select-none shrink-0">|</span>
                     <AddToWishlistButton
                       productId={product._id}
                       label="Wishlist"

@@ -23,7 +23,7 @@ const CompareButton = ({
   className = '',
   iconSize = 15,
   label = 'Compare',
-  activeLabel = '✓ Added to Compare',
+  activeLabel = 'In Compare',
 }) => {
   const { isInCompare, addToCompare, removeFromCompare } = useCompare();
   const [inCompare, setInCompare] = useState(false);
@@ -121,7 +121,7 @@ const CompareButton = ({
       ) : (
         <GitCompare size={iconSize} strokeWidth={2} className="shrink-0" />
       )}
-      <span>{isLoading ? '...' : inCompare ? activeLabel : label}</span>
+      <span className="whitespace-nowrap">{isLoading ? '...' : inCompare ? (typeof activeLabel === 'string' ? activeLabel.replace(/^[✓✔]\s*/, '') : activeLabel) : label}</span>
     </button>
   );
 };

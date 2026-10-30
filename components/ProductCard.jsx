@@ -84,8 +84,8 @@ const AddToWishlistButton = ({ productId, onAfterWishlist, className, label, ico
           onClick={handleWishlistAction}
           disabled={isLoading}
         >
-          <Heart size={iconSize} fill={isWishlisted ? 'currentColor' : 'none'} />
-          {label && <span>{label}</span>}
+          <Heart size={iconSize} fill={isWishlisted ? 'currentColor' : 'none'} className="shrink-0" />
+          {label && <span className="whitespace-nowrap">{label}</span>}
         </button>
 
       {/* AuthModal remains the same */}
