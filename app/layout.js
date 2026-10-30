@@ -37,9 +37,24 @@ export default function RootLayout({ children }) {
           href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
+      </head>
+      <body className={`${poppins.className} font-sans antialiased`} suppressHydrationWarning>
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-P7LW8D7X"
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          ></iframe>
+        </noscript>
+
+        <ClientLayout>{children}</ClientLayout>
+        <VisitorTracker />
+
+        {/* Third-party Analytics & Tracking Scripts placed in body to prevent ChunkLoad timeouts */}
         <Script
           id="adtarbo-script"
-          strategy="afterInteractive"
+          strategy="lazyOnload"
           dangerouslySetInnerHTML={{
             __html: `
               (function(dd, ss, idd) {
@@ -59,9 +74,10 @@ export default function RootLayout({ children }) {
           }}
         />
         <Script
-          async
+          id="gtag-base"
+          strategy="afterInteractive"
           src="https://www.googletagmanager.com/gtag/js?id=G-15V9VS13Q7"
-        ></Script>
+        />
         <Script id="gtm-new" strategy="afterInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
@@ -84,18 +100,6 @@ export default function RootLayout({ children }) {
               })(window,document,'script','dataLayer','GTM-P7LW8D7X');`,
           }}
         />
-      </head>
-      <body className={`${poppins.className} font-sans antialiased`} suppressHydrationWarning>
-        <noscript>
-          <iframe
-            src="https://www.googletagmanager.com/ns.html?id=GTM-P7LW8D7X"
-            height="0"
-            width="0"
-            style={{ display: "none", visibility: "hidden" }}
-          ></iframe>
-        </noscript>
-        <ClientLayout>{children}</ClientLayout>
-        <VisitorTracker />
       </body>
     </html>
   );
