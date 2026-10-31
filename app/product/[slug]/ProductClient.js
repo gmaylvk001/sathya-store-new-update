@@ -619,6 +619,8 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
   const isOnlineAvailable = isInStock && productQty >= 10;
   const isStoreOnly = isInStock && productQty > 0 && productQty < 10;
   const isMovementAllowed = isOnlineAvailable;
+  // Exist: $display_stock == 'yes' → enquiry on ATC / Buy Now (not qty < 10 alone)
+  const isDisplayStockEnquiry = String(product?.display_stock || "").toLowerCase() === "yes";
 
   const addOnIds = Array.isArray(product?.add_ons)
     ? product.add_ons.map(id => id.toString())
@@ -771,8 +773,8 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
 
     if (!isInStock) return;
 
-    // Qty < 10 → show enquiry form (do not checkout yet)
-    if (isStoreOnly) {
+    // Exist: display_stock == 'yes' → enquiry popup (do not checkout yet)
+    if (isDisplayStockEnquiry) {
       setShowLowStockEnquiry(true);
       return;
     }
@@ -2003,6 +2005,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                       stockQuantity={product.quantity}
                       quantity={quantity}
                       special_price={displaySellingPrice}
+                      display_stock={product.display_stock}
                       additionalProducts={[...selectedFrequentProducts.map((p) => p._id), ...selectedRelatedProducts.map((p) => p._id)]}
                       extendedWarranty={isExtendedWarrantyEligible(product) ? selectedWarrantyAmount : 0}
                       selectedFrequentProducts={selectedFrequentProducts}
@@ -2254,6 +2257,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                 stockQuantity={product.quantity}
                 quantity={quantity}
                 special_price={displaySellingPrice}
+                display_stock={product.display_stock}
                 additionalProducts={[...selectedFrequentProducts.map((p) => p._id), ...selectedRelatedProducts.map((p) => p._id)]}
                 extendedWarranty={selectedWarrantyAmount}
                 selectedFrequentProducts={selectedFrequentProducts}
@@ -2754,12 +2758,13 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                             </button>
                           )}
 
-                          {/* ADD TO CART Button — qty < 10 opens enquiry form inside ProductAddtoCart */}
+                          {/* ADD TO CART — display_stock == yes opens enquiry (Exist) */}
                           <ProductAddtoCart
                             productId={product._id}
                             stockQuantity={product.quantity}
                             quantity={quantity}
                             special_price={displaySellingPrice}
+                            display_stock={product.display_stock}
                             additionalProducts={[...selectedFrequentProducts.map((p) => p._id), ...selectedRelatedProducts.map((p) => p._id)]}
                             extendedWarranty={isExtendedWarrantyEligible(product) ? selectedWarrantyAmount : 0}
                             selectedFrequentProducts={selectedFrequentProducts}

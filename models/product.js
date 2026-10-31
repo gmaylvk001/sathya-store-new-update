@@ -82,6 +82,8 @@ warranty_ids: {
   id_lspfinal_price: { type: Number, default: null },
   od_lspfinal_price: { type: Number, default: null },
   lsp_updated_at: { type: Date, default: null },
+  /** Exist products.chk_display_store_stock — 1 = run WH/showroom display_stock check on PDP */
+  chk_display_store_stock: { type: Number, default: 0 },
   productMailsending: { type: Boolean, default: false },
   mailSendingStartedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },

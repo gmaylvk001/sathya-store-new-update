@@ -14,7 +14,8 @@ function getCookie(name) {
 }
 
 /**
- * Low-stock enquiry modal (qty &lt; 10).
+ * Least / display-store stock enquiry modal (Exist #displayStockModal).
+ * Opens when product.display_stock === "yes" (WH empty + showroom has stock).
  * Prefill from ecom_users_info when logged in; submit → Exist connectStoreLoc path.
  */
 export default function LowStockEnquiryPopup({

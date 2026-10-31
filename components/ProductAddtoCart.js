@@ -15,7 +15,7 @@ import LowStockEnquiryPopup from "@/components/LowStockEnquiryPopup";
 import { v4 as uuidv4 } from "uuid";
 import { useRegion } from "@/context/RegionContext";
 
-const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts = [], extendedWarranty, selectedFrequentProducts = [], stockQuantity = 1, special_price, onSuccess, buttonLabel, buttonClassName, movement, productName, productSlug, productCategory = "", warrantyData, variantValues, selectedVariant, color, exchangeOffer = null }) => {
+const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts = [], extendedWarranty, selectedFrequentProducts = [], stockQuantity = 1, special_price, display_stock, onSuccess, buttonLabel, buttonClassName, movement, productName, productSlug, productCategory = "", warrantyData, variantValues, selectedVariant, color, exchangeOffer = null }) => {
   const { openAuthModal } = useModal();
   const { updateHeaderdetails, setIsLoggedIn, setUserData, setIsAdmin, userData } = useHeaderdetails();
   const [isLoading, setIsLoading] = useState(false);
@@ -27,7 +27,8 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
   const isOutOfStock = stockQuantity <= 0;
   const isprice = special_price <= 0;
   const isOpenBox = isOpenBoxEligible({ movement, quantity: stockQuantity });
-  const isLowStock = Number(stockQuantity) > 0 && Number(stockQuantity) < 10;
+  // Exist: $display_stock == 'yes' → least-stock enquiry (not qty < 10 alone)
+  const isDisplayStockEnquiry = String(display_stock || "").toLowerCase() === "yes";
   const { cartCount, updateCartCount } = useCart();
   const { pincode: headerPincode, userLocation, region: currentRegion } = useRegion();
   const handleAddToCart = async () => {
@@ -50,8 +51,8 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
   }
   return;
 }
-      // Product qty < 10 → open least-stock enquiry modal (do not add to cart yet)
-      if (isLowStock) {
+      // Exist display_stock == 'yes' → enquiry modal (do not add to cart yet)
+      if (isDisplayStockEnquiry) {
         const isOnProductPage =
           typeof window !== "undefined" &&
           productSlug &&
