@@ -16,6 +16,7 @@ import {
   isUniletProduct,
   lookupPincode,
 } from "@/lib/regionHelper";
+import { resolveProductPrice } from "@/lib/priceResolver";
 
 export async function GET(req) {
   try {
@@ -314,11 +315,32 @@ export async function GET(req) {
       : "Not Available";
 
     // 8. COD availability (serviceable & selling price <= 50,000)
-    const sellingPrice = product
-      ? Number(product.special_price) > 0
-        ? Number(product.special_price)
-        : Number(product.price) || 0
-      : 0;
+    // Same selling priority as PDP/cart/order: Unilet → LSP → special → MRP
+    let sellingPrice = 0;
+    if (product) {
+      let ownerProduct = null;
+      if (isKarnataka || isUniletProduct(product)) {
+        ownerProduct = await OwnerProduct.findOne({
+          owner_id: "unilet",
+          is_active: true,
+          $or: [
+            ...(product._id ? [{ product_id: product._id }] : []),
+            ...(product.item_code
+              ? [
+                  { product_item_code: product.item_code },
+                  { vendor_item_code: product.item_code },
+                ]
+              : []),
+          ],
+        }).lean();
+      }
+      const priceInfo = resolveProductPrice(
+        product,
+        ownerProduct,
+        isKarnataka ? "karnataka" : region || "tamilnadu"
+      );
+      sellingPrice = Number(priceInfo.effectivePrice) || 0;
+    }
     const isCodAvailable = sellingPrice <= 50000;
 
     return NextResponse.json({

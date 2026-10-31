@@ -441,7 +441,7 @@ export async function GET(req) {
     const query = userId ? { userId } : { guestId };
     const cart = await Cart.findOne(query).populate(
       "items.productId",
-      "name price special_price images item_code quantity key_specifications stock_status movement slug"
+      "name price special_price lsp images item_code quantity key_specifications stock_status movement slug"
     );
 
     if (!cart || !cart.items || cart.items.length === 0) {
@@ -706,7 +706,7 @@ export async function PUT(req) {
     const query = userId ? { userId } : { guestId };
     const cart = await Cart.findOne(query).populate(
       "items.productId",
-      "name price special_price images item_code quantity key_specifications stock_status movement"
+      "name price special_price lsp images item_code quantity key_specifications stock_status movement"
     );
 
     if (!cart) {
