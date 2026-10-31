@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const optionalString = { type: String, required: false, default: null, trim: true };
 const optionalNumber = { type: Number, required: false, default: null };
+const optionalMixed = { type: mongoose.Schema.Types.Mixed, required: false, default: null };
 const optionalText = { type: String, required: false, default: null };
 const optionalDate = { type: Date, required: false, default: null };
 
@@ -16,7 +17,7 @@ const LeadsSchema = new mongoose.Schema(
     mobile: optionalString,
     city: optionalString,
     store: optionalString,
-    store_id: optionalNumber,
+    store_id: optionalMixed,
     message: optionalText,
     brand: optionalString,
     ton: optionalString,

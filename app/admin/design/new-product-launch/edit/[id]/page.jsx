@@ -147,9 +147,6 @@ export default function EditLaunchProduct({ params }) {
       if (currentDesktopImages.length === 0 && desktopImages.length === 0) {
         return toast.error("At least one Desktop Image is required to publish");
       }
-      if (currentMobileImages.length === 0 && mobileImages.length === 0) {
-        return toast.error("At least one Mobile Image is required to publish");
-      }
       if (!content.description || content.description === "<p><br></p>") {
         return toast.error("Description is required to publish");
       }
@@ -320,7 +317,10 @@ export default function EditLaunchProduct({ params }) {
 
                 {/* Mobile Images */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Mobile Images</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-700">Mobile Images / Banner</label>
+                    <span className="text-xs text-slate-400">Optional</span>
+                  </div>
                   
                   {currentMobileImages.length > 0 && (
                     <div className="mb-4">

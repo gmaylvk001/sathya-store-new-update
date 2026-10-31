@@ -11,6 +11,7 @@ export default function LaunchProductList() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [stockStatusFilter, setStockStatusFilter] = useState("");
+  const [origin, setOrigin] = useState("");
   
   // Delete Modal State
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -33,6 +34,12 @@ export default function LaunchProductList() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOrigin(window.location.origin);
+    }
+  }, []);
 
   useEffect(() => {
     fetchProducts();
@@ -148,7 +155,7 @@ export default function LaunchProductList() {
             ) : (
               products.map((p) => {
                 const route = `/new_launching_product_pdp/${p.slug}`;
-                const fullUrl = `https://www.sathya.store${route}`;
+                const fullUrl = origin ? `${origin}${route}` : route;
                 
                 return (
                   <tr key={p._id} className="border-b border-gray-100 hover:bg-gray-50 transition text-[13px] text-gray-700">

@@ -83,9 +83,6 @@ export default function CreateLaunchProduct() {
       if (desktopImages.length === 0) {
         return toast.error("At least one Desktop Image is required to publish");
       }
-      if (mobileImages.length === 0) {
-        return toast.error("At least one Mobile Image is required to publish");
-      }
       if (!content.description || content.description === "<p><br></p>") {
         return toast.error("Description is required to publish");
       }
@@ -226,6 +223,48 @@ export default function CreateLaunchProduct() {
                           <button
                             type="button"
                             onClick={() => removeImage(i, setDesktopImages)}
+                            className="absolute top-1 right-1 bg-white/90 text-red-600 rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 shadow-sm"
+                          >
+                            <Icon icon="ph:trash-bold" className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <hr className="border-slate-100" />
+
+                {/* Mobile Images */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-slate-700">Mobile Images / Banner</label>
+                    <span className="text-xs text-slate-400">Optional</span>
+                  </div>
+                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 bg-slate-50 flex flex-col items-center justify-center text-center transition-colors hover:bg-slate-100 hover:border-slate-300 relative group cursor-pointer">
+                    <input
+                      type="file"
+                      multiple
+                      ref={mobileInputRef}
+                      onChange={() => handleAddFiles(mobileInputRef, setMobileImages)}
+                      accept="image/*"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-200 mb-3 group-hover:scale-105 transition-transform">
+                      <Icon icon="ph:upload-simple-bold" className="text-slate-500 w-5 h-5" />
+                    </div>
+                    <p className="text-sm font-medium text-slate-700 mb-1">Click to upload mobile images or drag & drop</p>
+                    <p className="text-xs text-slate-500">SVG, PNG, JPG or WEBP (max. 5MB)</p>
+                  </div>
+
+                  {mobileImages.length > 0 && (
+                    <div className="flex flex-wrap gap-3 mt-4">
+                      {mobileImages.map((file, i) => (
+                        <div key={i} className="group relative w-24 h-24 rounded-lg border border-slate-200 overflow-hidden bg-white shadow-sm">
+                          <img src={getSafeObjectUrl(file)} alt="" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(i, setMobileImages)}
                             className="absolute top-1 right-1 bg-white/90 text-red-600 rounded p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 shadow-sm"
                           >
                             <Icon icon="ph:trash-bold" className="w-3.5 h-3.5" />

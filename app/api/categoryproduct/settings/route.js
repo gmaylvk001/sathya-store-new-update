@@ -37,7 +37,7 @@ export async function GET() {
       quantity: { $gt: 2 },
       special_price: { $gt: 2 }
     })
-    .select('name slug images price special_price quantity stock_status brand')
+    .select('name slug images price special_price quantity stock_status brand lsp')
     .lean();
     // Create a map for quick product lookup
     const productMap = {};
@@ -137,7 +137,7 @@ export async function GET() {
         }
       ]
     })
-      .select("name slug images price special_price quantity stock_status brand category sub_category")
+      .select("name slug images price special_price quantity stock_status brand category sub_category lsp")
       .lean();
 
     // 4️⃣b Fetch fallback products for each subcategoryId in bulk
@@ -166,7 +166,7 @@ export async function GET() {
         }
       ]
     })
-      .select("name slug images price special_price quantity stock_status brand category sub_category")
+      .select("name slug images price special_price quantity stock_status brand category sub_category lsp")
       .sort({ createdAt: -1, _id: -1 })
       .lean();
 

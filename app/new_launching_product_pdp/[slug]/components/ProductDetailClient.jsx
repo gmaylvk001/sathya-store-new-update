@@ -78,13 +78,27 @@ export default function ProductDetailClient({ product }) {
       const res = await fetch('/api/pre-book', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: preBookForm.name,
-          email: preBookForm.email,
-          mobile: preBookForm.mobile,
-          store_id: preBookForm.store,
-          product_name: preBookForm.product
-        })
+        body: (() => {
+          let utm_source = '';
+          let utm_campaign = '';
+          let referrel_url = '';
+          if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            utm_source = params.get('utm_source') || params.get('source') || '';
+            utm_campaign = params.get('utm_campaign') || params.get('campaign') || '';
+            referrel_url = window.location.href;
+          }
+          return JSON.stringify({
+            name: preBookForm.name,
+            email: preBookForm.email,
+            mobile: preBookForm.mobile,
+            store_id: preBookForm.store,
+            product_name: preBookForm.product,
+            utm_source,
+            utm_campaign,
+            referrel_url,
+          });
+        })()
       });
       const data = await res.json();
       if (data.success) {
