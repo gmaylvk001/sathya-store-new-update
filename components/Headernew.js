@@ -1157,17 +1157,13 @@ const Header = () => {
   const handleSearch = (e) => {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-    if (!searchQuery.trim()) {
+    const searchTerm = (searchQuery || "").trim();
+    if (!searchTerm) {
       toast.info("Please enter a search term");
       return;
     }
     setSearchDropdownVisible(false);
-    const params = new URLSearchParams();
-    params.append("query", searchQuery.trim());
-    if (selectedCategory && selectedCategory !== "All Category" && selectedCategory !== "All Categories") {
-      params.append("category", selectedCategory);
-    }
-    router.push(`/search?${params.toString()}`);
+    router.push(`/search?query=${encodeURIComponent(searchTerm)}`);
   };
   useEffect(() => {
     let mounted = true;

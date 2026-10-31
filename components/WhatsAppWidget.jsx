@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId } from "react";
+import React, { useState, useEffect } from "react";
 import styles from "./WhatsAppWidget.module.css";
 
 const DEFAULT_PHONE = "919164698985";
@@ -24,13 +24,21 @@ export default function WhatsAppWidget({
   showCurvedText = true,
   className = "",
 }) {
-  const pathId = useId().replace(/:/g, "_");
-  const arcPathId = `whatsapp_arc_${pathId}`;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const arcPathId = "whatsapp_curved_path";
 
   // Sanitize phone number (keeps digits only, India code 91)
   const cleanPhone = String(phoneNumber || DEFAULT_PHONE).replace(/[^0-9]/g, "");
   const encodedMsg = encodeURIComponent(message || DEFAULT_MESSAGE);
   const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMsg}`;
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <aside

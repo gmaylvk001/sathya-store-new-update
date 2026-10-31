@@ -27,7 +27,7 @@ import { useRegion } from "@/context/RegionContext";
 export default function SearchPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const searchQuery = params.get("query") || params.get("q") || "";
+  const searchQuery = (params.get("query") || params.get("q") || "").replace(/\+/g, " ").trim();
   const { region, isInitialized } = useRegion();
 
   useEffect(() => {
@@ -527,23 +527,9 @@ export default function SearchPage() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    const trimmed = (searchInput || "").trim();
-    if (!trimmed) return;
-    const currentParams =
-      typeof window !== "undefined"
-        ? new URLSearchParams(window.location.search)
-        : new URLSearchParams();
-    currentParams.set("query", trimmed);
-    currentParams.delete("q");
-    currentParams.set("page", "1");
-    if (
-      selectedCategory &&
-      selectedCategory !== "All Categories" &&
-      selectedCategory !== "All Category"
-    ) {
-      currentParams.set("category", slugifyFilter(selectedCategory));
-    }
-    router.push(`/search?${currentParams.toString()}`);
+    const searchTerm = (searchInput || "").trim();
+    if (!searchTerm) return;
+    router.push(`/search?query=${encodeURIComponent(searchTerm)}`);
   };
 
   return (
