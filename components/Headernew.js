@@ -673,7 +673,7 @@ const Header = () => {
         setUserData(fullUser);
         try {
           localStorage.setItem('sathya_user', JSON.stringify(fullUser));
-        } catch { }
+        } catch {}
         // Ensure session lock exists once (avoid rewriting sessionId on every load)
         const uid = data.userId || data.user?.userId || data.user?._id;
         const hasLock = Boolean(localStorage.getItem("sathya_auth_session"));
@@ -1485,7 +1485,7 @@ const Header = () => {
         };
         try {
           localStorage.setItem('sathya_user', JSON.stringify(fullUser));
-        } catch { }
+        } catch {}
         establishSession({
           token: data.token,
           userId: incomingUserId,
@@ -2186,8 +2186,7 @@ const Header = () => {
               @media (max-width:640px){
                 :root{ --search-h:40px; --search-radius:12px; }
                 .header-search-select{ min-width:85px; max-width:130px; font-size:11px; padding:0 22px 0 8px; }
-                .header-search-btn{ min-width:42px; padding:0 12px; background:#fff; color:#ED1C24; border-left:1px solid #e5e7eb; }
-                .header-search-btn:hover{ background:#fff; color:#C4161D; }
+                .header-search-btn{ min-width:42px; padding:0 12px; }
               }
               @media (min-width:641px) and (max-width:1024px){
                 .header-search-select{ min-width:110px; max-width:185px; font-size:12px; padding:0 26px 0 10px; }
@@ -2200,7 +2199,7 @@ const Header = () => {
         <div className={`${isMobileMenuOpen
           ? "fixed inset-0 mt-0 pt-0 z-50 overflow-y-auto overflow-x-hidden"
           : `${currentBannerUrl ? "bg-cover bg-center" : "bg-white"
-          }  py-1 relative z-40 transition-all duration-300`
+          } px-3 sm:px-6 md:px-6 py-1 relative z-40 transition-all duration-300`
           }`}
           style={
             !isMobileMenuOpen && currentBannerUrl
@@ -2214,7 +2213,7 @@ const Header = () => {
               : undefined
           }>
           {/* NEW MOBILE TOP ROW — compact & collision-free layout */}
-          <div className="px-3 sm:px-6 md:px-6 sm:hidden flex items-center justify-between w-full max-w-full min-w-0 relative gap-1">
+          <div className="sm:hidden flex items-center justify-between w-full max-w-full min-w-0 relative gap-1">
             <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0 min-w-0">
               <Link href="/" className={`p-0.5 sm:p-1 rounded-lg flex-shrink-0 ${currentBannerUrl ? "bg-transparent" : "bg-white"}`}>
                 <img src="/uploads/sathya-header-logo.webp" alt="Logo" width={58} height={36} className="h-8 sm:h-9 w-auto" />
@@ -2298,7 +2297,7 @@ const Header = () => {
             </div>
           </div>
           {/* MOBILE SEARCH BAR */}
-          <div className="px-3 sm:px-6 md:px-6 bg-[#ED1C24] py-2 sm:hidden mt-2 w-full max-w-full">
+          <div className="sm:hidden mt-2 w-full max-w-full">
             {effectiveOfferTimer && (
               <div className="flex justify-center w-full mb-2">
                 <HeaderOfferTimer timer={effectiveOfferTimer} isMobile={true} mobileForceDesktopStyle={true} />
@@ -2368,9 +2367,9 @@ const Header = () => {
                 type="button"
                 onClick={(e) => handleSearch(e)}
                 aria-label="Search"
-                className="header-search-btn border-l border-gray-200"
+                className="header-search-btn"
               >
-                <FaSearch size={15} className="text-[#ED1C24]" />
+                <FaSearch size={14} />
               </button>
             </div>
           </div>
@@ -2472,7 +2471,7 @@ const Header = () => {
             </div>
           )}
           {/* DESKTOP ROW (unchanged original content) */}
-          <div className="px-3 sm:px-6 md:px-6 hidden sm:flex justify-between items-center gap-3">
+          <div className="hidden sm:flex justify-between items-center gap-3">
             {/* Logo (Hidden on mobile) */}
             <div className={`hidden sm:block py-2 rounded-lg ${currentBannerUrl ? "bg-transparent" : "bg-white"}`}>
               <Link href="/" className="mx-auto">
@@ -2660,8 +2659,9 @@ const Header = () => {
                   title={isAuthenticated ? (userData?.name || userData?.mobile || "Account") : "Login / Sign In"}
                 >
                   <div
-                    className={`${HEADER_ACTION_ICON_WRAP_CLASS} ${isAccountMenuOpen ? "!border-[#ED1C24] !bg-[#FFF200] !text-[#C4161D] shadow-[0_4px_10px_rgba(215,40,40,0.18)]" : ""
-                      }`}
+                    className={`${HEADER_ACTION_ICON_WRAP_CLASS} ${
+                      isAccountMenuOpen ? "!border-[#ED1C24] !bg-[#FFF200] !text-[#C4161D] shadow-[0_4px_10px_rgba(215,40,40,0.18)]" : ""
+                    }`}
                   >
                     <FiUser size={18} strokeWidth={1.75} />
                   </div>
@@ -2858,7 +2858,7 @@ const Header = () => {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-gray-900 truncate">
-                      {isAuthenticated ? (userData?.name || userData?.username || (userData?.mobile ? `User (${userData.mobile})` : "My Account")) : "My Account"}
+                      {isAuthenticated ? (userData?.name || userData?.username || (userData?.mobile ? `User (${userData.mobile})` : "My Account")) : "My Account"} 
                     </p>
                     <p className="text-[10px] text-gray-500 truncate">
                       {isAuthenticated ? (userData?.mobile || userData?.email || "Manage profile") : "Login to view orders & offers"}

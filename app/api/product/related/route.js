@@ -136,6 +136,8 @@ async function applyRegionStock(products, region) {
       special_price: priceInfo.special_price,
       quantity: priceInfo.stock,
       stock_status: priceInfo.inStock ? "In Stock" : "Out of Stock",
+      isUnilet: priceInfo.isUnilet,
+      usingLsp: priceInfo.usingLsp,
     };
   });
 }

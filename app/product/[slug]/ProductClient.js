@@ -374,15 +374,32 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
   const [isEmiModalOpen, setIsEmiModalOpen] = useState(false);
   const { setSimilarProducts } = useCompare();
 
+  // Exist PDP: Unilet-on → catalog/Unilet special already on product; else LSP→special→MRP
+  // (server resolveProductPrice remaps special_price when using LSP; Unilet path skips LSP).
+  // Exist related-card priority: LSP → special → MRP (skip LSP when Unilet price applied)
+  const resolveItemSellingPrice = useCallback((p) => {
+    if (!p) return 0;
+    if (!p.isUnilet && Number(p.lsp) > 0) return Number(p.lsp);
+    if (Number(p.special_price) > 0) return Number(p.special_price);
+    return Number(p.price) || 0;
+  }, []);
+
+  const usingLspPrice = Boolean(product?.usingLsp) && !Boolean(product?.isUnilet);
+  const displaySellingPrice = useMemo(() => {
+    if (usingLspPrice && Number(product?.lsp) > 0) return Number(product.lsp);
+    // special_price already remapped to LSP by resolveProductPrice when usingLsp
+    if (Number(product?.special_price) > 0) return Number(product.special_price);
+    return Number(product?.price) || 0;
+  }, [usingLspPrice, product?.lsp, product?.special_price, product?.price]);
+
   const effectivePrice = useMemo(() => {
-    const base = product?.special_price > 0 ? product.special_price : product?.price || 0;
     const warranty = isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0;
-    return Number(base + warranty);
-  }, [product?.special_price, product?.price, selectedWarrantyAmount, product]);
+    return Number(displaySellingPrice + warranty);
+  }, [displaySellingPrice, selectedWarrantyAmount, product]);
 
   const mainDiscountInfo = useMemo(
-    () => getDiscountInfo(product?.price, product?.special_price),
-    [product?.price, product?.special_price]
+    () => getDiscountInfo(product?.price, displaySellingPrice),
+    [product?.price, displaySellingPrice]
   );
 
   const currentVariantValues = useMemo(() => {
@@ -813,11 +830,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
         localStorage.setItem("guestCartId", guestCartId);
       }
 
-      const productPrice = Number(
-        product?.special_price && Number(product.special_price) > 0
-          ? product.special_price
-          : product?.price || 0
-      );
+      const productPrice = Number(displaySellingPrice || 0);
 
       const warrantyEligible = isExtendedWarrantyEligible(product);
       const effectiveWarrantyAmount = warrantyEligible
@@ -910,10 +923,11 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
         console.warn("Cart API sync warning:", cartApiErr);
       }
 
-      const resolvePrice = (p) =>
-        p?.special_price && Number(p.special_price) > 0
-          ? Number(p.special_price)
-          : Number(p?.price || 0);
+      const resolvePrice = (p) => {
+        if (p?.usingLsp && !p?.isUnilet && Number(p?.lsp) > 0) return Number(p.lsp);
+        if (p?.special_price && Number(p.special_price) > 0) return Number(p.special_price);
+        return Number(p?.price || 0);
+      };
 
       const isUnilet = Boolean(
         product?.isUnilet ||
@@ -1172,15 +1186,15 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
   //  Add this useEffect to calculate the cart total whenever selected products change
   // Calculate cart total
   useEffect(() => {
-    let total = product ? (product.special_price || product.price) * quantity : 0;
+    let total = product ? displaySellingPrice * quantity : 0;
 
     selectedFrequentProducts.forEach(item => {
-      total += (item.special_price || item.price);
+      total += resolveItemSellingPrice(item);
     });
 
     // NEW: Add selected related products to total
     selectedRelatedProducts.forEach(item => {
-      total += (item.special_price || item.price);
+      total += resolveItemSellingPrice(item);
     });
 
     if (selectedWarranty) total += Number(selectedWarranty);
@@ -1200,6 +1214,8 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
     selectedRelatedProducts,
     product,
     quantity,
+    displaySellingPrice,
+    resolveItemSellingPrice,
     selectedWarranty,
     selectedExtendedWarranty,
     selectedWarrantyAmount,
@@ -1752,18 +1768,18 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
               productCategory={product.sub_category_new_name ? product.sub_category_new_name.replace(/##/g, ",") : (product.categoryName || "")}
               categoryId={product.category}
               subCategoryId={product.sub_category}
-              sellingPrice={(product.special_price > 0 ? product.special_price : product.price) + (selectedWarrantyAmount || 0)}
+              sellingPrice={effectivePrice}
               mrp={product.price + (selectedWarrantyAmount || 0)}
               onExchangeApply={handleExchangeApply}
               onAvailabilityChange={setHasExchangeOffers}
             />
 
-            {/* Price */}
+            {/* Price — Exist: LSP (if set) → special → MRP; Unilet view skips LSP via server resolve */}
             <div className={`mt-3 border-t border-gray-200 pt-3 ${hasExchangeOffers ? "hidden" : ""}`}>
 
               <div className="flex flex-col leading-tight">
                 <span className="text-2xl font-bold text-[#d72828]">
-                  ₹ {Number((product.special_price > 0 ? product.special_price : product.price) + (selectedWarrantyAmount || 0)).toLocaleString('en-IN')}
+                  ₹ {Number(effectivePrice).toLocaleString('en-IN')}
                 </span>
                 {selectedWarrantyAmount > 0 ? (
                   <div className="mt-1">
@@ -1773,6 +1789,8 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                       onDeselect={handleDeselectWarranty}
                     />
                   </div>
+                ) : usingLspPrice ? (
+                  <span className="text-xs text-gray-500 mt-0.5">(Incl. all Taxes)</span>
                 ) : (
                   product.special_price > 0 && (
                     <span className="text-xs text-gray-500 mt-0.5">Special Price</span>
@@ -1797,7 +1815,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                         <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
-                        <span>You Save ₹ {Number(product.price - product.special_price).toLocaleString('en-IN')}</span>
+                        <span>You Save ₹ {Number(product.price - displaySellingPrice).toLocaleString('en-IN')}</span>
                       </p>
                       <span className="inline-block sm:hidden bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap">
                         {mainDiscountInfo.discountPercent}% OFF
@@ -1917,11 +1935,11 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-700 font-semibold">Total Price:</span>
                     <span className="font-bold text-[#d72828] text-sm">
-                      ₹ {Number(((product.special_price > 0 ? product.special_price : product.price) * quantity) + selectedWarrantyAmount).toLocaleString("en-IN")}
+                      ₹ {Number((displaySellingPrice * quantity) + selectedWarrantyAmount).toLocaleString("en-IN")}
                     </span>
                   </div>
                   <span className="block text-[10.5px] text-gray-500 font-normal mt-0.5">
-                    Includes ₹{Number((product.special_price > 0 ? product.special_price : product.price) * quantity).toLocaleString("en-IN")} product + ₹{selectedWarrantyAmount.toLocaleString("en-IN")} warranty
+                    Includes ₹{Number(displaySellingPrice * quantity).toLocaleString("en-IN")} product + ₹{selectedWarrantyAmount.toLocaleString("en-IN")} warranty
                   </span>
                 </div>
               )}
@@ -1984,6 +2002,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                       productId={product._id}
                       stockQuantity={product.quantity}
                       quantity={quantity}
+                      special_price={displaySellingPrice}
                       additionalProducts={[...selectedFrequentProducts.map((p) => p._id), ...selectedRelatedProducts.map((p) => p._id)]}
                       extendedWarranty={isExtendedWarrantyEligible(product) ? selectedWarrantyAmount : 0}
                       selectedFrequentProducts={selectedFrequentProducts}
@@ -2057,7 +2076,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                           <h3 className="text-xs font-medium hover:text-[#d72828] line-clamp-2">{item.name}</h3>
                         </Link>
                         <span className="text-sm font-semibold text-red-600">
-                          ₹ {(item.special_price > 0 ? item.special_price : item.price).toLocaleString('en-IN')}
+                          ₹ {Number(resolveItemSellingPrice(item)).toLocaleString('en-IN')}
                         </span>
                       </div>
                     </div>
@@ -2163,7 +2182,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                           <h4 className="font-medium text-gray-800 line-clamp-2 text-[11px] leading-snug">{item.name}</h4>
                         </Link>
                         <div className="flex flex-col mt-1">
-                          {getDiscountInfo(item?.price, item?.special_price).showDiscount && (
+                          {getDiscountInfo(item?.price, resolveItemSellingPrice(item)).showDiscount && (
                             <span className="text-[10px] text-gray-400 line-through">
                               ₹ {Number(item?.price).toLocaleString('en-IN')}
                             </span>
@@ -2171,7 +2190,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                           <div className="flex items-center gap-1 text-[11px]">
                             <span className="text-gray-500 font-medium">Buy Together for</span>
                             <span className="font-bold text-[#d72828]">
-                              ₹ {Number(item?.special_price > 0 ? item.special_price : item?.price || 0).toLocaleString('en-IN')}
+                              ₹ {Number(resolveItemSellingPrice(item)).toLocaleString('en-IN')}
                             </span>
                           </div>
                         </div>
@@ -2205,7 +2224,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                           <h3 className="text-xs font-medium hover:text-[#d72828] line-clamp-2">{item.name}</h3>
                         </Link>
                         <span className="text-sm font-semibold text-red-600">
-                          ₹ {(item.special_price && item.special_price > 0 && item.special_price < item.price ? item.special_price : item.price).toLocaleString('en-IN')}
+                          ₹ {Number(resolveItemSellingPrice(item)).toLocaleString('en-IN')}
                         </span>
                       </div>
                     </div>
@@ -2234,6 +2253,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                 productId={product._id}
                 stockQuantity={product.quantity}
                 quantity={quantity}
+                special_price={displaySellingPrice}
                 additionalProducts={[...selectedFrequentProducts.map((p) => p._id), ...selectedRelatedProducts.map((p) => p._id)]}
                 extendedWarranty={selectedWarrantyAmount}
                 selectedFrequentProducts={selectedFrequentProducts}
@@ -2416,18 +2436,18 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                   productCategory={product.sub_category_new_name ? product.sub_category_new_name.replace(/##/g, ",") : (product.categoryName || "")}
                   categoryId={product.category}
                   subCategoryId={product.sub_category}
-                  sellingPrice={(product.special_price > 0 ? product.special_price : product.price) + (isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0)}
+                  sellingPrice={effectivePrice}
                   mrp={product.price + (isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0)}
                   onExchangeApply={handleExchangeApply}
                   onAvailabilityChange={setHasExchangeOffers}
                 />
 
-                {/* Price & Offer Block */}
+                {/* Price & Offer Block — Exist: LSP → special → MRP (Unilet skips LSP) */}
                 <div className={`border-t border-b border-gray-200 py-3 my-1 ${hasExchangeOffers ? "hidden" : ""}`}>
 
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className="text-3xl font-black text-[#d72828]">
-                      ₹ {Number((product.special_price > 0 ? product.special_price : product.price) + (isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0)).toLocaleString('en-IN')}
+                      ₹ {Number(effectivePrice).toLocaleString('en-IN')}
                     </span>
                     {isExtendedWarrantyEligible(product) && selectedWarrantyAmount > 0 && (
                       <WarrantyBadge
@@ -2447,7 +2467,9 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                       </>
                     )}
                   </div>
-                  <p className="text-[11px] text-gray-500 mt-0.5">Inclusive of all taxes</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    {usingLspPrice ? "(Incl. all Taxes)" : "Inclusive of all taxes"}
+                  </p>
                 </div>
 
                 {/* Payment Offers & Integrated EMI Component */}
@@ -2601,7 +2623,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                                   <h4 className="font-medium text-gray-800 line-clamp-2 text-[11px] leading-snug">{item.name}</h4>
                                 </Link>
                                 <div className="flex flex-col mt-1">
-                                  {getDiscountInfo(item?.price, item?.special_price).showDiscount && (
+                                  {getDiscountInfo(item?.price, resolveItemSellingPrice(item)).showDiscount && (
                                     <span className="text-[10px] text-gray-400 line-through">
                                       ₹ {Number(item?.price).toLocaleString('en-IN')}
                                     </span>
@@ -2609,7 +2631,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                                   <div className="flex items-center gap-1 text-[11px]">
                                     <span className="text-gray-500 font-medium">Buy Together for</span>
                                     <span className="font-bold text-[#d72828]">
-                                      ₹ {Number(item?.special_price > 0 ? item.special_price : item?.price || 0).toLocaleString('en-IN')}
+                                      ₹ {Number(resolveItemSellingPrice(item)).toLocaleString('en-IN')}
                                     </span>
                                   </div>
                                 </div>
@@ -2683,14 +2705,14 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                         <span className="text-gray-700 font-semibold">Total Price:</span>
                         <span className="font-extrabold text-base text-[#d72828]">
                           ₹ {Number(
-                            ((product.special_price > 0 ? product.special_price : product.price) * (isInStock && isMovementAllowed ? quantity : 1)) +
+                            (displaySellingPrice * (isInStock && isMovementAllowed ? quantity : 1)) +
                             (isInStock && isMovementAllowed && isExtendedWarrantyEligible(product) ? (selectedWarrantyAmount || 0) : 0)
                           ).toLocaleString("en-IN")}
                         </span>
                       </div>
                       {isInStock && isMovementAllowed && isExtendedWarrantyEligible(product) && selectedWarrantyAmount > 0 && (
                         <span className="block text-[11px] text-gray-500 font-normal mt-0.5">
-                          Includes ₹{Number((product.special_price > 0 ? product.special_price : product.price) * quantity).toLocaleString("en-IN")} product + ₹{selectedWarrantyAmount.toLocaleString("en-IN")} warranty
+                          Includes ₹{Number(displaySellingPrice * quantity).toLocaleString("en-IN")} product + ₹{selectedWarrantyAmount.toLocaleString("en-IN")} warranty
                         </span>
                       )}
                     </div>
@@ -2737,6 +2759,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                             productId={product._id}
                             stockQuantity={product.quantity}
                             quantity={quantity}
+                            special_price={displaySellingPrice}
                             additionalProducts={[...selectedFrequentProducts.map((p) => p._id), ...selectedRelatedProducts.map((p) => p._id)]}
                             extendedWarranty={isExtendedWarrantyEligible(product) ? selectedWarrantyAmount : 0}
                             selectedFrequentProducts={selectedFrequentProducts}
