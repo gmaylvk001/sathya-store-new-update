@@ -17,7 +17,125 @@ function extractCategoryArray(resJson) {
   return [];
 }
 
-function CategoryDragList({ items, droppableId, onDragEnd }) {
+const LINK_PRESETS = [
+  { label: "Blogs", href: "/blog" },
+  { label: "Loyalty", href: "/loyalty" },
+];
+
+async function readJson(res) {
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
+function HeaderLinks({ links, busy, onAdd, onToggle, onDelete, onReorder }) {
+  const [label, setLabel] = useState("");
+  const [href, setHref] = useState("");
+  const presets = LINK_PRESETS.filter((p) => !links.some((l) => l.href === p.href));
+  const inputStyle = { flex: 1, padding: "8px", border: "1px solid #ccc", borderRadius: "4px" };
+
+  return (
+    <div style={{ margin: "20px 0", border: "1px solid #ddd", borderRadius: "8px", padding: "15px", background: "white" }}>
+      {links.length === 0 && <div style={{ color: "#888", marginBottom: "10px" }}>No header links yet.</div>}
+      <DragDropContext
+        onDragEnd={(result) => {
+          if (!result.destination || result.destination.index === result.source.index) return;
+          const next = Array.from(links);
+          const [moved] = next.splice(result.source.index, 1);
+          next.splice(result.destination.index, 0, moved);
+          onReorder(next);
+        }}
+      >
+        <Droppable droppableId="header-links">
+          {(provided) => (
+            <div ref={provided.innerRef} {...provided.droppableProps}>
+      {links.map((link, index) => (
+        <Draggable key={link._id} draggableId={String(link._id)} index={index} isDragDisabled={busy}>
+          {(drag) => (
+        <div
+          ref={drag.innerRef}
+          {...drag.draggableProps}
+          {...drag.dragHandleProps}
+          style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", borderBottom: "1px solid #eee", background: "white", ...drag.draggableProps.style }}
+        >
+          <span style={{ color: "#aaa", cursor: "grab" }}>⋮⋮</span>
+          <span style={{ fontWeight: "500", flex: 1 }}>
+            {link.label} <span style={{ color: "#888", fontSize: "0.9em" }}>{link.href}</span>
+          </span>
+          <HeaderToggle shown={link.status === "Active"} disabled={busy} onClick={() => onToggle(link)} />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onDelete(link)}
+            style={{ border: "none", background: "none", color: "#d32f2f", cursor: "pointer", fontWeight: "500" }}
+          >
+            Delete
+          </button>
+        </div>
+          )}
+        </Draggable>
+      ))}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
+      <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
+        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (e.g. Blogs)" style={inputStyle} />
+        <input value={href} onChange={(e) => setHref(e.target.value)} placeholder="URL (e.g. /blog)" style={inputStyle} />
+        <button
+          type="button"
+          disabled={busy || !label.trim() || !href.trim()}
+          onClick={() => onAdd(label.trim(), href.trim()).then((ok) => ok && (setLabel(""), setHref("")))}
+          style={{ padding: "8px 15px", border: "none", borderRadius: "4px", backgroundColor: "#ED1C24", color: "white", cursor: "pointer", fontWeight: "500" }}
+        >
+          Add link
+        </button>
+      </div>
+      {presets.length > 0 && (
+        <div style={{ marginTop: "10px", display: "flex", gap: "8px", alignItems: "center", color: "#666", fontSize: "0.9em" }}>
+          Quick add:
+          {presets.map((p) => (
+            <button
+              key={p.href}
+              type="button"
+              disabled={busy}
+              onClick={() => onAdd(p.label, p.href)}
+              style={{ padding: "4px 10px", border: "1px solid #ccc", borderRadius: "4px", background: "white", cursor: "pointer" }}
+            >
+              {p.label} ({p.href})
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HeaderToggle({ shown, disabled, onClick }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      title="Show or hide in the website header menu"
+      style={{
+        padding: "4px 10px",
+        borderRadius: "12px",
+        border: "none",
+        fontSize: "0.8em",
+        fontWeight: "500",
+        cursor: disabled ? "not-allowed" : "pointer",
+        backgroundColor: shown ? "#e8f5e9" : "#eeeeee",
+        color: shown ? "#2e7d32" : "#757575",
+      }}
+    >
+      {shown ? "Header: Shown" : "Header: Hidden"}
+    </button>
+  );
+}
+
+function CategoryDragList({ items, droppableId, onDragEnd, headerItems, headerBusy, onToggleHeader }) {
   return (
     <div
       style={{
@@ -82,18 +200,26 @@ function CategoryDragList({ items, droppableId, onDragEnd }) {
                         <span style={{ fontWeight: "500" }}>
                           {category.category_name}
                         </span>
-                        <span
-                          style={{
-                            padding: "4px 8px",
-                            borderRadius: "12px",
-                            fontSize: "0.8em",
-                            fontWeight: "500",
-                            backgroundColor: "#e8f5e9",
-                            color: "#2e7d32",
-                          }}
-                        >
-                          Active
-                        </span>
+                        {onToggleHeader ? (
+                          <HeaderToggle
+                            shown={headerItems?.get(String(category._id))?.status === "Active"}
+                            disabled={headerBusy}
+                            onClick={() => onToggleHeader(category)}
+                          />
+                        ) : (
+                          <span
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: "12px",
+                              fontSize: "0.8em",
+                              fontWeight: "500",
+                              backgroundColor: "#e8f5e9",
+                              color: "#2e7d32",
+                            }}
+                          >
+                            Active
+                          </span>
+                        )}
                       </div>
                       <div style={{ color: "#888", fontSize: "0.9em" }}>
                         Position: {category.position}
@@ -183,6 +309,65 @@ export default function CategoryNavPage() {
   const [hasMainChanges, setHasMainChanges] = useState(false);
   const [hasSubChanges, setHasSubChanges] = useState(false);
   const [confirmKind, setConfirmKind] = useState(null); // "main" | "sub" | null
+  const [headerMenu, setHeaderMenu] = useState([]);
+  const [headerBusy, setHeaderBusy] = useState(false);
+
+  const headerCategoryItems = useMemo(
+    () => new Map(headerMenu.filter((i) => i.type === "category").map((i) => [String(i.category_id), i])),
+    [headerMenu]
+  );
+  const headerLinks = useMemo(() => headerMenu.filter((i) => i.type === "custom"), [headerMenu]);
+
+  const loadHeaderMenu = async () => {
+    try {
+      const data = await readJson(await fetch("/api/header-menu", { cache: "no-store" }));
+      setHeaderMenu(data.data || []);
+    } catch (error) {
+      console.error("Error loading header menu:", error);
+    }
+  };
+
+  const headerAction = async (request) => {
+    setHeaderBusy(true);
+    try {
+      await readJson(await request());
+      await loadHeaderMenu();
+      return true;
+    } catch (error) {
+      alert(error.message);
+      return false;
+    } finally {
+      setHeaderBusy(false);
+    }
+  };
+
+  const jsonRequest = (url, method, body) => () =>
+    fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+  const toggleCategoryInHeader = (category) => {
+    const item = headerCategoryItems.get(String(category._id));
+    if (!item) {
+      return headerAction(jsonRequest("/api/header-menu", "POST", { type: "category", category_id: category._id }));
+    }
+    return headerAction(
+      jsonRequest(`/api/header-menu/${item._id}`, "PUT", { status: item.status === "Active" ? "Inactive" : "Active" })
+    );
+  };
+
+  const toggleLink = (link) =>
+    headerAction(jsonRequest(`/api/header-menu/${link._id}`, "PUT", { status: link.status === "Active" ? "Inactive" : "Active" }));
+
+  const addLink = (label, href) => headerAction(jsonRequest("/api/header-menu", "POST", { type: "custom", label, href }));
+
+  const reorderLinks = (orderedLinks) => {
+    setHeaderMenu((prev) => [...prev.filter((i) => i.type !== "custom"), ...orderedLinks]);
+    headerAction(jsonRequest("/api/header-menu/reorder", "PUT", { ids: orderedLinks.map((l) => l._id) }));
+  };
+
+  const deleteLink = (link) => {
+    if (!confirm(`Remove "${link.label}" from the header menu?`)) return;
+    headerAction(() => fetch(`/api/header-menu/${link._id}`, { method: "DELETE" }));
+  };
 
   const parentOptions = useMemo(() => {
     const mains = sortByPosition(
@@ -272,6 +457,7 @@ export default function CategoryNavPage() {
 
   useEffect(() => {
     fetchCategories();
+    loadHeaderMenu();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -418,6 +604,9 @@ export default function CategoryNavPage() {
             items={categories}
             droppableId="categories"
             onDragEnd={handleMainDragEnd}
+            headerItems={headerCategoryItems}
+            headerBusy={headerBusy}
+            onToggleHeader={toggleCategoryInHeader}
           />
           <ActionButtons
             saving={savingMain}
@@ -445,6 +634,26 @@ export default function CategoryNavPage() {
           )}
         </>
       )}
+
+      {/* ── Header menu links ── */}
+      <hr style={{ margin: "36px 0 24px", border: 0, borderTop: "1px solid #e5e5e5" }} />
+
+      <h2 style={{ color: "#333", fontSize: "18px", marginBottom: "8px" }}>
+        Header menu links
+      </h2>
+      <p style={{ color: "#666", marginBottom: "12px", fontSize: "14px" }}>
+        Direct links shown in the red header menu after the categories. Drag to
+        reorder (saves automatically). Use
+        &quot;Header: Shown/Hidden&quot; above to choose which categories appear.
+      </p>
+      <HeaderLinks
+        links={headerLinks}
+        busy={headerBusy}
+        onAdd={addLink}
+        onToggle={toggleLink}
+        onDelete={deleteLink}
+        onReorder={reorderLinks}
+      />
 
       {/* ── Subcategories ── */}
       <hr style={{ margin: "36px 0 24px", border: 0, borderTop: "1px solid #e5e5e5" }} />

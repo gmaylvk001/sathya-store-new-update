@@ -850,7 +850,52 @@ const Header = () => {
 
   const [offers, setOffers] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [headerMenuItems, setHeaderMenuItems] = useState([]);
   const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const cacheKey = "sathya_header_menu_v1";
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      if (Array.isArray(cached) && cached.length) setHeaderMenuItems(cached);
+    } catch { }
+    fetch("/api/header-menu/public", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!mounted || !Array.isArray(json?.data)) return;
+        setHeaderMenuItems(json.data);
+        try { localStorage.setItem(cacheKey, JSON.stringify(json.data)); } catch { }
+      })
+      .catch(() => { });
+    return () => { mounted = false; };
+  }, []);
+
+  // Red bar entries: admin-managed menu when configured, otherwise every active root category.
+  // Category items resolve against the header's own tree so the dropdown keeps brands/subcategories.
+  const redBarEntries = headerMenuItems.length > 0
+    ? headerMenuItems
+      .map((item) => {
+        if (item.type === "custom") {
+          return { kind: "custom", key: String(item._id), label: item.label, href: item.href };
+        }
+        const catId = String(item.category?._id || "");
+        const category = categories.find((c) => String(c._id) === catId) || item.category;
+        if (!category) return null;
+        return {
+          kind: "category",
+          key: catId,
+          label: category.category_name,
+          category,
+        };
+      })
+      .filter(Boolean)
+    : categories.map((category) => ({
+      kind: "category",
+      key: String(category._id),
+      label: category.category_name,
+      category,
+    }));
 
   const collectAvailabilityRequests = useCallback(
     (nodes, level = 0, out = [], seenBrandIds = new Set()) => {
@@ -1598,9 +1643,9 @@ const Header = () => {
       setHoveredCategory(null);
     }, delay);
   };
-  const handleMouseEnter = (categoryId) => {
+  const handleMouseEnter = (categoryId, categoryNode = null) => {
     cancelHide();
-    const cat = categories.find((c) => c._id === categoryId);
+    const cat = categoryNode || categories.find((c) => c._id === categoryId);
     if (!cat) return;
     setHoveredCategory(cat);
     const sortedSubs = [...(cat.subcategories || [])]
@@ -3300,9 +3345,37 @@ const Header = () => {
                   observeParents={true}
                   className="pl-10 pr-14"
                 >
-                  {categories.map((category) => (
-                    <SwiperSlide key={String(category._id)} className="!w-auto">
-                      <div ref={(el) => (slideRefs.current[category._id] = el)} onMouseEnter={() => handleMouseEnter(category._id)} onMouseLeave={() => startHide(120)} className="px-2 py-2 flex flex-col items-center text-center" >
+                  {redBarEntries.map((entry) => {
+                    if (entry.kind === "custom") return (
+                    <SwiperSlide key={`custom-${entry.key}`} className="!w-auto">
+                      <div
+                        onMouseEnter={() => { cancelHide(); setHoveredCategory(null); }}
+                        className="px-2 py-2 flex flex-col items-center text-center"
+                      >
+                        {/^https?:\/\//i.test(entry.href) ? (
+                          <a
+                            href={entry.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-bold text-white hover:text-[#FFF200] whitespace-nowrap"
+                          >
+                            {entry.label}
+                          </a>
+                        ) : (
+                          <Link
+                            href={entry.href}
+                            className="text-sm font-bold text-white hover:text-[#FFF200] whitespace-nowrap"
+                          >
+                            {entry.label}
+                          </Link>
+                        )}
+                      </div>
+                    </SwiperSlide>
+                    );
+                    const { category } = entry;
+                    return (
+                    <SwiperSlide key={entry.key} className="!w-auto">
+                      <div ref={(el) => (slideRefs.current[category._id] = el)} onMouseEnter={() => handleMouseEnter(category._id, category)} onMouseLeave={() => startHide(120)} className="px-2 py-2 flex flex-col items-center text-center" >
                         <Link
                           href={resolveCategoryNavHref([category.category_slug], category._id, 0)}
                           onClick={(e) => {
@@ -3322,12 +3395,13 @@ const Header = () => {
                           }}
                           className="text-sm font-bold text-white hover:text-[#FFF200] whitespace-nowrap"
                         >
-                          {category.category_name}
+                          {entry.label}
                         </Link>
 
                       </div>
                     </SwiperSlide>
-                  ))}
+                    );
+                  })}
                 </Swiper>
               </div>
             </div>
