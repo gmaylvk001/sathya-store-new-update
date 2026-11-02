@@ -10,7 +10,11 @@ import { trackAddToCart, ga4AddToCart } from "@/utils/nextjs-event-tracking.js";
 import { FaShoppingCart } from "react-icons/fa";
 import { isOpenBoxEligible } from "@/lib/openBoxHelper";
 import OpenBoxPopup from "@/components/OpenBoxPopup";
-import LowStockEnquiryPopup from "@/components/LowStockEnquiryPopup";
+import LowStockEnquiryPopup, {
+  ENQUIRY_VARIANT_NORMAL,
+  ENQUIRY_VARIANT_CUSORDER,
+  isCusOrderMovement,
+} from "@/components/LowStockEnquiryPopup";
 
 import { v4 as uuidv4 } from "uuid";
 import { useRegion } from "@/context/RegionContext";
@@ -24,13 +28,29 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
   const [cartSuccess, setCartSuccess] = useState(false);
   const [showOpenBoxPopup, setShowOpenBoxPopup] = useState(false);
   const [showLowStockEnquiry, setShowLowStockEnquiry] = useState(false);
+  const [enquiryVariant, setEnquiryVariant] = useState(ENQUIRY_VARIANT_NORMAL);
   const isOutOfStock = stockQuantity <= 0;
   const isprice = special_price <= 0;
   const isOpenBox = isOpenBoxEligible({ movement, quantity: stockQuantity });
-  // Exist: $display_stock == 'yes' → least-stock enquiry (not qty < 10 alone)
+  const isCusOrder = isCusOrderMovement(movement);
+  // Exist: CUS-Order → always cusorder modal; else display_stock=yes → normal modal
   const isDisplayStockEnquiry = String(display_stock || "").toLowerCase() === "yes";
   const { cartCount, updateCartCount } = useCart();
   const { pincode: headerPincode, userLocation, region: currentRegion } = useRegion();
+
+  const openEnquiryOnProductPage = (variant) => {
+    const isOnProductPage =
+      typeof window !== "undefined" &&
+      productSlug &&
+      window.location.pathname === `/product/${productSlug}`;
+    if (productSlug && !isOnProductPage) {
+      window.location.href = `/product/${productSlug}`;
+      return;
+    }
+    setEnquiryVariant(variant);
+    setShowLowStockEnquiry(true);
+  };
+
   const handleAddToCart = async () => {
      if (isOutOfStock) return;
 
@@ -51,17 +71,14 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
   }
   return;
 }
-      // Exist display_stock == 'yes' → enquiry modal (do not add to cart yet)
+      // Exist blade: CUS-Order ATC / Order Now → #displayStockModal_cusorder
+      if (isCusOrder) {
+        openEnquiryOnProductPage(ENQUIRY_VARIANT_CUSORDER);
+        return;
+      }
+      // Exist: display_stock == 'yes' → #displayStockModal (do not add to cart yet)
       if (isDisplayStockEnquiry) {
-        const isOnProductPage =
-          typeof window !== "undefined" &&
-          productSlug &&
-          window.location.pathname === `/product/${productSlug}`;
-        if (productSlug && !isOnProductPage) {
-          window.location.href = `/product/${productSlug}`;
-          return;
-        }
-        setShowLowStockEnquiry(true);
+        openEnquiryOnProductPage(ENQUIRY_VARIANT_NORMAL);
         return;
       }
       setIsLoading(true);
@@ -268,7 +285,9 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
   const isDefaultCartLabel = !buttonLabel || /add\s*to\s*cart/i.test(buttonLabel);
   const resolvedButtonLabel = isOpenBox
     ? (isDefaultCartLabel ? "Enquire to Buy" : buttonLabel)
-    : (buttonLabel || "Add to Cart");
+    : isCusOrder
+      ? (isDefaultCartLabel ? "Order Now" : buttonLabel)
+      : (buttonLabel || "Add to Cart");
 
   const resolvedButtonClass = isOpenBox
     ? 'w-full flex items-center justify-center gap-2 py-2.5 font-semibold text-sm border-2 border-amber-600 text-amber-600 rounded-lg hover:bg-amber-50/50 bg-white transition-all cursor-pointer shadow-xs active:scale-95'
@@ -292,6 +311,7 @@ const AddToCartButton = ({ productId, quantity = 1, warranty, additionalProducts
         productSlug={productSlug}
         productCategory={productCategory}
         stockQuantity={stockQuantity}
+        variant={enquiryVariant}
       />
     )}
     {stockQuantity > 0 && (

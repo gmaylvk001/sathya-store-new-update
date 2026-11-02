@@ -38,7 +38,11 @@ import { isUniletProduct } from '@/lib/regionHelper';
 import { toast } from 'react-toastify';
 import ProductCard from "@/components/ProductCard";
 import ProductAddtoCart from "@/components/ProductAddtoCart"
-import LowStockEnquiryPopup from "@/components/LowStockEnquiryPopup";
+import LowStockEnquiryPopup, {
+  ENQUIRY_VARIANT_NORMAL,
+  ENQUIRY_VARIANT_CUSORDER,
+  isCusOrderMovement,
+} from "@/components/LowStockEnquiryPopup";
 import AddToWishlistButton from "@/components/ProductCard";
 
 import ProductBreadcrumb from "@/components/ProductBreadcrumb";
@@ -73,7 +77,7 @@ import WarrantyBadge from "@/components/WarrantyBadge";
 import BestPriceStrip from "@/components/product/BestPriceStrip";
 import { getBestPrice } from "@/lib/offers/bestPriceUtils";
 import { isExtendedWarrantyEligible } from "@/lib/productServiceEligibility";
-import { ADD_CART_ALLOWED_MOVEMENTS, isMovementAllowed as checkMovementAllowed } from "@/lib/addCartConfig";
+import { isMovementAllowed as checkMovementAllowed } from "@/lib/addCartConfig";
 import { v4 as uuidv4 } from "uuid";
 import { getDiscountInfo } from "@/lib/discountHelper";
 
@@ -259,6 +263,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [showLowStockEnquiry, setShowLowStockEnquiry] = useState(false);
+  const [enquiryVariant, setEnquiryVariant] = useState(ENQUIRY_VARIANT_NORMAL);
   const [showEMIModal, setShowEMIModal] = useState(false);
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [selectedWarrantyAmount, setSelectedWarrantyAmount] = useState(0);
@@ -558,11 +563,23 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
   const rawStockStatus = String(product?.stock_status || (productQty > 0 ? "In Stock" : "")).trim();
   const isOutOfStockStatus = productQty <= 0 || rawStockStatus === "Out of Stock" || rawStockStatus === "outofstock";
   const isInStock = !isOutOfStockStatus && productQty > 0;
-  const isOnlineAvailable = isInStock && productQty >= 10;
-  const isStoreOnly = isInStock && productQty > 0 && productQty < 10;
-  const isMovementAllowed = isOnlineAvailable;
-  // Exist: $display_stock == 'yes' → enquiry on ATC / Buy Now (not qty < 10 alone)
+  // Do not use quantity < 10 for Sold Out Online — movement whitelist only
+  // (retail-only movements e.g. NON ROL). display_stock gates enquiry separately.
+  const isMovementAllowed = isInStock && checkMovementAllowed(product?.movement);
+  const isOnlineAvailable = isMovementAllowed;
+  const isCusOrder = isCusOrderMovement(product?.movement);
+  // Exist: display_stock == 'yes' → normal enquiry; CUS-Order → cusorder modal
   const isDisplayStockEnquiry = String(product?.display_stock || "").toLowerCase() === "yes";
+
+  const openStockEnquiry = (variant = ENQUIRY_VARIANT_NORMAL) => {
+    setEnquiryVariant(variant);
+    setShowLowStockEnquiry(true);
+  };
+
+  /** Exist Get Offer when Sold Out Online (and CUS-Order uses cusorder lead title). */
+  const handleGetOffer = () => {
+    openStockEnquiry(isCusOrder ? ENQUIRY_VARIANT_CUSORDER : ENQUIRY_VARIANT_NORMAL);
+  };
 
   const addOnIds = Array.isArray(product?.add_ons)
     ? product.add_ons.map(id => id.toString())
@@ -715,9 +732,15 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
 
     if (!isInStock) return;
 
-    // Exist: display_stock == 'yes' → enquiry popup (do not checkout yet)
+    // Exist blade: CUS-Order → #displayStockModal_cusorder (always)
+    if (isCusOrder) {
+      openStockEnquiry(ENQUIRY_VARIANT_CUSORDER);
+      return;
+    }
+
+    // Exist: display_stock == 'yes' → #displayStockModal (do not checkout yet)
     if (isDisplayStockEnquiry) {
-      setShowLowStockEnquiry(true);
+      openStockEnquiry(ENQUIRY_VARIANT_NORMAL);
       return;
     }
 
@@ -1933,15 +1956,24 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                         <span className="text-[9px] sm:text-[10px] font-medium opacity-90 tracking-wide mt-0.5">(CLEARANCE UNIT)</span>
                       </div>
                     </a>
+                  ) : !isOnlineAvailable ? (
+                    <button
+                      type="button"
+                      onClick={handleGetOffer}
+                      className="flex-1 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm bg-[#d72828] hover:bg-[#c02020] text-white cursor-pointer"
+                    >
+                      Get Offer
+                    </button>
                   ) : (
                     <button
                       onClick={() => handleBuyNow()}
                       className="flex-1 font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 text-sm bg-[#d72828] hover:bg-[#c02020] text-white cursor-pointer"
                     >
                       <FaStore className="w-4 h-4" />
-                      Buy Now
+                      {isCusOrder ? "Order Now" : "Buy Now"}
                     </button>
                   )}
+                  {(isOnlineAvailable || isOpenBox) && (
                   <div className="flex-1">
                     <ProductAddtoCart
                       productId={product._id}
@@ -1958,7 +1990,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                       selectedVariant={currentVariantValues}
                       color={currentColor}
                       exchangeOffer={appliedExchangeOffer}
-                      buttonLabel={isOpenBox ? "Enquire to Buy" : "Add to Cart"}
+                      buttonLabel={isOpenBox ? "Enquire to Buy" : isCusOrder ? "Order Now" : "Add to Cart"}
                       buttonClassName={addToCartOutlineClass}
                       movement={product.movement}
                       productName={product.name}
@@ -1970,6 +2002,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                       }
                     />
                   </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2678,7 +2711,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
 
                     {isInStock ? (
                         <>
-                          {/* BUY NOW Button or Call to Order for Clearance */}
+                          {/* BUY NOW / Order Now / Get Offer / Call to Order */}
                           {isOpenBox ? (
                             <a
                               href={`tel:${CLEARANCE_PHONE}`}
@@ -2691,17 +2724,26 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                                 <span className="text-[10px] font-medium opacity-90 tracking-wide mt-0.5">(CLEARANCE UNIT)</span>
                               </div>
                             </a>
+                          ) : !isOnlineAvailable ? (
+                            <button
+                              type="button"
+                              onClick={handleGetOffer}
+                              className="w-full font-extrabold py-3 rounded-lg flex items-center justify-center gap-2 text-sm uppercase tracking-wider shadow-md transition-all bg-[#d72828] hover:bg-red-700 text-white cursor-pointer active:scale-95"
+                            >
+                              Get Offer
+                            </button>
                           ) : (
                             <button
                               onClick={() => handleBuyNow()}
                               className="w-full font-extrabold py-3 rounded-lg flex items-center justify-center gap-2 text-sm uppercase tracking-wider shadow-md transition-all bg-[#d72828] hover:bg-red-700 text-white cursor-pointer active:scale-95"
                             >
                               <FaStore className="w-4 h-4 flex-shrink-0" />
-                              Buy Now
+                              {isCusOrder ? "Order Now" : "Buy Now"}
                             </button>
                           )}
 
-                          {/* ADD TO CART — display_stock == yes opens enquiry (Exist) */}
+                          {/* ADD TO CART — CUS-Order / display_stock opens enquiry (Exist) */}
+                          {(isOnlineAvailable || isOpenBox) && (
                           <ProductAddtoCart
                             productId={product._id}
                             stockQuantity={product.quantity}
@@ -2717,7 +2759,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                             selectedVariant={currentVariantValues}
                             color={currentColor}
                             exchangeOffer={appliedExchangeOffer}
-                            buttonLabel={isOpenBox ? "Enquire to Buy" : "Add To Cart"}
+                            buttonLabel={isOpenBox ? "Enquire to Buy" : isCusOrder ? "Order Now" : "Add To Cart"}
                             buttonClassName="w-full border-2 border-[#d72828] text-[#d72828] hover:bg-red-50 font-bold py-2.5 rounded-lg text-sm transition-all shadow-none"
                             movement={product.movement}
                             productName={product.name}
@@ -2728,6 +2770,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
                                 : product.categoryName || product.category_name || ""
                             }
                           />
+                          )}
                         </>
                     ) : (
                       /* Out of Stock CTAs (Modern Croma/Flipkart e-commerce pattern) */
@@ -2868,6 +2911,7 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
               : product?.categoryName || product?.category_name || ""
           }
           stockQuantity={productQty}
+          variant={enquiryVariant}
         />
       )}
     </div>

@@ -5,7 +5,13 @@ import { FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const HELPDESK_PHONE_DISPLAY = "88805 98985";
-const LEAD_TITLE = "Product Page Enquiry";
+
+/** Exist #displayStockModal vs #displayStockModal_cusorder */
+export const ENQUIRY_VARIANT_NORMAL = "normal";
+export const ENQUIRY_VARIANT_CUSORDER = "cusorder";
+
+export const LEAD_TITLE_NORMAL = "Product Page Enquiry";
+export const LEAD_TITLE_CUSORDER = "Product Page Enquiry - CUSorder";
 
 function getCookie(name) {
   if (typeof document === "undefined") return "";
@@ -13,10 +19,14 @@ function getCookie(name) {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
+export function isCusOrderMovement(movement) {
+  return /cus[\s-]?order/i.test(String(movement || "").trim());
+}
+
 /**
- * Least / display-store stock enquiry modal (Exist #displayStockModal).
- * Opens when product.display_stock === "yes" (WH empty + showroom has stock).
- * Prefill from ecom_users_info when logged in; submit → Exist connectStoreLoc path.
+ * Least / display-store stock enquiry modal.
+ * - normal → Exist #displayStockModal, lead "Product Page Enquiry"
+ * - cusorder → Exist #displayStockModal_cusorder, lead "Product Page Enquiry - CUSorder"
  */
 export default function LowStockEnquiryPopup({
   onClose,
@@ -24,7 +34,11 @@ export default function LowStockEnquiryPopup({
   productSlug = "",
   productCategory = "",
   stockQuantity = 0,
+  variant = ENQUIRY_VARIANT_NORMAL,
 }) {
+  const isCusOrder = variant === ENQUIRY_VARIANT_CUSORDER;
+  const leadTitle = isCusOrder ? LEAD_TITLE_CUSORDER : LEAD_TITLE_NORMAL;
+
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -101,7 +115,6 @@ export default function LowStockEnquiryPopup({
       toast.error("Please enter a valid email");
       return;
     }
-    // Exist product modal: 10 digits, starts 6–9
     if (!/^[6-9]\d{9}$/.test(trimmedMobile)) {
       toast.error("Please enter a valid 10-digit mobile number");
       return;
@@ -131,7 +144,7 @@ export default function LowStockEnquiryPopup({
           name: trimmedName,
           email: trimmedEmail,
           mobile: trimmedMobile,
-          lead_title: LEAD_TITLE,
+          lead_title: leadTitle,
           product: productName || "",
           product_category: productCategory || "",
           product_url: productUrl,
@@ -165,6 +178,10 @@ export default function LowStockEnquiryPopup({
     }
   };
 
+  const introCopy = isCusOrder
+    ? "This Cus-Order product has least stock. Kindly contact our helpdesk at"
+    : "This product has least stock. Kindly contact our helpdesk at";
+
   return (
     <div
       role="dialog"
@@ -189,7 +206,7 @@ export default function LowStockEnquiryPopup({
         </button>
 
         <p className="text-sm sm:text-[15px] text-gray-700 leading-relaxed pr-6">
-          This product has least stock. Kindly contact our helpdesk at{" "}
+          {introCopy}{" "}
           <a
             href={`tel:${HELPDESK_PHONE_DISPLAY.replace(/\s/g, "")}`}
             className="font-medium text-gray-900 hover:underline"
@@ -252,6 +269,7 @@ export default function LowStockEnquiryPopup({
         <input type="hidden" name="productName" value={productName || ""} readOnly />
         <input type="hidden" name="productSlug" value={productSlug || ""} readOnly />
         <input type="hidden" name="stockQuantity" value={stockQuantity || 0} readOnly />
+        <input type="hidden" name="leadTitle" value={leadTitle} readOnly />
       </div>
     </div>
   );
