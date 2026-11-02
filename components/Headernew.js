@@ -860,7 +860,7 @@ const Header = () => {
       const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
       if (Array.isArray(cached) && cached.length) setHeaderMenuItems(cached);
     } catch { }
-    fetch("/api/header-menu/public", { cache: "no-store" })
+    fetch("/api/header-menu/storefront", { cache: "no-store" })
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (!mounted || !Array.isArray(json?.data)) return;
