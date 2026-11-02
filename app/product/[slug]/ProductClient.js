@@ -286,85 +286,19 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
     return userLocation?.stateName || userLocation?.state || (globalRegion === "karnataka" ? "Karnataka" : "Tamil Nadu");
   }, [userLocation?.stateName, userLocation?.state, globalRegion]);
 
-  // ⚡ Instant Client-Side Stock Reactivity on Pincode / Region Change (No Hard Refresh Required)
+  // Pincode / region change → full page reload (SSR + all PDP sections).
+  // Do not partially refresh stock/price/delivery in place.
+  const locationKeyRef = useRef(null);
   useEffect(() => {
-    if (!product?._id && !initialProduct?._id) return;
     if (!isInitialized) return;
-
-    const targetProductId = product?._id || initialProduct?._id;
-    const targetItemCode = product?.item_code || initialProduct?.item_code;
-    const targetSlug = product?.slug || initialProduct?.slug || slug;
-
-    let isMounted = true;
-    const controller = new AbortController();
-
-    const updateLiveStock = async () => {
-      try {
-        const queryParams = new URLSearchParams({
-          productId: String(targetProductId),
-          ...(targetItemCode ? { item_code: String(targetItemCode) } : {}),
-          ...(targetSlug ? { slug: String(targetSlug) } : {}),
-          pincode: effectivePincode,
-          userState: effectiveUserState,
-          region: globalRegion || "",
-        });
-
-        const res = await fetch(`/api/stock/validate?${queryParams.toString()}`, {
-          signal: controller.signal,
-          headers: { "Cache-Control": "no-cache" },
-        });
-
-        const stockData = await res.json().catch(() => null);
-        if (!isMounted || !stockData) return;
-
-        const liveInStock = Boolean(stockData.inStock && stockData.isDeliverable !== false);
-        const liveQty = liveInStock
-          ? Number(stockData.availableQuantity ?? stockData.stock ?? 0)
-          : 0;
-
-        setProduct((prev) => {
-          if (!prev) return prev;
-          const currentQty = Number(prev.quantity ?? prev.stock ?? 0);
-          const currentStatus = String(prev.stock_status || "").trim();
-          const targetStatus = liveInStock ? "In Stock" : "Out of Stock";
-
-          if (
-            currentQty === liveQty &&
-            currentStatus === targetStatus &&
-            prev.isDeliverable === stockData.isDeliverable
-          ) {
-            return prev;
-          }
-
-          return {
-            ...prev,
-            quantity: liveQty,
-            stock: liveQty,
-            stock_status: targetStatus,
-            isDeliverable: stockData.isDeliverable,
-            isUnilet: Boolean(stockData.isUnilet ?? prev.isUnilet),
-            resolvedRegion: stockData.warehouse === "unilet" ? "karnataka" : prev.resolvedRegion,
-          };
-        });
-
-        // Sync Next.js server components in the background
-        try {
-          router.refresh();
-        } catch {}
-      } catch (err) {
-        if (err.name !== "AbortError") {
-          console.warn("Live stock check warning:", err);
-        }
-      }
-    };
-
-    updateLiveStock();
-
-    return () => {
-      isMounted = false;
-      controller.abort();
-    };
-  }, [effectivePincode, effectiveUserState, globalRegion, product?._id, initialProduct?._id, isInitialized, slug, router]);
+    const key = `${effectivePincode}|${globalRegion || ""}`;
+    if (locationKeyRef.current === null) {
+      locationKeyRef.current = key;
+      return;
+    }
+    if (locationKeyRef.current === key) return;
+    window.location.reload();
+  }, [effectivePincode, globalRegion, isInitialized]);
 
   const [highlightOffer, setHighlightOffer] = useState(null);
   const [hasExchangeOffers, setHasExchangeOffers] = useState(false);
@@ -501,7 +435,6 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
   const [isCheckingDelivery, setIsCheckingDelivery] = useState(false);
   const [isEditingPincode, setIsEditingPincode] = useState(false);
   const deliveryRequestIdRef = useRef(0);
-  const skipNextHeaderDeliveryCheckRef = useRef(false);
 
   useEffect(() => {
     if (globalPincode) {
@@ -586,26 +519,35 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
     event.preventDefault();
     const pinVal = String(deliveryPincode || "").replace(/\D/g, "").slice(0, 6);
     setIsEditingPincode(false);
-    handleCheckDelivery(pinVal);
 
-    const currentPin = String(globalPincode || "").trim();
-    if (!/^\d{6}$/.test(pinVal) || pinVal === currentPin) return;
-
-    skipNextHeaderDeliveryCheckRef.current = true;
-    const updated = await setPincode(pinVal);
-    if (!updated) skipNextHeaderDeliveryCheckRef.current = false;
-  };
-
-  useEffect(() => {
-    if (!product?._id) return;
-    if (skipNextHeaderDeliveryCheckRef.current) {
-      skipNextHeaderDeliveryCheckRef.current = false;
+    if (!/^\d{6}$/.test(pinVal)) {
+      handleCheckDelivery(pinVal);
       return;
     }
+
+    const currentPin = String(globalPincode || "").trim();
+    if (pinVal === currentPin) {
+      handleCheckDelivery(pinVal);
+      return;
+    }
+
+    // Persist pin then full reload so entire PDP matches new location
+    const updated = await setPincode(pinVal);
+    if (updated) {
+      window.location.reload();
+      return;
+    }
+    handleCheckDelivery(pinVal);
+  };
+
+  // Initial delivery check only — pincode changes reload the page
+  useEffect(() => {
+    if (!product?._id || !isInitialized) return;
     const headerPin = String(globalPincode || "").trim();
     if (headerPin) setDeliveryPincode(headerPin);
     handleCheckDelivery(headerPin || "600001");
-  }, [product?._id, product?.item_code, globalPincode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?._id, product?.item_code, isInitialized]);
 
   const outlineActionBtnClass =
     "flex items-center justify-center gap-2 border border-gray-300 rounded-md bg-white px-4 py-2 text-sm font-medium text-[#d72828] hover:border-red-400 hover:bg-red-50 transition-colors whitespace-nowrap";
@@ -1439,7 +1381,8 @@ export default function ProductClient({ initialProduct = null, lspPdpEnabled = f
 
     if (!isInitialized) return;
     fetchProduct();
-  }, [slug, globalRegion, effectivePincode, effectiveUserState, isInitialized]);
+    // Pincode/region changes do a full page reload — do not partially refetch here.
+  }, [slug, globalRegion, isInitialized]);
 
   useEffect(() => {
     if (!product?._id) return;

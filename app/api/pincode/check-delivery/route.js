@@ -237,12 +237,16 @@ export async function GET(req) {
       if (isKarnataka) {
         const ownerProduct = await OwnerProduct.findOne({
           owner_id: "unilet",
+          is_active: true,
           $or: [
             ...(product._id ? [{ product_id: product._id }] : []),
-            ...(product.item_code ? [{ product_item_code: product.item_code }, { vendor_item_code: product.item_code }] : []),
-            { product_item_code: "UNILETEC383BIKSTM" },
+            ...(product.item_code
+              ? [
+                  { product_item_code: product.item_code },
+                  { vendor_item_code: product.item_code },
+                ]
+              : []),
           ],
-          is_active: true,
         }).lean();
 
         if (!ownerProduct || ownerProduct.stock <= 0 || ownerProduct.stock_status === "Out of Stock") {
