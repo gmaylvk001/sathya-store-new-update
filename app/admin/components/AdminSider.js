@@ -21,7 +21,8 @@ const menuItems = [
       { icon: 'mdi:filter-variant', label: 'Filter Group', link: 'filter_group', dotColor: 'bg-yellow-500' },
       { icon: 'mdi:filter-outline', label: 'Filter', link: 'filter', dotColor: 'bg-yellow-500' },
       { icon: 'mdi:plus-box-outline', label: 'New Product', link: 'newproduct', dotColor: 'bg-green-500' },
-      { icon: 'material-symbols:reviews-rounded', label: 'Product Review', link: 'reviews', dotColor: 'bg-orange-500' }
+      { icon: 'material-symbols:reviews-rounded', label: 'Product Review', link: 'reviews', dotColor: 'bg-orange-500' },
+      { icon: 'mdi:file-document-outline', label: 'All Products (Catalog & PDF)', link: '/all-products', dotColor: 'bg-purple-500' }
     ]
   },
   { icon: 'mdi:storefront-outline', label: 'Unilet Products', link: 'unilet-products' },
@@ -391,7 +392,7 @@ function SidebarItemWithDropdown({
                       onClick={() => {
                         setActiveMenu(sub.id || sub.label);
                         setIsHovered(false);
-                        if (sub.link) router.push(`/admin/${sub.link}`);
+                        if (sub.link) router.push(sub.link.startsWith('/') ? sub.link : `/admin/${sub.link}`);
                       }}
                       className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors ${
                         activeMenu === (sub.id || sub.label)
@@ -418,7 +419,7 @@ function SidebarItemWithDropdown({
               <button
                 onClick={() => {
                   setActiveMenu(sub.id || sub.label);
-                  if (sub.link) router.push(`/admin/${sub.link}`);
+                  if (sub.link) router.push(sub.link.startsWith('/') ? sub.link : `/admin/${sub.link}`);
                 }}
                 className={`w-full flex items-center px-3 py-2 rounded text-sm space-x-3 ${
                   activeMenu === (sub.id || sub.label)

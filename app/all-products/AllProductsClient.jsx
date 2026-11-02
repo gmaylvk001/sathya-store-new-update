@@ -17,6 +17,10 @@ import {
   ChevronUp,
   Plus,
   Minus,
+  FileText,
+  Loader2,
+  ArrowLeft,
+  ShieldCheck,
 } from "lucide-react";
 import { FaShoppingCart } from "react-icons/fa";
 import { useCart } from "@/context/CartContext";
@@ -24,6 +28,7 @@ import { useCompare } from "@/context/CompareContext";
 import { toast } from "react-toastify";
 import { v4 as uuidv4 } from "uuid";
 import { useRegion } from "@/context/RegionContext";
+import { readStoredSession } from "@/lib/clientAuthSession";
 
 // Preset price ranges
 const PRICE_PRESETS = [
@@ -203,9 +208,59 @@ export default function AllProductsClient() {
   const toggleSubExpand = (subSlug) => {
     setExpandedSubs((prev) => ({
       ...prev,
-      [subSlug]: !prev[subSlug],
+      [subSlug]: prev[subSlug] !== undefined ? !prev[subSlug] : false,
     }));
   };
+
+  // Admin Authorization State
+  const [authChecking, setAuthChecking] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const verifyAdmin = async () => {
+      try {
+        const session = readStoredSession();
+        const token =
+          (typeof window !== "undefined" && localStorage.getItem("token")) || "";
+
+        if (session?.role === "admin") {
+          if (isMounted) {
+            setIsAdmin(true);
+            setAuthChecking(false);
+          }
+          return;
+        }
+
+        const res = await fetch("/api/auth/check", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = await res.json();
+        if (data?.loggedIn && data?.role === "admin") {
+          if (isMounted) {
+            setIsAdmin(true);
+            setAuthChecking(false);
+          }
+        } else {
+          if (isMounted) {
+            setIsAdmin(false);
+            setAuthChecking(false);
+            window.location.replace("/admin/login?from=/all-products");
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          setIsAdmin(false);
+          setAuthChecking(false);
+          window.location.replace("/admin/login?from=/all-products");
+        }
+      }
+    };
+    verifyAdmin();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Fetch products from API
   const fetchProducts = useCallback(async () => {
@@ -223,8 +278,13 @@ export default function AllProductsClient() {
       if (selectedDiscount) params.set("discount", String(selectedDiscount));
       if (sortBy) params.set("sort", sortBy);
 
+      const token =
+        (typeof window !== "undefined" && localStorage.getItem("token")) || "";
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
       const res = await fetch(`/api/all-products?${params.toString()}`, {
         cache: "no-store",
+        headers,
       });
       const data = await res.json();
 
@@ -265,8 +325,10 @@ export default function AllProductsClient() {
   ]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    if (isAdmin) {
+      fetchProducts();
+    }
+  }, [fetchProducts, isAdmin]);
 
   // Sync state to URL without reloading
   useEffect(() => {
@@ -295,6 +357,43 @@ export default function AllProductsClient() {
     sortBy,
   ]);
 
+  // Auto-expand category and subcategory if selectedCategory matches
+  useEffect(() => {
+    if (!selectedCategory || !categories.length) return;
+    for (const c of categories) {
+      if (
+        c.category_slug === selectedCategory ||
+        c.category_name === selectedCategory ||
+        c._id === selectedCategory
+      ) {
+        setExpandedCats((prev) => ({ ...prev, [c.category_slug]: true }));
+        return;
+      }
+      for (const sub of c.subcategories || []) {
+        if (
+          sub.category_slug === selectedCategory ||
+          sub.category_name === selectedCategory ||
+          sub._id === selectedCategory
+        ) {
+          setExpandedCats((prev) => ({ ...prev, [c.category_slug]: true }));
+          setExpandedSubs((prev) => ({ ...prev, [sub.category_slug]: true }));
+          return;
+        }
+        for (const ch of sub.children || []) {
+          if (
+            ch.category_slug === selectedCategory ||
+            ch.category_name === selectedCategory ||
+            ch._id === selectedCategory
+          ) {
+            setExpandedCats((prev) => ({ ...prev, [c.category_slug]: true }));
+            setExpandedSubs((prev) => ({ ...prev, [sub.category_slug]: true }));
+            return;
+          }
+        }
+      }
+    }
+  }, [selectedCategory, categories]);
+
   // Handlers
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -302,18 +401,31 @@ export default function AllProductsClient() {
     setPage(1);
   };
 
-  const handleCategorySelect = (catSlugOrName, parentSlug = null) => {
+  const handleCategorySelect = (catSlugOrName, parentSubSlug = null, mainCatSlug = null) => {
     setSelectedCategory((prev) =>
       prev === catSlugOrName ? "" : catSlugOrName
     );
-    if (parentSlug) {
-      setExpandedCats((prev) => ({ ...prev, [parentSlug]: true }));
+    if (mainCatSlug) {
+      setExpandedCats((prev) => ({ ...prev, [mainCatSlug]: true }));
     }
-    if (catSlugOrName) {
-      setExpandedCats((prev) => ({ ...prev, [catSlugOrName]: true }));
-      setExpandedSubs((prev) => ({ ...prev, [catSlugOrName]: true }));
+    if (parentSubSlug) {
+      setExpandedSubs((prev) => ({ ...prev, [parentSubSlug]: true }));
     }
     setPage(1);
+  };
+
+  const getCategoryDisplayName = (slug) => {
+    if (!slug) return "";
+    for (const c of categories) {
+      if (c.category_slug === slug || c._id === slug) return c.category_name;
+      for (const sub of c.subcategories || []) {
+        if (sub.category_slug === slug || sub._id === slug) return sub.category_name;
+        for (const ch of sub.children || []) {
+          if (ch.category_slug === slug || ch._id === slug) return ch.category_name;
+        }
+      }
+    }
+    return slug;
   };
 
   const handleBrandToggle = (brandIdentifier) => {
@@ -538,8 +650,8 @@ export default function AllProductsClient() {
             <button
               onClick={() => handleCategorySelect("")}
               className={`w-full text-left py-1 px-1 rounded transition-colors flex items-center gap-2.5 text-xs sm:text-sm ${selectedCategory === ""
-                  ? "font-bold text-[#d72828]"
-                  : "text-gray-700 hover:text-[#d72828] font-medium"
+                ? "font-bold text-[#d72828]"
+                : "text-gray-700 hover:text-[#d72828] font-medium"
                 }`}
             >
               <span className="text-[#d72828] font-black text-sm w-4 flex justify-center shrink-0">
@@ -563,55 +675,55 @@ export default function AllProductsClient() {
                   key={c._id}
                   className="border-b border-gray-50 last:border-0 pb-1"
                 >
-                  {/* Level 1: Main Category */}
                   <div className="flex items-center justify-between py-1 group">
-                    <div className="flex items-center gap-2 text-left text-xs sm:text-sm flex-1 min-w-0">
-                      {/* Bold Red '+' or '-' button to toggle Level 2 */}
+                    <button
+                      onClick={() => {
+                        handleCategorySelect(c.category_slug);
+                        if (hasSub) toggleCatExpand(c.category_slug);
+                      }}
+                      className={`flex items-center gap-2.5 text-left text-xs sm:text-sm transition-colors flex-1 ${isSelected
+                        ? "font-bold text-[#d72828]"
+                        : "text-gray-700 hover:text-[#d72828] font-medium"
+                        }`}
+                    >
+                      {/* Bold Red '+' or '-' when expanded */}
+                      {hasSub && isExpanded ? (
+                        <Minus
+                          size={15}
+                          strokeWidth={3}
+                          className="text-[#d72828] shrink-0"
+                        />
+                      ) : (
+                        <Plus
+                          size={15}
+                          strokeWidth={3}
+                          className="text-[#d72828] shrink-0"
+                        />
+                      )}
+                      <span className="truncate">{c.category_name}</span>
+                    </button>
+
+                    {hasSub && (
                       <button
-                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (hasSub) toggleCatExpand(c.category_slug);
+                          toggleCatExpand(c.category_slug);
                         }}
-                        className="w-4 h-4 flex items-center justify-center shrink-0 cursor-pointer hover:scale-115 transition-transform"
+                        className="p-1 text-gray-400 hover:text-[#d72828] transition-colors"
                         title={isExpanded ? "Collapse" : "Expand"}
                       >
-                        {hasSub && isExpanded ? (
-                          <Minus
-                            size={15}
-                            strokeWidth={3}
-                            className="text-[#d72828]"
-                          />
+                        {isExpanded ? (
+                          <ChevronUp size={13} />
                         ) : (
-                          <Plus
-                            size={15}
-                            strokeWidth={3}
-                            className="text-[#d72828]"
-                          />
+                          <ChevronDown size={13} />
                         )}
                       </button>
-
-                      {/* Main Category Label */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          handleCategorySelect(c.category_slug);
-                          if (hasSub && !isExpanded) toggleCatExpand(c.category_slug);
-                        }}
-                        className={`truncate text-left transition-colors flex-1 ${
-                          isSelected
-                            ? "font-bold text-[#d72828]"
-                            : "text-gray-800 hover:text-[#d72828] font-medium"
-                        }`}
-                      >
-                        {c.category_name}
-                      </button>
-                    </div>
+                    )}
                   </div>
 
-                  {/* Level 2: Subcategories (when L1 is expanded) */}
+                  {/* Subcategories (when expanded) */}
                   {hasSub && isExpanded && (
-                    <div className="pl-5 pt-1 pb-1 space-y-1.5 text-xs border-l-2 border-red-100 ml-2">
+                    <div className="pl-4 pt-1 pb-1 space-y-1.5 text-xs border-l-2 border-red-100 ml-2">
                       {c.subcategories.map((sub) => {
                         const isSubSelected =
                           selectedCategory === sub.category_slug ||
@@ -619,71 +731,57 @@ export default function AllProductsClient() {
                           selectedCategory === sub._id;
                         const hasChildren =
                           Array.isArray(sub.children) && sub.children.length > 0;
-                        const isSubExpanded = Boolean(
-                          expandedSubs[sub.category_slug]
-                        );
+                        const isSubExpanded =
+                          expandedSubs[sub.category_slug] ?? (c.subcategories.length === 1);
 
                         return (
-                          <div key={sub._id} className="pb-0.5">
-                            <div className="flex items-center justify-between py-0.5 group">
-                              <div className="flex items-center gap-1.5 text-left flex-1 min-w-0">
-                                {/* '+' button for Subcategory if it has children */}
+                          <div key={sub._id} className="space-y-1">
+                            <div className="flex items-center justify-between group/sub">
+                              <button
+                                onClick={() => {
+                                  handleCategorySelect(sub.category_slug, null, c.category_slug);
+                                  if (hasChildren) {
+                                    toggleSubExpand(sub.category_slug);
+                                  }
+                                }}
+                                className={`flex items-center gap-1.5 text-left py-1 px-1.5 rounded transition-colors flex-1 text-xs ${isSubSelected
+                                  ? "font-bold text-[#d72828] bg-red-50"
+                                  : "text-gray-700 hover:text-[#d72828] hover:bg-gray-50 font-medium"
+                                  }`}
+                              >
                                 {hasChildren ? (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleSubExpand(sub.category_slug);
-                                    }}
-                                    className="w-3.5 h-3.5 flex items-center justify-center shrink-0 cursor-pointer hover:scale-115 transition-transform"
-                                    title={isSubExpanded ? "Collapse" : "Expand"}
-                                  >
-                                    {isSubExpanded ? (
-                                      <Minus
-                                        size={12}
-                                        strokeWidth={3}
-                                        className="text-[#d72828]"
-                                      />
-                                    ) : (
-                                      <Plus
-                                        size={12}
-                                        strokeWidth={3}
-                                        className="text-[#d72828]"
-                                      />
-                                    )}
-                                  </button>
+                                  <span className="text-[#d72828] font-black text-xs shrink-0 w-3 text-center">
+                                    {isSubExpanded ? "−" : "+"}
+                                  </span>
                                 ) : (
-                                  <span className="w-3.5 text-gray-400 text-center shrink-0">
+                                  <span className="text-gray-400 text-xs shrink-0 w-3 text-center">
                                     •
                                   </span>
                                 )}
+                                <span className="truncate">{sub.category_name}</span>
+                              </button>
 
-                                {/* Subcategory Label */}
+                              {hasChildren && (
                                 <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleCategorySelect(
-                                      sub.category_slug,
-                                      c.category_slug
-                                    );
-                                    if (hasChildren && !isSubExpanded) {
-                                      toggleSubExpand(sub.category_slug);
-                                    }
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSubExpand(sub.category_slug);
                                   }}
-                                  className={`truncate text-left transition-colors flex-1 ${
-                                    isSubSelected
-                                      ? "font-bold text-[#d72828]"
-                                      : "text-gray-700 hover:text-[#d72828] font-medium"
-                                  }`}
+                                  className="p-1 text-gray-400 hover:text-[#d72828] transition-colors"
+                                  title={isSubExpanded ? "Collapse" : "Expand"}
                                 >
-                                  {sub.category_name}
+                                  {isSubExpanded ? (
+                                    <ChevronUp size={12} />
+                                  ) : (
+                                    <ChevronDown size={12} />
+                                  )}
                                 </button>
-                              </div>
+                              )}
                             </div>
 
-                            {/* Level 3: Child Categories (when L2 is expanded) */}
+                            {/* Level 3 Child Categories (when subcategory expanded) */}
                             {hasChildren && isSubExpanded && (
-                              <div className="pl-4 pt-1 pb-1 space-y-1 text-[11.5px] border-l border-red-200 ml-1.5">
+                              <div className="pl-4 pt-0.5 pb-1 space-y-0.5 border-l-2 border-red-50 ml-2">
                                 {sub.children.map((child) => {
                                   const isChildSelected =
                                     selectedCategory === child.category_slug ||
@@ -692,29 +790,28 @@ export default function AllProductsClient() {
                                   return (
                                     <button
                                       key={child._id}
-                                      type="button"
                                       onClick={() =>
                                         handleCategorySelect(
                                           child.category_slug,
+                                          sub.category_slug,
                                           c.category_slug
                                         )
                                       }
-                                      className={`w-full text-left py-0.5 px-1.5 rounded flex items-center gap-1.5 transition-colors ${
-                                        isChildSelected
-                                          ? "font-bold text-[#d72828] bg-red-50"
-                                          : "text-gray-600 hover:text-[#d72828] hover:bg-gray-50"
-                                      }`}
+                                      className={`w-full text-left py-1 px-2 rounded flex items-center justify-between transition-colors text-[11px] sm:text-xs ${isChildSelected
+                                        ? "font-bold text-[#d72828] bg-red-50"
+                                        : "text-gray-600 hover:text-[#d72828] hover:bg-gray-50"
+                                        }`}
                                     >
-                                      <span className="text-[#d72828] font-bold shrink-0 text-xs">
-                                        •
-                                      </span>
-                                      <span className="truncate">
-                                        {child.category_name}
+                                      <span className="flex items-center gap-1.5 truncate">
+                                        <span className="text-[#d72828] font-bold text-[10px] shrink-0">
+                                          •
+                                        </span>
+                                        <span className="truncate">{child.category_name}</span>
                                       </span>
                                       {isChildSelected && (
                                         <Check
                                           size={11}
-                                          className="shrink-0 ml-auto text-[#d72828]"
+                                          className="shrink-0 ml-1 text-[#d72828]"
                                         />
                                       )}
                                     </button>
@@ -907,8 +1004,61 @@ export default function AllProductsClient() {
     </div>
   );
 
+  if (authChecking) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-600">
+        <Loader2 className="w-10 h-10 animate-spin text-[#d72828] mb-3" />
+        <p className="text-sm font-semibold tracking-wide text-gray-700">
+          Verifying Admin Access...
+        </p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-700 p-6 text-center">
+        <div className="max-w-md bg-white p-8 rounded-xl shadow-lg border border-red-100">
+          <div className="w-12 h-12 bg-red-100 text-[#d72828] rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl">
+            🔒
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Admin Access Only</h2>
+          <p className="text-xs text-gray-500 mb-6">
+            Only administrators are authorized to access the All Products catalog. Please sign in with your admin account.
+          </p>
+          <a
+            href="/admin/login?from=/all-products"
+            className="inline-block bg-[#d72828] hover:bg-red-700 text-white font-bold text-xs uppercase px-5 py-2.5 rounded-lg shadow-sm transition-colors"
+          >
+            Sign in as Admin
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[#f9fafb] min-h-screen pb-16">
+      {/* ─── Admin Top Bar ─── */}
+      <div className="bg-gray-900 text-white px-4 py-2 text-xs">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="bg-[#d72828] text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+              ADMIN ONLY
+            </span>
+            <span className="text-gray-300 hidden sm:inline text-xs">
+              Sathya Master Product Catalog & PDF Export
+            </span>
+          </div>
+          <Link
+            href="/admin/dashboard"
+            className="inline-flex items-center gap-1.5 text-gray-300 hover:text-white font-semibold transition-colors text-xs"
+          >
+            <ArrowLeft size={13} />
+            <span>Back to Admin Dashboard</span>
+          </Link>
+        </div>
+      </div>
       {/* ─── Top Breadcrumbs Bar matching screenshot ─── */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between text-xs sm:text-sm">
@@ -1029,6 +1179,31 @@ export default function AllProductsClient() {
                     <option value="name-z-a">Name: Z to A</option>
                   </select>
                 </div>
+
+                {/* Export PDF Button */}
+                <a
+                  href={`/all-products-pdf?${new URLSearchParams({
+                    ...(search ? { search } : {}),
+                    ...(selectedCategory ? { category: selectedCategory } : {}),
+                    ...(selectedBrands.length > 0
+                      ? { brand: selectedBrands.join(",") }
+                      : {}),
+                    ...(minPrice ? { minPrice } : {}),
+                    ...(maxPrice ? { maxPrice } : {}),
+                    ...(selectedDiscount ? { discount: selectedDiscount } : {}),
+                    ...(page ? { page: String(page) } : {}),
+                    limit: "50",
+                    autoprint: "true",
+                  }).toString()}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#d72828] hover:bg-red-700 active:scale-95 text-white font-bold text-xs rounded-md shadow-xs transition-all tracking-wider uppercase shrink-0"
+                  title="Export products to PDF"
+                >
+                  <FileText size={14} />
+                  <span className="hidden sm:inline">Export PDF</span>
+                  <span className="sm:hidden">PDF</span>
+                </a>
               </div>
             </div>
 
@@ -1053,7 +1228,7 @@ export default function AllProductsClient() {
                 )}
                 {selectedCategory && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-[#d72828] text-xs font-semibold rounded-full border border-red-200">
-                    Category: {selectedCategory}
+                    Category: {getCategoryDisplayName(selectedCategory)}
                     <button onClick={() => setSelectedCategory("")}>
                       <X size={12} />
                     </button>

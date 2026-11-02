@@ -3,13 +3,64 @@ import dbConnect from "@/lib/db";
 import Product from "@/models/product";
 import Brand from "@/models/ecom_brand_info";
 import Category from "@/models/ecom_category_info";
+import User from "@/models/User";
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
 
 export const dynamic = "force-dynamic";
+
+async function verifyAdminAuth(req) {
+  try {
+    let token = req.headers.get("authorization")?.split(" ")[1];
+    if (!token) {
+      token =
+        req.cookies.get("admin_token")?.value ||
+        req.cookies.get("token")?.value;
+    }
+    if (!token) return { ok: false, reason: "No token provided" };
+
+    try {
+      token = decodeURIComponent(token);
+    } catch {}
+
+    if (!process.env.JWT_SECRET) {
+      return { ok: false, reason: "JWT_SECRET not configured" };
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded?.userId) return { ok: false, reason: "Invalid token payload" };
+
+    if (decoded.user_type === "admin" || decoded.role === "admin") {
+      return { ok: true, userId: decoded.userId };
+    }
+
+    const user = await User.findById(decoded.userId).select("user_type").lean();
+    if (user?.user_type === "admin") {
+      return { ok: true, userId: decoded.userId };
+    }
+
+    return { ok: false, reason: "User is not an admin" };
+  } catch (err) {
+    return { ok: false, reason: err.message };
+  }
+}
 
 export async function GET(req) {
   try {
     await dbConnect();
+
+    // Verify Admin Authorization
+    const authResult = await verifyAdminAuth(req);
+    if (!authResult.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Unauthorized. Admin access required to view All Products catalog.",
+          reason: authResult.reason,
+        },
+        { status: 401 }
+      );
+    }
 
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));

@@ -19,6 +19,13 @@ const schema = yup.object().shape({
 });
 
 export default function Login() {
+  const getFromUrl = () => {
+    if (typeof window === "undefined") return null;
+    const p = new URLSearchParams(window.location.search).get("from");
+    if (p && p.startsWith("/") && !p.startsWith("//")) return p;
+    return null;
+  };
+
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: yupResolver(schema),
   });
@@ -42,7 +49,7 @@ export default function Login() {
         role: "admin",
         source: "admin",
       });
-      window.location.replace("/admin/dashboard");
+      window.location.replace(getFromUrl() || "/admin/dashboard");
     };
 
     const boot = async () => {
@@ -129,7 +136,7 @@ export default function Login() {
 
       setMessage("Login successful! ✅");
       redirectingRef.current = true;
-      window.location.replace("/admin/dashboard");
+      window.location.replace(getFromUrl() || "/admin/dashboard");
     } catch (error) {
       setMessage(error.message);
       setLoading(false);
