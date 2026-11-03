@@ -45,6 +45,8 @@ export default function AddProductPage({ mode = "add", productData = null, produ
     tags: [],
     meta_title: "",
     status: "Active",
+    /** Exist: 1 = run display-store stock enquiry check on PDP; 0 = off */
+    chk_display_store_stock: 0,
     variant_attribute: { name: "", options: [] },
     variants: [],
     filters: [],
@@ -389,6 +391,8 @@ useEffect(() => {
       size: productData.size || "",
       movement: productData.movement || "",
       model_number: productData.model_number || "",
+      chk_display_store_stock:
+        Number(productData.chk_display_store_stock) === 1 ? 1 : 0,
       // FIX: Use overview_image from database
       overviewImage: Array.isArray(productData.overview_image) && productData.overview_image.length > 0 
         ? productData.overview_image 
@@ -1294,7 +1298,10 @@ const uploadImages = async (files) => {
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setProduct((prev) => {
-      const nextValue = type === "checkbox" ? checked : value;
+      let nextValue = type === "checkbox" ? checked : value;
+      if (name === "chk_display_store_stock") {
+        nextValue = Number(value) === 1 ? 1 : 0;
+      }
       const next = {
         ...prev,
         [name]: nextValue,
@@ -1437,6 +1444,8 @@ const handleSubmit = async (e) => {
       add_ons: product.add_ons || [],
       category: product.category || "",
       product_highlights: product.product_highlights || [],
+      chk_display_store_stock:
+        Number(product.chk_display_store_stock) === 1 ? 1 : 0,
       // Product images
       images: existingProductImages,
       // FIX: Send as overview_image (database field name) not overviewImage
@@ -2489,6 +2498,23 @@ const updatedFilter = Filter.map((group) => ({
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Display Store Stock Check
+              </label>
+              <select
+                name="chk_display_store_stock"
+                value={Number(product.chk_display_store_stock) === 1 ? 1 : 0}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+              >
+                <option value={0}>No</option>
+                <option value={1}>Yes</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Yes (1): run warehouse/showroom least-stock check for PDP enquiry. No (0): skip.
+              </p>
+            </div>
           </div>
         )}
         <StepNavigation />

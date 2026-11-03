@@ -255,7 +255,9 @@ const updatePayload = {
     // Ensure new fields are properly set
       model_number: productData.model_number || "",
       movement: productData.movement || "",
-      size: productData.size || "",      
+      size: productData.size || "",
+      chk_display_store_stock:
+        Number(productData.chk_display_store_stock) === 1 ? 1 : 0,
     //  category: chain.root_id, Parent category
   sub_category: productData.sub_category, // Subcategory
   category_new: chain.root_md5,

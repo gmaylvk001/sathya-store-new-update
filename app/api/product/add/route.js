@@ -210,6 +210,8 @@ console.log("..............................................................");
     if(productData.quantity <= 0){
         productData.stock_status = "Out of Stock";
     }
+    productData.chk_display_store_stock =
+      Number(productData.chk_display_store_stock) === 1 ? 1 : 0;
 
     if(productData.slug != ""){
       productData.slug =slug;
