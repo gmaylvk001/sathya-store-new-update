@@ -23,8 +23,6 @@ import { useCategoryFilterUrl } from "@/hooks/useCategoryFilterUrl";
 import ProductFilters from "@/components/filters/ProductFilters";
 import { CATEGORY_PAGE_SHELL_CLASS } from "@/lib/categoryPageComponents/layout";
 import { sortProductsClient } from "@/lib/productSort";
-//import FlashCategorySlider from "../FlashCategorySlider";
-//import BannerSlider from "../main-cat-banner";
 
 export default function CategoryPage(params) {
   const [categoryData, setCategoryData] = useState({

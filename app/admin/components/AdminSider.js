@@ -65,7 +65,15 @@ const menuItems = [
       { icon: 'mdi:chevron-double-right', label: 'Leads', id: 'crm-leads', link: 'leads', dotColor: 'bg-blue-500' },
     ],
   },
-  // { icon: 'mdi:note-text-outline', label: 'Blog', link: 'blog' },
+  {
+    icon: 'mdi:bank-outline',
+    label: 'Finance',
+    submenu: [
+      { icon: 'mdi:chevron-double-right', label: 'Finance Bank', link: 'finance/bank', dotColor: 'bg-blue-500' },
+      { icon: 'mdi:chevron-double-right', label: 'EMI Product', link: 'finance/emi-product', dotColor: 'bg-green-500' },
+      { icon: 'mdi:chevron-double-right', label: 'EMI Scheme', link: 'finance/emi-scheme', dotColor: 'bg-yellow-500' },
+    ],
+  },
   {
     icon: 'mdi:post-outline',
     label: 'Blogs',
@@ -111,7 +119,6 @@ const menuItems = [
     icon: "mdi:percent-outline",
     label: "Offer Module",
     submenu: [
-      // { icon: "mdi:percent-outline", label: "Offer", link: "offer", dotColor: "bg-yellow-500" },
       { icon: "mdi:percent-outline", label: "Offers", link: "offers", permission: "offers", dotColor: "bg-yellow-500" },
       { icon: "mdi:credit-card-outline", label: "Payment Offers", link: "payment-offers", dotColor: "bg-emerald-500" },
       { icon: "mdi:swap-horizontal", label: "Exchange Offers", link: "exchange-offers-condition", dotColor: "bg-purple-500" },
