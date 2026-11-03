@@ -26,26 +26,6 @@ const STATUS_COLORS = {
 
 const EXTRA_COLORS = ["#6366f1", "#f59e0b", "#14b8a6", "#64748b", "#ec4899"];
 
-function money(value) {
-  const number = Number(String(value ?? "").replace(/,/g, ""));
-  return Number.isFinite(number) ? number : 0;
-}
-
-function orderDate(order) {
-  const value = order.created_at || order.createdAt;
-  const date = value ? new Date(value) : null;
-  return date && !Number.isNaN(date.getTime()) ? date : null;
-}
-
-function dayKey(date) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
 function labelStatus(status) {
   const text = String(status || "unknown").trim();
   return text.charAt(0).toUpperCase() + text.slice(1);
@@ -78,11 +58,145 @@ export async function GET(req) {
       orderMatch.push({ pickup_store: { $in: storeKeys } });
     }
 
-    const [orders, ownerRows, mainCategories] = await Promise.all([
-      OrderNew.find({ $or: orderMatch })
-        .select("order_number order_username order_amount order_status created_at user_id")
-        .sort({ created_at: -1 })
-        .lean(),
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+
+    const amountExpr = {
+      $convert: {
+        input: {
+          $trim: {
+            input: {
+              $replaceAll: {
+                input: { $toString: { $ifNull: ["$order_amount", ""] } },
+                find: ",",
+                replacement: "",
+              },
+            },
+          },
+        },
+        to: "double",
+        onError: 0,
+        onNull: 0,
+      },
+    };
+    const createdExpr = {
+      $convert: {
+        input: { $ifNull: ["$created_at", "$createdAt"] },
+        to: "date",
+        onError: null,
+        onNull: null,
+      },
+    };
+    const statusExpr = {
+      $let: {
+        vars: {
+          raw: {
+            $toLower: {
+              $trim: {
+                input: { $toString: { $ifNull: ["$order_status", "unknown"] } },
+              },
+            },
+          },
+        },
+        in: { $cond: [{ $eq: ["$$raw", ""] }, "unknown", "$$raw"] },
+      },
+    };
+    const userExpr = {
+      $trim: {
+        input: { $toString: { $ifNull: ["$user_id", ""] } },
+      },
+    };
+
+    const [orderStats, ownerRows, mainCategories] = await Promise.all([
+      OrderNew.aggregate([
+        { $match: { $or: orderMatch } },
+        {
+          $addFields: {
+            _amount: amountExpr,
+            _created: createdExpr,
+            _status: statusExpr,
+            _user: userExpr,
+          },
+        },
+        {
+          $facet: {
+            totals: [
+              {
+                $group: {
+                  _id: null,
+                  totalOrders: { $sum: 1 },
+                  revenue: { $sum: "$_amount" },
+                  pending: {
+                    $sum: { $cond: [{ $eq: ["$_status", "pending"] }, 1, 0] },
+                  },
+                },
+              },
+            ],
+            customers: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $ne: [{ $toLower: "$_user" }, ""] },
+                      { $ne: [{ $toLower: "$_user" }, "null"] },
+                    ],
+                  },
+                },
+              },
+              { $group: { _id: "$_user" } },
+              { $count: "customerCount" },
+            ],
+            last30: [
+              { $match: { _created: { $gte: since } } },
+              {
+                $group: {
+                  _id: null,
+                  last30Orders: { $sum: 1 },
+                  last30Revenue: { $sum: "$_amount" },
+                },
+              },
+            ],
+            byDay: [
+              { $match: { _created: { $type: "date" } } },
+              {
+                $group: {
+                  _id: {
+                    $dateToString: {
+                      format: "%Y-%m-%d",
+                      date: "$_created",
+                      timezone: "Asia/Kolkata",
+                    },
+                  },
+                  count: { $sum: 1 },
+                },
+              },
+              { $sort: { _id: 1 } },
+            ],
+            byStatus: [
+              {
+                $group: {
+                  _id: "$_status",
+                  count: { $sum: 1 },
+                  latest: { $max: "$_created" },
+                },
+              },
+              { $sort: { latest: -1, _id: 1 } },
+            ],
+            recent: [
+              { $sort: { created_at: -1 } },
+              { $limit: 5 },
+              {
+                $project: {
+                  order_number: 1,
+                  order_username: 1,
+                  order_amount: 1,
+                  order_status: 1,
+                },
+              },
+            ],
+          },
+        },
+      ]).allowDiskUse(true),
       OwnerProduct.find({
         owner_id: { $regex: /^unilet$/i },
         is_active: true,
@@ -93,6 +207,11 @@ export async function GET(req) {
         .select("category_name")
         .lean(),
     ]);
+
+    const facet = orderStats[0] || {};
+    const totals = facet.totals?.[0] || { totalOrders: 0, revenue: 0, pending: 0 };
+    const last30 = facet.last30?.[0] || { last30Orders: 0, last30Revenue: 0 };
+    const customerCount = facet.customers?.[0]?.customerCount || 0;
 
     const productIds = [
       ...new Set(
@@ -115,64 +234,33 @@ export async function GET(req) {
       categoryCounts.set(name, (categoryCounts.get(name) || 0) + 1);
     }
 
-    const since = new Date();
-    since.setDate(since.getDate() - 30);
-
-    let revenue = 0;
-    let last30Orders = 0;
-    let last30Revenue = 0;
-    let pending = 0;
-    const customers = new Set();
-    const ordersByDay = new Map();
-    const statusCounts = new Map();
-
-    for (const order of orders) {
-      const amount = money(order.order_amount);
-      revenue += amount;
-
-      const status = String(order.order_status || "unknown").trim().toLowerCase() || "unknown";
-      statusCounts.set(status, (statusCounts.get(status) || 0) + 1);
-      if (status === "pending") pending += 1;
-
-      const userId = String(order.user_id || "").trim();
-      if (userId && userId.toLowerCase() !== "null") customers.add(userId);
-
-      const created = orderDate(order);
-      if (!created) continue;
-      const key = dayKey(created);
-      ordersByDay.set(key, (ordersByDay.get(key) || 0) + 1);
-      if (created >= since) {
-        last30Orders += 1;
-        last30Revenue += amount;
-      }
-    }
-
-    const dayLabels = [...ordersByDay.keys()].sort();
-    const statusLabels = [...statusCounts.keys()];
+    const dayRows = Array.isArray(facet.byDay) ? facet.byDay : [];
+    const statusRows = Array.isArray(facet.byStatus) ? facet.byStatus : [];
+    const recentRows = Array.isArray(facet.recent) ? facet.recent : [];
 
     return NextResponse.json({
       success: true,
-      totalOrders: orders.length,
-      revenue: Math.round(revenue * 100) / 100,
-      last30Orders,
-      last30Revenue: Math.round(last30Revenue * 100) / 100,
-      pending,
+      totalOrders: totals.totalOrders || 0,
+      revenue: Math.round((totals.revenue || 0) * 100) / 100,
+      last30Orders: last30.last30Orders || 0,
+      last30Revenue: Math.round((last30.last30Revenue || 0) * 100) / 100,
+      pending: totals.pending || 0,
       productCount: productIds.length,
-      customerCount: customers.size,
+      customerCount,
       line: {
-        labels: dayLabels,
-        data: dayLabels.map((label) => ordersByDay.get(label) || 0),
+        labels: dayRows.map((row) => row._id),
+        data: dayRows.map((row) => row.count || 0),
       },
       categories: [...categoryCounts.entries()].map(([category, count]) => ({
         category,
         count,
       })),
-      statuses: statusLabels.map((status, index) => ({
-        label: labelStatus(status),
-        count: statusCounts.get(status) || 0,
-        color: STATUS_COLORS[status] || EXTRA_COLORS[index % EXTRA_COLORS.length],
+      statuses: statusRows.map((row, index) => ({
+        label: labelStatus(row._id),
+        count: row.count || 0,
+        color: STATUS_COLORS[row._id] || EXTRA_COLORS[index % EXTRA_COLORS.length],
       })),
-      recentOrders: orders.slice(0, 5).map((order) => ({
+      recentOrders: recentRows.map((order) => ({
         _id: String(order._id),
         order_number: order.order_number || "",
         order_username: order.order_username || "",

@@ -56,6 +56,7 @@ const OwnerProductSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+OwnerProductSchema.index({ owner_id: 1, is_active: 1 });
 OwnerProductSchema.index({ product_id: 1, is_active: 1 });
 OwnerProductSchema.index({ product_id: 1, region: 1, is_active: 1 });
 OwnerProductSchema.index({ product_item_code: 1, is_active: 1 });

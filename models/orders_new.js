@@ -165,6 +165,9 @@ OrderNewSchema.index(
 );
 
 OrderNewSchema.index({ user_id: 1, created_at: -1 }, { name: "user_created_at" });
+OrderNewSchema.index({ order_owner: 1, created_at: -1 }, { name: "order_owner_created_at" });
+OrderNewSchema.index({ store_id: 1, created_at: -1 }, { name: "store_id_created_at" });
+OrderNewSchema.index({ pickup_store: 1, created_at: -1 }, { name: "pickup_store_created_at" });
 
 if (mongoose.models.orders_new) {
   delete mongoose.models.orders_new;
