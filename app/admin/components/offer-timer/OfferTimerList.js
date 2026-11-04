@@ -13,6 +13,9 @@ export default function OfferTimerList() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [timerToDelete, setTimerToDelete] = useState(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   const fetchTimers = async () => {
@@ -31,29 +34,63 @@ export default function OfferTimerList() {
     fetchTimers();
   }, []);
 
+  const closeDeleteModal = () => {
+    if (isDeleting) return;
+    setTimerToDelete(null);
+    setDeleteConfirmText("");
+    setDeleteError("");
+  };
+
   const handleDelete = async () => {
+    if (!timerToDelete?._id) return;
+    if (deleteConfirmText.trim() !== "DELETE") {
+      setDeleteError('Type DELETE exactly to confirm.');
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError("");
     try {
       const response = await fetch("/api/offer-timer/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: timerToDelete }),
+        body: JSON.stringify({
+          id: timerToDelete._id,
+          confirm: "DELETE",
+        }),
       });
       const result = await response.json();
-      if (response.ok) {
-        setSuccessMessage("Offer timer deleted successfully");
+      if (response.ok && result.success) {
+        const parts = [
+          "Offer timer deleted",
+          result.deletedStateDeals
+            ? `${result.deletedStateDeals} state deal(s)`
+            : null,
+          result.deletedCardOffers
+            ? `${result.deletedCardOffers} card offer(s)`
+            : null,
+          typeof result.deletedCardFiles === "number" ||
+          typeof result.deletedBannerFiles === "number"
+            ? `${(result.deletedCardFiles || 0) + (result.deletedBannerFiles || 0)} image file(s) removed`
+            : null,
+        ].filter(Boolean);
+        setSuccessMessage(parts.join(" · "));
         try {
           localStorage.setItem("sathya_offer_timer_sync", Date.now().toString());
           window.dispatchEvent(new Event("offerTimerUpdated"));
         } catch (e) {}
+        setTimerToDelete(null);
+        setDeleteConfirmText("");
         fetchTimers();
+        setTimeout(() => setSuccessMessage(""), 2500);
       } else {
-        alert(result.error || "Failed to delete offer timer");
+        setDeleteError(result.error || "Failed to delete offer timer");
       }
     } catch (error) {
       console.error("Error deleting offer timer:", error);
+      setDeleteError("Failed to delete offer timer");
     } finally {
-      setTimerToDelete(null);
-      setTimeout(() => setSuccessMessage(""), 2000);
+      setIsDeleting(false);
     }
   };
 
@@ -189,7 +226,11 @@ export default function OfferTimerList() {
                           <FaEdit className="w-3 h-3" />
                         </button>
                         <button
-                          onClick={() => setTimerToDelete(timer._id)}
+                          onClick={() => {
+                            setDeleteConfirmText("");
+                            setDeleteError("");
+                            setTimerToDelete(timer);
+                          }}
                           className="px-2 py-1 border rounded bg-red-500 text-white hover:bg-red-600"
                           title="Delete"
                         >
@@ -212,12 +253,67 @@ export default function OfferTimerList() {
 
       {timerToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Confirm Deletion</h3>
-            <p className="text-gray-600 mb-6">Are you sure you want to delete this offer timer?</p>
-            <div className="flex justify-end gap-3">
-              <button onClick={() => setTimerToDelete(null)} className="px-4 py-2 border rounded hover:bg-gray-100">Cancel</button>
-              <button onClick={handleDelete} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Delete</button>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Permanently delete offer timer?
+            </h3>
+            <p className="text-sm text-gray-600 mb-3">
+              This will also remove related{" "}
+              <span className="font-medium text-gray-800">States Deals Offer Show</span>{" "}
+              rows, all{" "}
+              <span className="font-medium text-gray-800">card offers</span>, and unlink
+              their image files from disk.
+            </p>
+            <div className="mb-4 rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-800">
+              <div className="font-medium">
+                #{timerToDelete.timerId ?? "—"}{" "}
+                {timerToDelete.offerTitle || timerToDelete.offer_title || "Untitled"}
+              </div>
+            </div>
+            <label className="block text-sm text-gray-700 mb-1.5">
+              Type <span className="font-mono font-semibold text-red-600">DELETE</span> to
+              confirm
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => {
+                setDeleteConfirmText(e.target.value);
+                if (deleteError) setDeleteError("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleDelete();
+                }
+              }}
+              disabled={isDeleting}
+              autoFocus
+              placeholder="DELETE"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500 disabled:bg-gray-50"
+            />
+            {deleteError ? (
+              <p className="mt-2 text-sm text-red-600" role="alert">
+                {deleteError}
+              </p>
+            ) : null}
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={isDeleting}
+                className="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting || deleteConfirmText.trim() !== "DELETE"}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? "Deleting..." : "Delete permanently"}
+              </button>
             </div>
           </div>
         </div>

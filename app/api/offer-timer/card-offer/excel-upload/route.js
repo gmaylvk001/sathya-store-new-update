@@ -78,7 +78,7 @@ export async function POST(req) {
 
     if (!excelFile || typeof excelFile === "string" || !excelFile.size) {
       return NextResponse.json(
-        { success: false, error: "Excel file is required." },
+        { success: false, error: "Excel / CSV file is required." },
         { status: 400 }
       );
     }
@@ -90,17 +90,28 @@ export async function POST(req) {
       );
     }
 
-    // 2. Validate file extension and size
+    // 2. Validate file extension and size (.xlsx / .xls / .csv)
     const excelName = (excelFile.name || "").toLowerCase();
-    if (!excelName.endsWith(".xlsx") && !excelName.endsWith(".xls")) {
+    const excelAllowed =
+      excelName.endsWith(".xlsx") ||
+      excelName.endsWith(".xls") ||
+      excelName.endsWith(".csv");
+    if (!excelAllowed) {
       return NextResponse.json(
-        { success: false, error: "Invalid Excel format. Only .xlsx and .xls files are allowed." },
+        {
+          success: false,
+          error:
+            "Invalid spreadsheet format. Only .xlsx, .xls, and .csv files are allowed.",
+        },
         { status: 400 }
       );
     }
     if (excelFile.size > MAX_EXCEL_SIZE_BYTES) {
       return NextResponse.json(
-        { success: false, error: "Excel file exceeds maximum allowed size (20MB)." },
+        {
+          success: false,
+          error: "Spreadsheet file exceeds maximum allowed size (20MB).",
+        },
         { status: 400 }
       );
     }
@@ -128,6 +139,8 @@ export async function POST(req) {
       excelBuffer,
       zipBuffer,
       timerId,
+      excelFileName: excelFile.name || "",
+      excelMimeType: excelFile.type || "",
     });
 
     const summaryParts = [];

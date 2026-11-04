@@ -63,7 +63,7 @@ export default function CardOffersExcelUploadModal({
 
   if (!isOpen) return null;
 
-  // Handle Excel file selection
+  // Handle Excel / CSV file selection
   const handleExcelChange = (e) => {
     setGeneralError("");
     const file = e.target.files?.[0];
@@ -73,15 +73,15 @@ export default function CardOffersExcelUploadModal({
     }
 
     const name = file.name.toLowerCase();
-    if (!name.endsWith(".xlsx") && !name.endsWith(".xls")) {
-      setGeneralError("Please select a valid Excel file (.xlsx or .xls).");
+    if (!name.endsWith(".xlsx") && !name.endsWith(".xls") && !name.endsWith(".csv")) {
+      setGeneralError("Please select a valid spreadsheet (.xlsx, .xls, or .csv).");
       setExcelFile(null);
       if (excelInputRef.current) excelInputRef.current.value = "";
       return;
     }
 
     if (file.size > 20 * 1024 * 1024) {
-      setGeneralError("Excel file size must be less than 20MB.");
+      setGeneralError("Spreadsheet file size must be less than 20MB.");
       setExcelFile(null);
       if (excelInputRef.current) excelInputRef.current.value = "";
       return;
@@ -128,7 +128,7 @@ export default function CardOffersExcelUploadModal({
     }
 
     if (!excelFile) {
-      setGeneralError("Please choose an Excel file to upload.");
+      setGeneralError("Please choose an Excel or CSV file to upload.");
       return;
     }
 
@@ -333,21 +333,26 @@ export default function CardOffersExcelUploadModal({
                 </select>
               </div>
 
-              {/* Choose Excel File */}
+              {/* Choose Excel / CSV File */}
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-gray-700">
-                  Choose Excel File
+                  Choose Excel / CSV File
                 </label>
                 <div className="border border-gray-300 rounded bg-white p-2">
                   <input
                     ref={excelInputRef}
                     type="file"
-                    accept=".xlsx, .xls"
+                    accept=".xlsx,.xls,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
                     onChange={handleExcelChange}
                     disabled={isUploading}
                     className="w-full text-sm text-gray-600 file:mr-4 file:py-1.5 file:px-3.5 file:rounded file:border file:border-gray-300 file:text-xs file:font-medium file:bg-gray-100 hover:file:bg-gray-200 file:cursor-pointer cursor-pointer"
                   />
                 </div>
+                <p className="text-[11px] text-gray-500">
+                  Accepted: <span className="font-medium">.xlsx</span>,{" "}
+                  <span className="font-medium">.xls</span>,{" "}
+                  <span className="font-medium">.csv</span>
+                </p>
                 <div>
                   <a
                     href="/samples/sample-card-offers.xlsx"
@@ -418,8 +423,8 @@ export default function CardOffersExcelUploadModal({
                 <div className="space-y-1.5 pt-2">
                   <div className="flex justify-between text-xs text-gray-600">
                     <span>
-                      {uploadPhase === "uploading" && "Uploading Excel & ZIP files..."}
-                      {uploadPhase === "processing" && "Extracting ZIP, parsing Excel & saving offers..."}
+                      {uploadPhase === "uploading" && "Uploading spreadsheet & ZIP files..."}
+                      {uploadPhase === "processing" && "Extracting ZIP, parsing spreadsheet & saving offers..."}
                     </span>
                     <span>{uploadProgress}%</span>
                   </div>
@@ -434,7 +439,7 @@ export default function CardOffersExcelUploadModal({
 
               {/* Red Guideline / Warning Notice Matching Reference Screenshot 1 */}
               <p className="text-xs text-red-500 leading-relaxed pt-2">
-                Please ensure that the Excel file contains image names with their proper extensions (e.g., image1.jpg, banner.png). The same image files must be included inside the uploaded ZIP file.
+                Please ensure that the Excel/CSV file contains image names with their proper extensions (e.g., image1.jpg, banner.png). The same image files must be included inside the uploaded ZIP file.
               </p>
             </form>
           )}

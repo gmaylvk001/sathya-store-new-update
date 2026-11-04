@@ -281,7 +281,7 @@ export default function CardOffersView({ timerId }) {
             className="border border-gray-700 bg-white text-gray-800 hover:bg-gray-50 px-3.5 py-1.5 rounded text-sm font-medium transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
             <Icon icon="mdi:file-excel-outline" className="w-4 h-4 text-green-700" />
-            <span>Excel upload</span>
+            <span>Excel / CSV upload</span>
           </button>
         </div>
       </div>
