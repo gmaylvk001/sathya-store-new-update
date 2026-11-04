@@ -8,6 +8,17 @@ import {
 } from "@/lib/superOfferContactConfig";
 
 const MESSAGE_MAX = 180;
+const LEAD_TITLE_PREFIX = "Deals Offer Enquiry";
+
+function getCookie(name) {
+  if (typeof document === "undefined") return "";
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function buildFullName(firstName, lastName) {
+  return `${String(firstName || "").trim()} ${String(lastName || "").trim()}`.trim();
+}
 
 function PhoneIcon({ className = "w-4 h-4" }) {
   return (
@@ -77,8 +88,9 @@ function WhatsAppIcon() {
 
 /**
  * Contact Us panel for Super Offers pages.
- * Phone number comes from lib/superOfferContactConfig (state → TN default).
- * Submit wiring intentionally deferred — UI + state phone only for now.
+ * Phone: lib/superOfferContactConfig (state → TN default).
+ * Submit: same as Exist #offer-enquire → POST /api/connect-store-location
+ * (Eywa CRM → insert `leads` on Success).
  */
 export default function SuperOfferContactSection({
   stateSlug,
@@ -89,6 +101,8 @@ export default function SuperOfferContactSection({
     [stateSlug]
   );
 
+  const offerLabel = String(offerName || "this offer").trim() || "this offer";
+  const leadTitle = `${LEAD_TITLE_PREFIX} - ${offerLabel}`;
   const whatsappHref = `https://wa.me/${contact.phoneTel.replace(/\D/g, "")}`;
 
   const [form, setForm] = useState({
@@ -98,20 +112,117 @@ export default function SuperOfferContactSection({
     email: "",
     message: "",
   });
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   const onChange = (e) => {
     const { name, value } = e.target;
     if (name === "message" && value.length > MESSAGE_MAX) return;
+    if (name === "phone") {
+      const digits = value.replace(/\D/g, "").slice(0, 10);
+      setForm((prev) => ({ ...prev, phone: digits }));
+      return;
+    }
     setForm((prev) => ({ ...prev, [name]: value }));
+    if (formError) setFormError("");
   };
 
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
-    // View-only for now — submit API will be wired in the next step.
+    if (submitting) return;
+
+    setFormError("");
+    setSuccessMessage("");
+
+    const name = buildFullName(form.firstName, form.lastName);
+    const email = String(form.email || "").trim();
+    const mobile = String(form.phone || "").replace(/\D/g, "");
+    const message = String(form.message || "").trim();
+
+    if (!name || !/^[a-zA-Z0-9\s.,/]*$/.test(name)) {
+      setFormError("Please enter a valid first and last name.");
+      return;
+    }
+    if (!/^[6-9]\d{9}$/.test(mobile)) {
+      setFormError("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setFormError("Please enter a valid email address.");
+      return;
+    }
+    if (!message) {
+      setFormError("Please enter your message.");
+      return;
+    }
+    if (message.length > MESSAGE_MAX) {
+      setFormError(`Message must be ${MESSAGE_MAX} characters or less.`);
+      return;
+    }
+
+    const referrel_url =
+      typeof window !== "undefined" ? window.location.href : "";
+
+    let utm_source = "";
+    let utm_campaign = "";
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      utm_source = params.get("utm_source") || "";
+      utm_campaign = params.get("utm_campaign") || "";
+    }
+    // Exist #offer-enquire: empty utm_source → "Website"
+    if (!utm_source.trim()) utm_source = "Website";
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/connect-store-location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          mobile,
+          message,
+          lead_title: leadTitle,
+          product: offerLabel,
+          referrel_url,
+          utm_source,
+          utm_campaign,
+          doc: getCookie("emaduuid") || "",
+          cookie_id: getCookie("emaduuid") || "",
+        }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.success) {
+        setSuccessMessage(
+          "Thank you! Your enquiry has been submitted successfully."
+        );
+        setForm({
+          firstName: "",
+          lastName: "",
+          phone: "",
+          email: "",
+          message: "",
+        });
+        return;
+      }
+
+      setFormError(
+        data?.message ||
+          "Unable to submit your enquiry. Please try again."
+      );
+    } catch (err) {
+      console.error("Super offer enquiry submit error:", err);
+      setFormError("Something went wrong. Please try again later.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const inputClass =
-    "w-full rounded-md border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 outline-none transition focus:border-[#d72828] focus:ring-1 focus:ring-[#d72828]/50";
+    "w-full rounded-md border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 outline-none transition focus:border-[#d72828] focus:ring-1 focus:ring-[#d72828]/50 disabled:bg-gray-50 disabled:text-gray-500";
 
   return (
     <section className="w-full py-10 sm:py-14" aria-labelledby="super-offer-contact-heading">
@@ -143,7 +254,7 @@ export default function SuperOfferContactSection({
 
               <p className="mt-3 text-sm sm:text-[15px] text-white/90 leading-relaxed max-w-md">
                 Have a question about{" "}
-                <span className="font-bold text-white">{offerName}</span>? Our team
+                <span className="font-bold text-white">{offerLabel}</span>? Our team
                 is happy to help.
               </p>
 
@@ -236,6 +347,15 @@ export default function SuperOfferContactSection({
               </div>
             </div>
 
+            {successMessage ? (
+              <div
+                role="status"
+                className="mt-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm text-emerald-800"
+              >
+                {successMessage}
+              </div>
+            ) : null}
+
             <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <input
@@ -245,6 +365,7 @@ export default function SuperOfferContactSection({
                   onChange={onChange}
                   placeholder="First Name"
                   autoComplete="given-name"
+                  disabled={submitting}
                   className={inputClass}
                 />
                 <input
@@ -254,6 +375,7 @@ export default function SuperOfferContactSection({
                   onChange={onChange}
                   placeholder="Last Name"
                   autoComplete="family-name"
+                  disabled={submitting}
                   className={inputClass}
                 />
                 <input
@@ -264,6 +386,7 @@ export default function SuperOfferContactSection({
                   placeholder="Phone No"
                   autoComplete="tel"
                   inputMode="numeric"
+                  disabled={submitting}
                   className={inputClass}
                 />
                 <input
@@ -273,6 +396,7 @@ export default function SuperOfferContactSection({
                   onChange={onChange}
                   placeholder="Email Id"
                   autoComplete="email"
+                  disabled={submitting}
                   className={inputClass}
                 />
               </div>
@@ -285,6 +409,7 @@ export default function SuperOfferContactSection({
                   placeholder="Enter your message..."
                   rows={5}
                   maxLength={MESSAGE_MAX}
+                  disabled={submitting}
                   className={`${inputClass} resize-none pb-8`}
                 />
                 <span className="pointer-events-none absolute bottom-2.5 right-3 text-[11px] text-gray-400 tabular-nums">
@@ -292,12 +417,19 @@ export default function SuperOfferContactSection({
                 </span>
               </div>
 
+              {formError ? (
+                <p role="alert" className="text-sm text-red-600">
+                  {formError}
+                </p>
+              ) : null}
+
               <div className="flex justify-center pt-1">
                 <button
                   type="submit"
-                  className="min-w-[140px] rounded-md bg-[#d72828] px-8 py-2.5 text-sm font-bold tracking-wider text-white uppercase transition hover:bg-[#b91f1f] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d72828] focus-visible:ring-offset-2"
+                  disabled={submitting}
+                  className="min-w-[140px] rounded-md bg-[#d72828] px-8 py-2.5 text-sm font-bold tracking-wider text-white uppercase transition hover:bg-[#b91f1f] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d72828] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Submit
+                  {submitting ? "Submitting..." : "Submit"}
                 </button>
               </div>
             </form>

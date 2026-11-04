@@ -72,6 +72,14 @@ export async function POST(req) {
       );
     }
 
+    // Exist #offer-enquire: message max 180 when provided
+    if (message && String(message).length > 180) {
+      return NextResponse.json(
+        { success: false, message: "Message must be 180 characters or less" },
+        { status: 400 }
+      );
+    }
+
     if (utm_source === "") {
       utm_source = lead_title;
     }
