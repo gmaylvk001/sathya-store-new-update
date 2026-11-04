@@ -9,7 +9,7 @@ import Addtocart from "@/components/AddToCart";
 import AddToWishlistButton from "@/components/ProductCard";
 import {
   getCardOfferCategoryHref,
-  groupCardOffersByCategory,
+  organizeCardOffersForDisplay,
 } from "@/lib/cardOffers/cardOfferNavigationHelper";
 import CardOfferCategorySection from "@/components/cardOffers/CardOfferCategorySection";
 import SuperOfferContactSection from "@/components/superOffers/SuperOfferContactSection";
@@ -548,7 +548,7 @@ function SuperOffersContent() {
     timer?.offerDescription ||
     (timer ? (timer.offerTitle || timer.offer_title) : "Exclusive Limited Time Offer");
 
-  // Filter valid active card offers; do not use fake hardcoded fallback offers
+  // Active card offers from this timer (showing logic only)
   const cardOffersList = useMemo(() => {
     if (Array.isArray(timer?.card_offers) && timer.card_offers.length > 0) {
       return timer.card_offers.filter((c) => c.status !== "inactive");
@@ -556,23 +556,12 @@ function SuperOffersContent() {
     return [];
   }, [timer]);
 
-  // Categories with fewer than MIN_CARDS_PER_CATEGORY cards are folded into "MORE OFFERS"
-  const categorizedOfferGroups = useMemo(() => {
-    const MIN_CARDS_PER_CATEGORY = 4;
-    const groups = groupCardOffersByCategory(cardOffersList);
-
-    const fullGroups = groups.filter(
-      (g) => g.categoryName !== "MORE OFFERS" && g.cards.length >= MIN_CARDS_PER_CATEGORY
-    );
-    const shownCards = new Set(fullGroups.flatMap((g) => g.cards));
-    const moreCards = cardOffersList.filter(
-      (card) => card && typeof card === "object" && !shownCards.has(card)
-    );
-
-    return moreCards.length > 0
-      ? [...fullGroups, { categoryName: "MORE OFFERS", cards: moreCards }]
-      : fullGroups;
-  }, [cardOffersList]);
+  // Group by /category/ or /category-division/ menu (first segment).
+  // Own row only if >= 4 cards; smaller groups fold into MORE OFFERS — no cards missed.
+  const categorizedOfferGroups = useMemo(
+    () => organizeCardOffersForDisplay(cardOffersList, { minCardsPerCategory: 4 }),
+    [cardOffersList]
+  );
 
   const dateRangeBadge = useMemo(() => {
     return formatOfferDateRange(

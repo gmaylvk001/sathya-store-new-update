@@ -224,7 +224,7 @@ const CardOfferCategorySection = memo(function CardOfferCategorySection({
         >
           {cards.map((card, idx) => (
             <div
-              key={card.id || card._id || card.Id || `${categoryName}-${idx}`}
+              key={`${categoryName}-${card?.id ?? card?.Id ?? card?._id ?? "x"}-${idx}`}
               className="flex-shrink-0 snap-start w-[240px] sm:w-[calc(50%-12px)] md:w-[calc(33.333%-16px)] lg:w-[calc(25%-18px)] flex"
             >
               <CardOfferItem card={card} />
