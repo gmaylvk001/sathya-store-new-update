@@ -12,6 +12,7 @@ import {
   groupCardOffersByCategory,
 } from "@/lib/cardOffers/cardOfferNavigationHelper";
 import CardOfferCategorySection from "@/components/cardOffers/CardOfferCategorySection";
+import SuperOfferContactSection from "@/components/superOffers/SuperOfferContactSection";
 import { getDiscountInfo } from "@/lib/discountHelper";
 
 // Helper to determine if an offer timer is active for the specified region
@@ -856,6 +857,12 @@ function SuperOffersContent() {
             </div>
           </section>
         )}
+
+        {/* Contact Us — below offers / hot deals */}
+        <SuperOfferContactSection
+          stateSlug={urlRegionSlug || activeRegion}
+          offerName={displayTitle || "this offer"}
+        />
       </div>
     </div>
   );
