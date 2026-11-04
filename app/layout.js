@@ -39,6 +39,14 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body className={`${poppins.className} font-sans antialiased`} suppressHydrationWarning>
+        {/* Early inline handler: recovers from intermittent ChunkLoadError timeouts
+            (stale HMR / slow layout chunk). Must stay inline so it runs even if
+            the ClientLayout chunk itself fails to load. One reload per tab session. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var K="sathya_chunk_reload";function chunk(m,n){if(n==="ChunkLoadError")return!0;m=String(m||"");return/Loading chunk .* failed/i.test(m)||/ChunkLoadError/i.test(m)||/Failed to fetch dynamically imported module/i.test(m)}function recover(){try{if(sessionStorage.getItem(K)==="1")return;sessionStorage.setItem(K,"1")}catch(e){}location.reload()}window.addEventListener("error",function(e){var err=e&&e.error,msg=(e&&e.message)||(err&&err.message)||"";if(chunk(msg,err&&err.name))recover()});window.addEventListener("unhandledrejection",function(e){var r=e&&e.reason,msg=(r&&r.message)||String(r||"");if(chunk(msg,r&&r.name))recover()});setTimeout(function(){try{sessionStorage.removeItem(K)}catch(e){}},15000)}catch(e){}})();`,
+          }}
+        />
         <noscript>
           <iframe
             src="https://www.googletagmanager.com/ns.html?id=GTM-P7LW8D7X"

@@ -16,8 +16,62 @@ import CompareBar from "@/components/CompareBar";
 import WhatsAppWidget from "@/components/WhatsAppWidget";
 import AuthSessionSync from "@/components/AuthSessionSync";
 
+const CHUNK_RELOAD_KEY = "sathya_chunk_reload";
+
+function isChunkLoadError(message, name) {
+  if (name === "ChunkLoadError") return true;
+  const msg = String(message || "");
+  return (
+    /Loading chunk .* failed/i.test(msg) ||
+    /ChunkLoadError/i.test(msg) ||
+    /Failed to fetch dynamically imported module/i.test(msg)
+  );
+}
+
+function recoverFromChunkLoadError() {
+  try {
+    if (sessionStorage.getItem(CHUNK_RELOAD_KEY) === "1") return;
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
+  } catch {
+    // sessionStorage blocked — still attempt a single reload
+  }
+  window.location.reload();
+}
+
 export default function ClientLayout({ children }) {
   const pathname = usePathname();
+
+  // Backup recovery if a later client navigation hits a stale/timeout chunk
+  useEffect(() => {
+    const onError = (event) => {
+      const err = event?.error;
+      if (isChunkLoadError(event?.message || err?.message, err?.name)) {
+        recoverFromChunkLoadError();
+      }
+    };
+    const onRejection = (event) => {
+      const reason = event?.reason;
+      if (isChunkLoadError(reason?.message || reason, reason?.name)) {
+        recoverFromChunkLoadError();
+      }
+    };
+
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    const clearFlag = setTimeout(() => {
+      try {
+        sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+      } catch {
+        /* ignore */
+      }
+    }, 15000);
+
+    return () => {
+      clearTimeout(clearFlag);
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
