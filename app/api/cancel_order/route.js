@@ -81,7 +81,8 @@ export async function POST(req) {
       );
     }
 
-    // Align with old site: allow cancel before billed / while pending payment / COD
+    // Exist My Orders: Pending/Processing (incl. Billed) can submit Request Cancel.
+    // Billed is not a full cancel here — cancelOrder() saves waiting request only.
     const statusKey = String(order.order_status || "").trim().toLowerCase();
     const cancellableStatuses = new Set([
       "ordered",
@@ -90,6 +91,7 @@ export async function POST(req) {
       "pending",
       "payment initiated",
       "payment initialized",
+      "billed",
     ]);
     if (!cancellableStatuses.has(statusKey)) {
       return NextResponse.json(

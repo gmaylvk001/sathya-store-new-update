@@ -287,7 +287,10 @@ export const RegionProvider = ({ children }) => {
 
   // Pincode submission resolver
   const setPincode = useCallback(async (pincode) => {
-    if (!isValidPincode(pincode)) {
+    // Checkout/address may pass numeric pincode — coerce so .trim() is always safe
+    const pin = pincode == null ? '' : String(pincode).trim();
+
+    if (!isValidPincode(pin)) {
       setDetectionError('Please enter a valid 6-digit pincode');
       return false;
     }
@@ -299,7 +302,7 @@ export const RegionProvider = ({ children }) => {
       const res = await fetch('/api/pincode/check-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pincode: pincode.trim() }),
+        body: JSON.stringify({ pincode: pin }),
       });
 
       const data = await res.json();
@@ -308,7 +311,7 @@ export const RegionProvider = ({ children }) => {
         const matched = SOUTH_INDIAN_STATES.find((s) => s.id === norm) || SOUTH_INDIAN_STATES[0];
 
         const locData = {
-          pincode: data.pincode || pincode.trim(),
+          pincode: data.pincode || pin,
           city: (data.city || matched.defaultCity).toLowerCase(),
           district: (data.district || data.city || matched.defaultCity).toLowerCase(),
           region: matched.id,
