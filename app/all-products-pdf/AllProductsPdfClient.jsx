@@ -179,176 +179,176 @@ export default function AllProductsPdfClient() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 print:bg-white font-sans text-gray-900 pb-12 print:pb-0">
-      {/* ─── Screen-Only Toolbar (Hidden on Print) ─── */}
-      <div className="no-print sticky top-0 z-40 bg-gray-900 text-white px-4 py-3 shadow-md flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/all-products"
-            className="flex items-center gap-1.5 text-xs font-semibold bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded transition-colors text-gray-200"
-          >
-            <ArrowLeft size={14} />
-            <span>Back to Products</span>
-          </Link>
-          <span className="text-xs text-gray-400 border-l border-gray-700 pl-3">
-            Total: <strong className="text-white">{totalCount}</strong> products
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handlePrint}
-            disabled={loading}
-            className="flex items-center gap-2 bg-[#d72828] hover:bg-red-700 text-white font-bold px-4 py-1.5 rounded text-xs tracking-wider uppercase transition-colors shadow-sm disabled:opacity-50"
-          >
-            <Printer size={15} />
-            <span>Print / Save as PDF</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ─── Printable Document Area ─── */}
-      <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 print:p-0 print:max-w-none print:w-full">
-        {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-3">
-            <Loader2 size={32} className="animate-spin text-[#d72828]" />
-            <span className="text-sm font-semibold text-gray-600">
-              Generating PDF Preview...
+      <div className="min-h-screen bg-gray-100 print:bg-white font-sans text-gray-900 pb-12 print:pb-0">
+        {/* ─── Screen-Only Toolbar (Hidden on Print) ─── */}
+        <div className="no-print sticky top-0 z-40 bg-gray-900 text-white px-4 py-3 shadow-md flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/all-products"
+              className="flex items-center gap-1.5 text-xs font-semibold bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded transition-colors text-gray-200"
+            >
+              <ArrowLeft size={14} />
+              <span>Back to Products</span>
+            </Link>
+            <span className="text-xs text-gray-400 border-l border-gray-700 pl-3">
+              Total: <strong className="text-white">{totalCount}</strong> products
             </span>
           </div>
-        ) : error ? (
-          <div className="py-20 text-center text-red-600 text-sm">{error}</div>
-        ) : (
-          <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 shadow-xs print:border-0 print:p-0 print:shadow-none">
-            {/* Header: Sathya Logo */}
-            <div className="mb-3">
-              <div className="inline-block">
-                <Image
-                  src="/uploads/sathya-header-logo.webp"
-                  alt="Sathya Store"
-                  width={150}
-                  height={54}
-                  className="h-12 w-auto object-contain"
-                  priority
-                  unoptimized
-                />
-              </div>
-            </div>
 
-            {/* Total Products Count */}
-            <div className="mb-3">
-              <h2 className="text-sm font-extrabold text-black">
-                Total Products: {products.length}
-              </h2>
-            </div>
-
-            {/* Products Table (Matches PDF exactly) */}
-            <table className="w-full border-collapse border border-gray-300 text-left text-xs">
-              <thead>
-                <tr className="bg-gray-50 print:bg-gray-50 border-b border-gray-300">
-                  <th className="border border-gray-300 px-3 py-2.5 font-bold text-gray-800 w-[10%]">
-                    Image
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2.5 font-bold text-gray-800 w-[14%]">
-                    Item code
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2.5 font-bold text-gray-800 w-[28%]">
-                    Title
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2.5 font-bold text-gray-800 w-[32%]">
-                    Key features
-                  </th>
-                  <th className="border border-gray-300 px-2 py-2.5 font-bold text-gray-800 text-center w-[7%]">
-                    Quantity
-                  </th>
-                  <th className="border border-gray-300 px-3 py-2.5 font-bold text-gray-800 text-right w-[9%]">
-                    Price
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {products.map((product, idx) => {
-                  const origPrice = product.price || 0;
-                  const specPrice = product.special_price || origPrice;
-                  const hasDiscount = origPrice > 0 && specPrice > 0 && specPrice < origPrice;
-
-                  return (
-                    <tr
-                      key={product._id || idx}
-                      className="border-b border-gray-300 break-inside-avoid page-break-inside-avoid"
-                    >
-                      {/* 1. Image */}
-                      <td className="border border-gray-300 p-2 align-top text-center">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto flex items-center justify-center overflow-hidden">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={resolveImage(product.imgSrc)}
-                            alt={product.name}
-                            className="max-w-full max-h-full object-contain"
-                            onError={(e) => {
-                              e.currentTarget.src = "/uploads/products/placeholder.jpg";
-                            }}
-                          />
-                        </div>
-                      </td>
-
-                      {/* 2. Item Code */}
-                      <td className="border border-gray-300 p-2.5 align-top text-xs text-gray-700 font-medium whitespace-normal break-words">
-                        {product.item_code || product.model_number || "-"}
-                      </td>
-
-                      {/* 3. Title */}
-                      <td className="border border-gray-300 p-2.5 align-top">
-                        <div className="text-xs font-semibold text-gray-900 leading-snug">
-                          {product.name}
-                        </div>
-                      </td>
-
-                      {/* 4. Key Features Bullets */}
-                      <td className="border border-gray-300 p-2.5 align-top">
-                        {Array.isArray(product.highlights) && product.highlights.length > 0 ? (
-                          <ul className="text-[11px] text-gray-700 space-y-1 leading-tight list-none">
-                            {product.highlights.map((h, hIdx) => (
-                              <li key={hIdx} className="flex items-start gap-1">
-                                <span className="text-gray-400 font-bold shrink-0">•</span>
-                                <span>{h}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <span className="text-[11px] text-gray-400">-</span>
-                        )}
-                      </td>
-
-                      {/* 5. Quantity */}
-                      <td className="border border-gray-300 p-2.5 align-top text-center">
-                        <span className="text-sm font-semibold text-gray-800">
-                          {product.quantity ?? 1}
-                        </span>
-                      </td>
-
-                      {/* 6. Price */}
-                      <td className="border border-gray-300 p-2.5 align-top text-right">
-                        {hasDiscount && origPrice > 0 && (
-                          <span className="text-xs text-[#d72828] line-through font-semibold block leading-tight">
-                            ₹{origPrice.toLocaleString("en-IN")}
-                          </span>
-                        )}
-                        <span className="text-sm font-extrabold text-black block leading-snug">
-                          ₹{specPrice.toLocaleString("en-IN")}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              disabled={loading}
+              className="flex items-center gap-2 bg-[#d72828] hover:bg-red-700 text-white font-bold px-4 py-1.5 rounded text-xs tracking-wider uppercase transition-colors shadow-sm disabled:opacity-50"
+            >
+              <Printer size={15} />
+              <span>Print / Save as PDF</span>
+            </button>
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* ─── Dedicated Print CSS ─── */}
-      <style jsx global>{`
+        {/* ─── Printable Document Area ─── */}
+          <div className="w-full max-w-6xl mx-auto p-4 sm:p-6 print:p-0 print:max-w-none print:w-full">
+            {loading ? (
+              <div className="py-20 flex flex-col items-center justify-center gap-3">
+                <Loader2 size={32} className="animate-spin text-[#d72828]" />
+                <span className="text-sm font-semibold text-gray-600">
+                  Generating PDF Preview...
+                </span>
+              </div>
+            ) : error ? (
+              <div className="py-20 text-center text-red-600 text-sm">{error}</div>
+            ) : (
+                <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 shadow-xs print:border-0 print:p-0 print:shadow-none">
+                  {/* Header: Sathya Logo */}
+                  <div className="mb-3">
+                    <div className="inline-block">
+                      <Image
+                        src="/uploads/sathya-header-logo.webp"
+                        alt="Sathya Store"
+                        width={150}
+                        height={54}
+                        className="h-12 w-auto object-contain"
+                        priority
+                        unoptimized
+                      />
+                    </div>
+                  </div>
+
+                  {/* Total Products Count */}
+                  <div className="mb-3">
+                    <h2 className="text-sm font-extrabold text-black">
+                      Total Products: {products.length}
+                    </h2>
+                  </div>
+
+                  {/* Products Table (Matches PDF exactly) */}
+                  <table className="w-full border-collapse border border-gray-300 text-left text-xs">
+                    <thead>
+                      <tr className="bg-gray-50 print:bg-gray-50 border-b border-gray-300">
+                          <th className="border border-gray-300 px-3 py-2.5 font-bold text-gray-800 w-[10%]">
+                            Image
+                          </th>
+                            <th className="border border-gray-300 px-3 py-2.5 font-bold text-gray-800 w-[14%]">
+                              Item code
+                            </th>
+                              <th className="border border-gray-300 px-3 py-2.5 font-bold text-gray-800 w-[28%]">
+                                Title
+                              </th>
+                                <th className="border border-gray-300 px-3 py-2.5 font-bold text-gray-800 w-[32%]">
+                                  Key features
+                                </th>
+                                  <th className="border border-gray-300 px-2 py-2.5 font-bold text-gray-800 text-center w-[7%]">
+                                    Quantity
+                                  </th>
+                                    <th className="border border-gray-300 px-3 py-2.5 font-bold text-gray-800 text-right w-[9%]">
+                                      Price
+                                    </th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {products.map((product, idx) => {
+                                    const origPrice = product.price || 0;
+                                    const specPrice = product.special_price || origPrice;
+                                    const hasDiscount = origPrice > 0 && specPrice > 0 && specPrice < origPrice;
+
+                                    return (
+                                      <tr
+                                        key={product._id || idx}
+                                        className="border-b border-gray-300 break-inside-avoid page-break-inside-avoid"
+                                      >
+                                        {/* 1. Image */}
+                                        <td className="border border-gray-300 p-2 align-top text-center">
+                                          <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto flex items-center justify-center overflow-hidden">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                              src={resolveImage(product.imgSrc)}
+                                              alt={product.name}
+                                              className="max-w-full max-h-full object-contain"
+                                              onError={(e) => {
+                                                e.currentTarget.src = "/uploads/products/placeholder.jpg";
+                                              }}
+                                            />
+                                          </div>
+                                        </td>
+
+                                        {/* 2. Item Code */}
+                                        <td className="border border-gray-300 p-2.5 align-top text-xs text-gray-700 font-medium whitespace-normal break-words">
+                                          {product.item_code || product.model_number || "-"}
+                                        </td>
+
+                                        {/* 3. Title */}
+                                        <td className="border border-gray-300 p-2.5 align-top">
+                                          <div className="text-xs font-semibold text-gray-900 leading-snug">
+                                            {product.name}
+                                          </div>
+                                        </td>
+
+                                        {/* 4. Key Features Bullets */}
+                                        <td className="border border-gray-300 p-2.5 align-top">
+                                          {Array.isArray(product.highlights) && product.highlights.length > 0 ? (
+                                            <ul className="text-[11px] text-gray-700 space-y-1 leading-tight list-none">
+                                              {product.highlights.map((h, hIdx) => (
+                                                <li key={hIdx} className="flex items-start gap-1">
+                                                  <span className="text-gray-400 font-bold shrink-0">•</span>
+                                                  <span>{h}</span>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          ) : (
+                                            <span className="text-[11px] text-gray-400">-</span>
+                                          )}
+                                        </td>
+
+                                        {/* 5. Quantity */}
+                                        <td className="border border-gray-300 p-2.5 align-top text-center">
+                                          <span className="text-sm font-semibold text-gray-800">
+                                            {product.quantity ?? 1}
+                                          </span>
+                                        </td>
+
+                                        {/* 6. Price */}
+                                        <td className="border border-gray-300 p-2.5 align-top text-right">
+                                          {hasDiscount && origPrice > 0 && (
+                                            <span className="text-xs text-[#d72828] line-through font-semibold block leading-tight">
+                                              ₹{origPrice.toLocaleString("en-IN")}
+                                            </span>
+                                          )}
+                                          <span className="text-sm font-extrabold text-black block leading-snug">
+                                            ₹{specPrice.toLocaleString("en-IN")}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+        )}
+                          </div>
+
+                          {/* ─── Dedicated Print CSS ─── */}
+                          <style jsx global>{`
         @media print {
           @page {
             size: A4 portrait;
@@ -379,7 +379,7 @@ export default function AllProductsPdfClient() {
           }
         }
       `}</style>
-    </div>
-  );
+                        </div>
+                        );
 }
 

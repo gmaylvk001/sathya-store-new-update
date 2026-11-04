@@ -5,7 +5,7 @@ import React, { useEffect, useState } from "react";
 import AddProductPage from "./create";
 import { ToastContainer, toast } from 'react-toastify';
 
-export default function EditProductModal({ product, onClose }) {
+export default function EditProductModal({ product, onClose, onSuccess }) {
   const [productData, setProductData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,15 +42,16 @@ export default function EditProductModal({ product, onClose }) {
 
         <div className="p-8 max-h-[80vh] overflow-y-auto">
           {/* <ToastContainer /> */}
-           <AddProductPage
+          <AddProductPage
             mode="edit"
             productData={productData}
             productId={product._id}
-            onSuccess={() => {
-              toast.success("Product updated successfullyy");
-              setTimeout(() => {
-                onClose(); // Close the modal
-              }, 1500); // Wait 1.5s for toast to show
+            onSuccess={(updatedData) => {
+              if (typeof onSuccess === "function") {
+                onSuccess(updatedData);
+              } else {
+                onClose();
+              }
             }}
           />
           {/* <AddProductPage mode="edit" productData={productData} productId={product._id} /> */}

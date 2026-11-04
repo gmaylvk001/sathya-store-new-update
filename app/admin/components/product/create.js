@@ -22,8 +22,9 @@ const steps = [
   { title: "Others" },
 ];
 
-export default function AddProductPage({ mode = "add", productData = null, productId = null,onSuccess, initialProductData}) {
+export default function AddProductPage({ mode = "add", productData = null, productId = null, onSuccess, initialProductData }) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [jsonHighlightsInput, setJsonHighlightsInput] = useState('');
   const [product, setProduct] = useState({
     name: "",
@@ -39,7 +40,7 @@ export default function AddProductPage({ mode = "add", productData = null, produ
     description: "",
     related_products: [],
     add_ons: "",
-    images: ["","","",""],
+    images: ["", "", "", ""],
     key_specifications: "",
     featured: false,
     tags: [],
@@ -55,62 +56,62 @@ export default function AddProductPage({ mode = "add", productData = null, produ
     files: [],
     meta_title: "",
     meta_description: "",
-    overviewdescription : "",
+    overviewdescription: "",
     overviewImage: [null],
     overviewImageFile: [null],
-    featured_products:[],
+    featured_products: [],
     warranty: "",
     extended_warranty: "",
     product_highlights: [],
-    search_keywords : "",
-     warranty_ids: [],
+    search_keywords: "",
+    warranty_ids: [],
   });
 
-    const [variant, setVariant] = useState([{
-      variant_attribute_name: "",
-      options: "",
-      item_code: "",
-      price: "",
-      special_price: "",
-      quantity: "",
-      stock_status: "In Stock",
-      images: [],
-      status: "Active"
-    }]);
+  const [variant, setVariant] = useState([{
+    variant_attribute_name: "",
+    options: "",
+    item_code: "",
+    price: "",
+    special_price: "",
+    quantity: "",
+    stock_status: "In Stock",
+    images: [],
+    status: "Active"
+  }]);
 
-    const [variantImages, setVariantImages] = useState([{
-      images: []
-    }]);
+  const [variantImages, setVariantImages] = useState([{
+    images: []
+  }]);
   const [tagsOptions, setTagsOptions] = useState([
     { value: "New", label: "New" },
     { value: "Best Seller", label: "Best Seller" },
     { value: "Limited Edition", label: "Limited Edition" },
   ]);
   const applyJsonHighlights = () => {
-  try {
-    const parsedHighlights = JSON.parse(jsonHighlightsInput);
-    
-    // Check if the parsed data is an object.
-    if (typeof parsedHighlights === 'object' && parsedHighlights !== null) {
-      setProduct({
-        ...product,
-        product_highlights: parsedHighlights, // Set the parsed object as the new highlights
-      });
-      alert('JSON highlights applied successfully!');
-    } else {
-      alert('Please enter a valid JSON object.');
+    try {
+      const parsedHighlights = JSON.parse(jsonHighlightsInput);
+
+      // Check if the parsed data is an object.
+      if (typeof parsedHighlights === 'object' && parsedHighlights !== null) {
+        setProduct({
+          ...product,
+          product_highlights: parsedHighlights, // Set the parsed object as the new highlights
+        });
+        alert('JSON highlights applied successfully!');
+      } else {
+        alert('Please enter a valid JSON object.');
+      }
+    } catch (error) {
+      alert(`Invalid JSON format: ${error.message}`);
     }
-  } catch (error) {
-    alert(`Invalid JSON format: ${error.message}`);
-  }
-};
+  };
   const [selectedCategories, setSelectedCategories] = useState(new Set());
   const [categories, setCategories] = useState([]);
   const [brand, setBrand] = useState([]);
   const [expandedCategories, setExpandedCategories] = useState({});
   const [validationError, setValidationError] = useState(null);
   const [Filter, setFilter] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState(""); 
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [allproducts, setAllProducts] = useState([]);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -130,42 +131,42 @@ export default function AddProductPage({ mode = "add", productData = null, produ
 
   // Extended warranty 
   const [warranties, setWarranties] = useState(
-  product.extend_warranty && product.extend_warranty.length > 0
-    ? product.extend_warranty
-    : [{ year: "", amount: "" }]
-);
+    product.extend_warranty && product.extend_warranty.length > 0
+      ? product.extend_warranty
+      : [{ year: "", amount: "" }]
+  );
 
-const handleWarrantyChange = (index, field, value) => {
-  const updated = [...warranties];
-  updated[index][field] = value;
-  setWarranties(updated);
-};
+  const handleWarrantyChange = (index, field, value) => {
+    const updated = [...warranties];
+    updated[index][field] = value;
+    setWarranties(updated);
+  };
 
-const addWarranty = () => {
-  setWarranties([...warranties, { year: "", amount: "" }]);
-};
+  const addWarranty = () => {
+    setWarranties([...warranties, { year: "", amount: "" }]);
+  };
 
-const removeWarranty = (index) => {
-  setWarranties(warranties.filter((_, i) => i !== index));
-};
+  const removeWarranty = (index) => {
+    setWarranties(warranties.filter((_, i) => i !== index));
+  };
 
 
 
 
   const handleRelatedProductsChange = (selectedOptions) => {
-  setProduct(prev => ({
-    ...prev,
-    related_products: selectedOptions.map(option => option.value),
-  }));
-};
+    setProduct(prev => ({
+      ...prev,
+      related_products: selectedOptions.map(option => option.value),
+    }));
+  };
 
 
-const handleAddOnsProductsChange = (selectedOptions) => {
-  setProduct(prev => ({
-    ...prev,
-    add_ons: selectedOptions.map(option => option.value),
-  }));
-};
+  const handleAddOnsProductsChange = (selectedOptions) => {
+    setProduct(prev => ({
+      ...prev,
+      add_ons: selectedOptions.map(option => option.value),
+    }));
+  };
 
 
   const fetchCategories = async () => {
@@ -227,190 +228,190 @@ const handleAddOnsProductsChange = (selectedOptions) => {
   //   }
   // };
   const fetchFilter = async () => {
-  try {
-    const response = await fetch("/api/filter");
-    const result = await response.json();
+    try {
+      const response = await fetch("/api/filter");
+      const result = await response.json();
 
-    if (result.error) {
-      toast.error(result.error);
-      return;
-    }
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
 
-    const data = result.data;
+      const data = result.data;
 
-    // Group filters by filter_group name
-    const groupedFilters = {};
+      // Group filters by filter_group name
+      const groupedFilters = {};
 
-    data.forEach((filter) => {
-      const groupName = filter.filter_group_name || "Other Filters"; // depends on your API structure
-      if (!groupedFilters[groupName]) groupedFilters[groupName] = [];
+      data.forEach((filter) => {
+        const groupName = filter.filter_group_name || "Other Filters"; // depends on your API structure
+        if (!groupedFilters[groupName]) groupedFilters[groupName] = [];
 
-      groupedFilters[groupName].push({
-        value: filter._id,
-        label: filter.filter_name,
+        groupedFilters[groupName].push({
+          value: filter._id,
+          label: filter.filter_name,
+        });
       });
-    });
 
-    // Convert grouped data into format React-Select can understand
-    const filterOptions = Object.entries(groupedFilters).map(([group, options]) => ({
-      label: group,
-      options,
-    }));
+      // Convert grouped data into format React-Select can understand
+      const filterOptions = Object.entries(groupedFilters).map(([group, options]) => ({
+        label: group,
+        options,
+      }));
 
-    setFilter(filterOptions);
-  } catch (error) {
-    toast.error(error.message);
-  }
-};
-
-// ✅ Custom Option with tick symbol
-const CustomOption = (props) => (
-  <components.Option {...props}>
-    <div className="flex items-center justify-between">
-      <span>{props.label}</span>
-      {props.isSelected && <Check size={16} className="text-green-600" />}
-    </div>
-  </components.Option>
-);
-
-
-//    useEffect(() => {
-//     if (mode === "edit" && productData) {
-//         console.log(productData);
-
-//         // Initialize warranties from productData
-//     if (productData.extend_warranty && productData.extend_warranty.length > 0) {
-//       setWarranties(productData.extend_warranty);
-//     } else {
-//       setWarranties([{ year: "", amount: "" }]);
-//     }
-
-//         // This code sets the state for the 'product' object
-//         setProduct(prevProduct => ({
-//             ...productData,
-//             brand_code: productData.brand_code || "", // ensure brand_code defaults to empty string
-//             product_highlights: Array.isArray(productData.product_highlights) 
-//                 ? productData.product_highlights 
-//                 : [],
-//             // Ensure filters are in the correct format for react-select if they are just IDs
-//             filters: productData.filterDetails && productData.filterDetails.length > 0
-//                 ? productData.filterDetails.map(item => ({ value: item._id, label: item.filter_name }))
-//                 : [],
-//             hasVariants: productData.hasVariants || false, // Ensure hasVariants is a boolean
-//             variants: productData.variants || [], // Ensure variants is an array
-//             images: productData.images || ['', '', '', ''], // Ensure images is an array with placeholders
-//             files: productData.files || [],
-//             overviewImage: productData.overview_image || [null],
-//             overviewImageFile: productData.overviewImageFile || [null],
-//             featured_products: productData.featured_products || [],
-//         }));
-
-//         // This code now correctly runs after the setProduct call, setting the JSON input field
-//         if (!Array.isArray(productData.product_highlights) && typeof productData.product_highlights === 'object') {
-//             setJsonHighlightsInput(JSON.stringify(productData.product_highlights, null, 2));
-//         }
-
-//         if(productData.sub_category){
-//           setSelectedCategory(productData.sub_category);
-//         }
-//     }
-// }, [mode, productData, setJsonHighlightsInput,setSelectedCategory]);
-// useEffect(() => {
-//   if (mode === "edit" && productData) {
-//     console.log(productData);
-
-//     // Initialize warranties from productData
-//     if (productData.extend_warranty && productData.extend_warranty.length > 0) {
-//       setWarranties(productData.extend_warranty);
-//     } else {
-//       setWarranties([{ year: "", amount: "" }]);
-//     }
-
-//     // This code sets the state for the 'product' object
-//     setProduct(prevProduct => ({
-//       ...productData,
-//       brand_code: productData.brand_code || "",
-//       product_highlights: Array.isArray(productData.product_highlights) 
-//         ? productData.product_highlights 
-//         : [],
-//       filters: productData.filterDetails && productData.filterDetails.length > 0
-//         ? productData.filterDetails.map(item => ({ value: item._id, label: item.filter_name }))
-//         : [],
-//       hasVariants: productData.hasVariants || false,
-//       variants: productData.variants || [],
-//       images: productData.images || ['', '', '', ''],
-//       files: productData.files || [],
-//       // FIX: Properly handle overview_image array
-//       overviewImage: Array.isArray(productData.overview_image) && productData.overview_image.length > 0 
-//         ? productData.overview_image 
-//         : [null],
-//       overviewImageFile: productData.overviewImageFile || [null],
-//       featured_products: productData.featured_products || [],
-//     }));
-
-//     // This code now correctly runs after the setProduct call, setting the JSON input field
-//     if (!Array.isArray(productData.product_highlights) && typeof productData.product_highlights === 'object') {
-//       setJsonHighlightsInput(JSON.stringify(productData.product_highlights, null, 2));
-//     }
-
-//     if(productData.sub_category){
-//       setSelectedCategory(productData.sub_category);
-//     }
-//   }
-// }, [mode, productData, setJsonHighlightsInput,setSelectedCategory]);
-
-useEffect(() => {
-  if (mode === "edit" && productData) {
-    console.log("Edit mode - Product data:", productData);
-    console.log("Overview images from DB:", productData.overview_image);
-
-    // Initialize warranties from productData
-    if (productData.extend_warranty && productData.extend_warranty.length > 0) {
-      setWarranties(productData.extend_warranty);
-    } else {
-      setWarranties([{ year: "", amount: "" }]);
+      setFilter(filterOptions);
+    } catch (error) {
+      toast.error(error.message);
     }
+  };
 
-    // This code sets the state for the 'product' object
-    setProduct(prevProduct => ({
-      ...productData,
-      brand_code: productData.brand_code || "",
-      product_highlights: Array.isArray(productData.product_highlights) 
-        ? productData.product_highlights 
-        : [],
-      filters: productData.filterDetails && productData.filterDetails.length > 0
-        ? productData.filterDetails.map(item => ({ value: item._id, label: item.filter_name }))
-        : [],
-      hasVariants: productData.hasVariants || false,
-      variants: productData.variants || [],
-      images: productData.images || ['', '', '', ''],
-      files: productData.files || [],
-      add_ons : productData.add_ons || [],
+  // ✅ Custom Option with tick symbol
+  const CustomOption = (props) => (
+    <components.Option {...props}>
+      <div className="flex items-center justify-between">
+        <span>{props.label}</span>
+        {props.isSelected && <Check size={16} className="text-green-600" />}
+      </div>
+    </components.Option>
+  );
 
-      // Add new fields with fallbacks
-      size: productData.size || "",
-      movement: productData.movement || "",
-      model_number: productData.model_number || "",
-      chk_display_store_stock:
-        Number(productData.chk_display_store_stock) === 1 ? 1 : 0,
-      // FIX: Use overview_image from database
-      overviewImage: Array.isArray(productData.overview_image) && productData.overview_image.length > 0 
-        ? productData.overview_image 
-        : [null],
-      overviewImageFile: productData.overviewImageFile || [null],
-      featured_products: productData.featured_products || [],
-      removedOverviewImages: [], // Reset removed images
+
+  //    useEffect(() => {
+  //     if (mode === "edit" && productData) {
+  //         console.log(productData);
+
+  //         // Initialize warranties from productData
+  //     if (productData.extend_warranty && productData.extend_warranty.length > 0) {
+  //       setWarranties(productData.extend_warranty);
+  //     } else {
+  //       setWarranties([{ year: "", amount: "" }]);
+  //     }
+
+  //         // This code sets the state for the 'product' object
+  //         setProduct(prevProduct => ({
+  //             ...productData,
+  //             brand_code: productData.brand_code || "", // ensure brand_code defaults to empty string
+  //             product_highlights: Array.isArray(productData.product_highlights) 
+  //                 ? productData.product_highlights 
+  //                 : [],
+  //             // Ensure filters are in the correct format for react-select if they are just IDs
+  //             filters: productData.filterDetails && productData.filterDetails.length > 0
+  //                 ? productData.filterDetails.map(item => ({ value: item._id, label: item.filter_name }))
+  //                 : [],
+  //             hasVariants: productData.hasVariants || false, // Ensure hasVariants is a boolean
+  //             variants: productData.variants || [], // Ensure variants is an array
+  //             images: productData.images || ['', '', '', ''], // Ensure images is an array with placeholders
+  //             files: productData.files || [],
+  //             overviewImage: productData.overview_image || [null],
+  //             overviewImageFile: productData.overviewImageFile || [null],
+  //             featured_products: productData.featured_products || [],
+  //         }));
+
+  //         // This code now correctly runs after the setProduct call, setting the JSON input field
+  //         if (!Array.isArray(productData.product_highlights) && typeof productData.product_highlights === 'object') {
+  //             setJsonHighlightsInput(JSON.stringify(productData.product_highlights, null, 2));
+  //         }
+
+  //         if(productData.sub_category){
+  //           setSelectedCategory(productData.sub_category);
+  //         }
+  //     }
+  // }, [mode, productData, setJsonHighlightsInput,setSelectedCategory]);
+  // useEffect(() => {
+  //   if (mode === "edit" && productData) {
+  //     console.log(productData);
+
+  //     // Initialize warranties from productData
+  //     if (productData.extend_warranty && productData.extend_warranty.length > 0) {
+  //       setWarranties(productData.extend_warranty);
+  //     } else {
+  //       setWarranties([{ year: "", amount: "" }]);
+  //     }
+
+  //     // This code sets the state for the 'product' object
+  //     setProduct(prevProduct => ({
+  //       ...productData,
+  //       brand_code: productData.brand_code || "",
+  //       product_highlights: Array.isArray(productData.product_highlights) 
+  //         ? productData.product_highlights 
+  //         : [],
+  //       filters: productData.filterDetails && productData.filterDetails.length > 0
+  //         ? productData.filterDetails.map(item => ({ value: item._id, label: item.filter_name }))
+  //         : [],
+  //       hasVariants: productData.hasVariants || false,
+  //       variants: productData.variants || [],
+  //       images: productData.images || ['', '', '', ''],
+  //       files: productData.files || [],
+  //       // FIX: Properly handle overview_image array
+  //       overviewImage: Array.isArray(productData.overview_image) && productData.overview_image.length > 0 
+  //         ? productData.overview_image 
+  //         : [null],
+  //       overviewImageFile: productData.overviewImageFile || [null],
+  //       featured_products: productData.featured_products || [],
+  //     }));
+
+  //     // This code now correctly runs after the setProduct call, setting the JSON input field
+  //     if (!Array.isArray(productData.product_highlights) && typeof productData.product_highlights === 'object') {
+  //       setJsonHighlightsInput(JSON.stringify(productData.product_highlights, null, 2));
+  //     }
+
+  //     if(productData.sub_category){
+  //       setSelectedCategory(productData.sub_category);
+  //     }
+  //   }
+  // }, [mode, productData, setJsonHighlightsInput,setSelectedCategory]);
+
+  useEffect(() => {
+    if (mode === "edit" && productData) {
+      console.log("Edit mode - Product data:", productData);
+      console.log("Overview images from DB:", productData.overview_image);
+
+      // Initialize warranties from productData
+      if (productData.extend_warranty && productData.extend_warranty.length > 0) {
+        setWarranties(productData.extend_warranty);
+      } else {
+        setWarranties([{ year: "", amount: "" }]);
+      }
+
+      // This code sets the state for the 'product' object
+      setProduct(prevProduct => ({
+        ...productData,
+        brand_code: productData.brand_code || "",
+        product_highlights: Array.isArray(productData.product_highlights)
+          ? productData.product_highlights
+          : [],
+        filters: productData.filterDetails && productData.filterDetails.length > 0
+          ? productData.filterDetails.map(item => ({ value: item._id, label: item.filter_name }))
+          : [],
+        hasVariants: productData.hasVariants || false,
+        variants: productData.variants || [],
+        images: productData.images || ['', '', '', ''],
+        files: productData.files || [],
+        add_ons: productData.add_ons || [],
+
+        // Add new fields with fallbacks
+        size: productData.size || "",
+        movement: productData.movement || "",
+        model_number: productData.model_number || "",
+        chk_display_store_stock:
+          Number(productData.chk_display_store_stock) === 1 ? 1 : 0,
+        // FIX: Use overview_image from database
+        overviewImage: Array.isArray(productData.overview_image) && productData.overview_image.length > 0
+          ? productData.overview_image
+          : [null],
+        overviewImageFile: productData.overviewImageFile || [null],
+        featured_products: productData.featured_products || [],
+        removedOverviewImages: [], // Reset removed images
         warranty_ids: productData.warranty_ids || [],
 
-    }));
+      }));
 
-    if(productData.sub_category){
-      setSelectedCategory(productData.sub_category);
+      if (productData.sub_category) {
+        setSelectedCategory(productData.sub_category);
+      }
     }
-  }
-}, [mode, productData, setJsonHighlightsInput,setSelectedCategory]);
+  }, [mode, productData, setJsonHighlightsInput, setSelectedCategory]);
 
-useEffect(() => {
+  useEffect(() => {
     fetchCategories();
     fetchFilter();
     fetchBrand();
@@ -464,9 +465,9 @@ useEffect(() => {
           ? /<[a-z][\s\S]*>/i.test(rawDescription)
             ? rawDescription
             : rawDescription
-                .split(/\n{2,}/)
-                .map((para) => `<p>${para.replace(/\n/g, "<br />")}</p>`)
-                .join("")
+              .split(/\n{2,}/)
+              .map((para) => `<p>${para.replace(/\n/g, "<br />")}</p>`)
+              .join("")
           : "";
 
         setProduct((prev) => ({
@@ -539,359 +540,359 @@ useEffect(() => {
     });
   }, [selectedCategory, categories]);
 
-   const handleVariantFieldChange1 = (index, field, value) => {
-  const updatedVariants = variant.map((v, i) =>
-  i === index
-    ? {
-        ...v,
-        variant_attribute_name: v.variant_attribute_name || "",
-        options: v.options || "",
-        item_code: v.item_code || "",
-        price: v.price || "",
-        special_price: v.special_price || "",
-        quantity: v.quantity || "",
-        stock_status: v.stock_status || "In Stock",
-        status: v.status || "Active",
-        images: v.images || [],
-        [field]: value,
-      }
-    : v
-);
+  const handleVariantFieldChange1 = (index, field, value) => {
+    const updatedVariants = variant.map((v, i) =>
+      i === index
+        ? {
+          ...v,
+          variant_attribute_name: v.variant_attribute_name || "",
+          options: v.options || "",
+          item_code: v.item_code || "",
+          price: v.price || "",
+          special_price: v.special_price || "",
+          quantity: v.quantity || "",
+          stock_status: v.stock_status || "In Stock",
+          status: v.status || "Active",
+          images: v.images || [],
+          [field]: value,
+        }
+        : v
+    );
 
-  setVariant(updatedVariants);
-setProduct(prev => ({
-  ...prev,
-  variants: updatedVariants
-}));
-};
-
-
-  
-    // const handleImageChange1 = (index, filez) => {
-    //   if (filez.length <= 4) {
-    //     const files = Array.from(filez);
-    //     const updatedVariants = [...variant];
-    //     const updatedvariantImages = [...variantImages];
-    //     updatedvariantImages[index].images = files;
-    //     // Store File objects directly in the variant
-    //     updatedVariants[index].images = Array.from(filez).map(file => URL.createObjectURL(file));
-    //     setVariant(updatedVariants);
-    //     setVariantImages(updatedvariantImages);
-    //   } else {
-    //     toast.error("You can only upload up to 4 images.");
-    //   }
-    // if (filez.length <= 4) {
-    //   // const updatedVariants = [...variant];
-    //   // updatedVariants[index].images = Array.from(files).map(file => URL.createObjectURL(file));
-    //   // setVariant(updatedVariants);
-    //   const files = Array.from(filez);
-    //   const updatedVariants = [...variant];
-      
-    //   // Store File objects directly in the variant
-    //   updatedVariants[index].images = files;
-    //   setVariant(updatedVariants);
-    // } else {
-    //   toast.error("You can only upload up to 4 images.");
-    // }
-    // };
-    const handleImageChange1 = (index, files) => {
-      if (files.length > 4) {
-        toast.error("You can only upload up to 4 images.");
-        return;
-      }
-    
-      const fileArray = Array.from(files);
-      const updatedVariantImages = [...variantImages];
-      const updatedVariants = [...variant];
-    
-      // Update the images in the state
-      updatedVariantImages[index].images = Array.from(files); // Store File objects
-      updatedVariants[index].images = Array.from(files).map(file => URL.createObjectURL(file)); // Store URLs
-    
-      setVariantImages(updatedVariantImages);
-      setVariant(updatedVariants);
-    };
-    const handleVariantImageChange = (variantIndex, imgIndex, files) => {
-      if (files.length === 0) return;
-      const file = files[0];
-    
-      const updatedVariants = [...variant];
-      const updatedVariantImages = [...variantImages];
-    
-      updatedVariantImages[variantIndex].images[imgIndex] = file;
-      updatedVariants[variantIndex].images[imgIndex] = URL.createObjectURL(file);
-    
-      setVariantImages(updatedVariantImages);
-      setVariant(updatedVariants);
-    };
-
-    
-    const handleRemoveVariantImage = (variantIndex, imgIndex) => {
-      const updatedVariants = [...variant];
-      const updatedVariantImages = [...variantImages];
-    
-      updatedVariants[variantIndex].images[imgIndex] = null;
-      updatedVariantImages[variantIndex].images[imgIndex] = null;
-    
-      setVariant(updatedVariants);
-      setVariantImages(updatedVariantImages);
-    };
-    // const handleImageChange = (e) => { 
-    //   const files = Array.from(e.target.files);
-    //   if (files.length + product.images.length > 4) {
-    //       alert("You can only upload up to 4 images.");
-    //       return;
-    //   }
-    //   setProduct((prev) => ({
-    //       ...prev,
-    //       files: [...(prev.files || []), ...files], 
-    //       images: [...prev.images, ...files.map((file) => URL.createObjectURL(file))],
-    //   }));
-    // };
-  
-
-
-   const handleImageChange = (index, e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  setProduct(prev => {
-    const newImages = [...prev.images];
-    const newFiles = [...prev.files];
-
-    // ✅ only use blob URL for preview, but keep real file in `files`
-    newImages[index] = URL.createObjectURL(file); 
-    newFiles[index] = file;
-
-    return {
+    setVariant(updatedVariants);
+    setProduct(prev => ({
       ...prev,
-      images: newImages, // preview only
-      files: newFiles,   // actual files for upload
-    };
-  });
-};
-
-//    const handleImageChange = (index, e) => {
-//   const file = e.target.files[0];
-//   if (!file) return;
-
-//   setProduct(prev => {
-//     const newImages = [...prev.images];
-//     const newFiles = [...prev.files];
-
-//     // Ensure the array is long enough
-//     while (newImages.length <= index) newImages.push(null);
-//     while (newFiles.length <= index) newFiles.push(null);
-
-//     newImages[index] = URL.createObjectURL(file);
-//     newFiles[index] = file;
-
-//     return {
-//       ...prev,
-//       images: newImages,
-//       files: newFiles
-//     };
-//   });
-// };
-
-    
-    const handleRemoveImage1 = (index) => {
-      const newImages = [...product.images];
-      const newFiles = [...product.files];
-    
-      newImages[index] = null;
-      newFiles[index] = null;
-    
-      setProduct(prev => ({
-        ...prev,
-        images: newImages,
-        files: newFiles
-      }));
-
-       if (product.images.length > 4)
-        setProduct(prev => {
-          
-          newImages.splice(index, 1);
-          newFiles.splice(index, 1);
-    
-          return {
-            ...prev,
-            images: newImages,
-            files: newFiles
-          };
-        });
-         return;
-    };
-
-    // const handleOverviewImageChange = (e) => {
-    //   const file = e.target.files[0];
-    //   if (!file) return;
-    
-    //   setProduct(prev => ({
-    //     ...prev,
-    //     overviewImage: URL.createObjectURL(file),
-    //     overviewImageFile: file
-    //   }));
-    // };
-
-    // const handleOverviewImageChange = (index, files) => {
-    //   const file = files[0];
-    //   if (!file) return;
-  
-    //   setProduct(prev => {
-    //     const newImages = [...prev.overviewImage];
-    //     const newFiles = [...prev.overviewImageFile];
-        
-    //     newImages[index] = URL.createObjectURL(file);
-    //     newFiles[index] = file;
-  
-    //     return {
-    //       ...prev,
-    //       overviewImage: newImages,
-    //       overviewImageFile: newFiles
-    //     };
-    //   });
-    // };
-  
-    // const handleAddOverviewImage = () => {
-    //   setProduct(prev => ({
-    //     ...prev,
-    //     overviewImage: [...prev.overviewImage, null],
-    //     overviewImageFile: [...prev.overviewImageFile, null]
-    //   }));
-    // };
-  
-    // const handleRemoveOverviewImage = (index) => {
-    //   setProduct(prev => {
-    //     const newImages = [...prev.overviewImage];
-    //     const newFiles = [...prev.overviewImageFile];
-        
-    //     newImages.splice(index, 1);
-    //     newFiles.splice(index, 1);
-  
-    //     return {
-    //       ...prev,
-    //       overviewImage: newImages,
-    //       overviewImageFile: newFiles
-    //     };
-    //   });
-    // };
-  
-
-    // const handleOverviewImageChange = (index, files) => {
-    //   const file = files[0];
-    //   if (!file) return;
-  
-    //   setProduct(prev => {
-    //     const newImages = [...prev.overviewImage];
-    //     const newFiles = [...prev.overviewImageFile];
-        
-    //     newImages[index] = URL.createObjectURL(file);
-    //     newFiles[index] = file;
-  
-    //     return {
-    //       ...prev,
-    //       overviewImage: newImages,
-    //       overviewImageFile: newFiles
-    //     };
-    //   });
-    // };
-    const handleOverviewImageChange = (index, files) => {
-  const file = files[0];
-  if (!file) return;
-
-  setProduct(prev => {
-    const newImages = [...prev.overviewImage];
-    const newFiles = [...prev.overviewImageFile];
-    
-    // Ensure arrays are long enough
-    while (newImages.length <= index) newImages.push(null);
-    while (newFiles.length <= index) newFiles.push(null);
-    
-    newImages[index] = URL.createObjectURL(file);
-    newFiles[index] = file;
-
-    return {
-      ...prev,
-      overviewImage: newImages,
-      overviewImageFile: newFiles
-    };
-  });
-};
-
-  const AddproductImage = () => {
-  setProduct(prev => ({
-    ...prev,
-    images: [...(prev.images || []), ""],
-    files: [...(prev.files || []), null],
-  }));
-};
-
-
-
-  
-    const handleAddOverviewImage = () => {
-  setProduct(prev => ({
-    ...prev,
-    overviewImage: [...prev.overviewImage, null],
-    overviewImageFile: [...prev.overviewImageFile, null]
-  }));
-};
-  
-   const handleRemoveOverviewImage = (index) => {
-  setProduct(prev => {
-    const newImages = [...prev.overviewImage];
-    const newFiles = [...prev.overviewImageFile];
-    
-    // Store the removed overview image filename for backend cleanup
-    const removedImage = newImages[index];
-    
-    newImages.splice(index, 1);
-    newFiles.splice(index, 1);
-
-    console.log('Removing overview image:', {
-      index,
-      removedImage,
-      currentImages: prev.overviewImage,
-      newImages: newImages
-    });
-
-    return {
-      ...prev,
-      overviewImage: newImages,
-      overviewImageFile: newFiles,
-      // Keep track of removed OVERVIEW images only
-      removedOverviewImages: [...(prev.removedOverviewImages || []), removedImage]
-    };
-  });
-};
-    const handleRemoveImage = (variantIndex, imgIndex) => {
-      const updatedVariants = [...variant];
-      updatedVariants[variantIndex].images.splice(imgIndex, 1);
-      setVariant(updatedVariants);
-    };
-
-   const handleAddVariant1 = () => {
-  const newVariant = {
-    variant_attribute_name: "",
-    options: "",
-    item_code: "",
-    price: "",
-    special_price: "",
-    quantity: "",
-    stock_status: "In Stock",
-    images: [],
-    status: "Active"
+      variants: updatedVariants
+    }));
   };
 
-  setVariant(prev => [...prev, newVariant]);
-  setVariantImages(prev => [...prev, { images: [] }]);
 
-  setProduct(prev => ({
-    ...prev,
-    variants: [...prev.variants, newVariant]
-  }));
-};
+
+  // const handleImageChange1 = (index, filez) => {
+  //   if (filez.length <= 4) {
+  //     const files = Array.from(filez);
+  //     const updatedVariants = [...variant];
+  //     const updatedvariantImages = [...variantImages];
+  //     updatedvariantImages[index].images = files;
+  //     // Store File objects directly in the variant
+  //     updatedVariants[index].images = Array.from(filez).map(file => URL.createObjectURL(file));
+  //     setVariant(updatedVariants);
+  //     setVariantImages(updatedvariantImages);
+  //   } else {
+  //     toast.error("You can only upload up to 4 images.");
+  //   }
+  // if (filez.length <= 4) {
+  //   // const updatedVariants = [...variant];
+  //   // updatedVariants[index].images = Array.from(files).map(file => URL.createObjectURL(file));
+  //   // setVariant(updatedVariants);
+  //   const files = Array.from(filez);
+  //   const updatedVariants = [...variant];
+
+  //   // Store File objects directly in the variant
+  //   updatedVariants[index].images = files;
+  //   setVariant(updatedVariants);
+  // } else {
+  //   toast.error("You can only upload up to 4 images.");
+  // }
+  // };
+  const handleImageChange1 = (index, files) => {
+    if (files.length > 4) {
+      toast.error("You can only upload up to 4 images.");
+      return;
+    }
+
+    const fileArray = Array.from(files);
+    const updatedVariantImages = [...variantImages];
+    const updatedVariants = [...variant];
+
+    // Update the images in the state
+    updatedVariantImages[index].images = Array.from(files); // Store File objects
+    updatedVariants[index].images = Array.from(files).map(file => URL.createObjectURL(file)); // Store URLs
+
+    setVariantImages(updatedVariantImages);
+    setVariant(updatedVariants);
+  };
+  const handleVariantImageChange = (variantIndex, imgIndex, files) => {
+    if (files.length === 0) return;
+    const file = files[0];
+
+    const updatedVariants = [...variant];
+    const updatedVariantImages = [...variantImages];
+
+    updatedVariantImages[variantIndex].images[imgIndex] = file;
+    updatedVariants[variantIndex].images[imgIndex] = URL.createObjectURL(file);
+
+    setVariantImages(updatedVariantImages);
+    setVariant(updatedVariants);
+  };
+
+
+  const handleRemoveVariantImage = (variantIndex, imgIndex) => {
+    const updatedVariants = [...variant];
+    const updatedVariantImages = [...variantImages];
+
+    updatedVariants[variantIndex].images[imgIndex] = null;
+    updatedVariantImages[variantIndex].images[imgIndex] = null;
+
+    setVariant(updatedVariants);
+    setVariantImages(updatedVariantImages);
+  };
+  // const handleImageChange = (e) => { 
+  //   const files = Array.from(e.target.files);
+  //   if (files.length + product.images.length > 4) {
+  //       alert("You can only upload up to 4 images.");
+  //       return;
+  //   }
+  //   setProduct((prev) => ({
+  //       ...prev,
+  //       files: [...(prev.files || []), ...files], 
+  //       images: [...prev.images, ...files.map((file) => URL.createObjectURL(file))],
+  //   }));
+  // };
+
+
+
+  const handleImageChange = (index, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setProduct(prev => {
+      const newImages = [...prev.images];
+      const newFiles = [...prev.files];
+
+      // ✅ only use blob URL for preview, but keep real file in `files`
+      newImages[index] = URL.createObjectURL(file);
+      newFiles[index] = file;
+
+      return {
+        ...prev,
+        images: newImages, // preview only
+        files: newFiles,   // actual files for upload
+      };
+    });
+  };
+
+  //    const handleImageChange = (index, e) => {
+  //   const file = e.target.files[0];
+  //   if (!file) return;
+
+  //   setProduct(prev => {
+  //     const newImages = [...prev.images];
+  //     const newFiles = [...prev.files];
+
+  //     // Ensure the array is long enough
+  //     while (newImages.length <= index) newImages.push(null);
+  //     while (newFiles.length <= index) newFiles.push(null);
+
+  //     newImages[index] = URL.createObjectURL(file);
+  //     newFiles[index] = file;
+
+  //     return {
+  //       ...prev,
+  //       images: newImages,
+  //       files: newFiles
+  //     };
+  //   });
+  // };
+
+
+  const handleRemoveImage1 = (index) => {
+    const newImages = [...product.images];
+    const newFiles = [...product.files];
+
+    newImages[index] = null;
+    newFiles[index] = null;
+
+    setProduct(prev => ({
+      ...prev,
+      images: newImages,
+      files: newFiles
+    }));
+
+    if (product.images.length > 4)
+      setProduct(prev => {
+
+        newImages.splice(index, 1);
+        newFiles.splice(index, 1);
+
+        return {
+          ...prev,
+          images: newImages,
+          files: newFiles
+        };
+      });
+    return;
+  };
+
+  // const handleOverviewImageChange = (e) => {
+  //   const file = e.target.files[0];
+  //   if (!file) return;
+
+  //   setProduct(prev => ({
+  //     ...prev,
+  //     overviewImage: URL.createObjectURL(file),
+  //     overviewImageFile: file
+  //   }));
+  // };
+
+  // const handleOverviewImageChange = (index, files) => {
+  //   const file = files[0];
+  //   if (!file) return;
+
+  //   setProduct(prev => {
+  //     const newImages = [...prev.overviewImage];
+  //     const newFiles = [...prev.overviewImageFile];
+
+  //     newImages[index] = URL.createObjectURL(file);
+  //     newFiles[index] = file;
+
+  //     return {
+  //       ...prev,
+  //       overviewImage: newImages,
+  //       overviewImageFile: newFiles
+  //     };
+  //   });
+  // };
+
+  // const handleAddOverviewImage = () => {
+  //   setProduct(prev => ({
+  //     ...prev,
+  //     overviewImage: [...prev.overviewImage, null],
+  //     overviewImageFile: [...prev.overviewImageFile, null]
+  //   }));
+  // };
+
+  // const handleRemoveOverviewImage = (index) => {
+  //   setProduct(prev => {
+  //     const newImages = [...prev.overviewImage];
+  //     const newFiles = [...prev.overviewImageFile];
+
+  //     newImages.splice(index, 1);
+  //     newFiles.splice(index, 1);
+
+  //     return {
+  //       ...prev,
+  //       overviewImage: newImages,
+  //       overviewImageFile: newFiles
+  //     };
+  //   });
+  // };
+
+
+  // const handleOverviewImageChange = (index, files) => {
+  //   const file = files[0];
+  //   if (!file) return;
+
+  //   setProduct(prev => {
+  //     const newImages = [...prev.overviewImage];
+  //     const newFiles = [...prev.overviewImageFile];
+
+  //     newImages[index] = URL.createObjectURL(file);
+  //     newFiles[index] = file;
+
+  //     return {
+  //       ...prev,
+  //       overviewImage: newImages,
+  //       overviewImageFile: newFiles
+  //     };
+  //   });
+  // };
+  const handleOverviewImageChange = (index, files) => {
+    const file = files[0];
+    if (!file) return;
+
+    setProduct(prev => {
+      const newImages = [...prev.overviewImage];
+      const newFiles = [...prev.overviewImageFile];
+
+      // Ensure arrays are long enough
+      while (newImages.length <= index) newImages.push(null);
+      while (newFiles.length <= index) newFiles.push(null);
+
+      newImages[index] = URL.createObjectURL(file);
+      newFiles[index] = file;
+
+      return {
+        ...prev,
+        overviewImage: newImages,
+        overviewImageFile: newFiles
+      };
+    });
+  };
+
+  const AddproductImage = () => {
+    setProduct(prev => ({
+      ...prev,
+      images: [...(prev.images || []), ""],
+      files: [...(prev.files || []), null],
+    }));
+  };
+
+
+
+
+  const handleAddOverviewImage = () => {
+    setProduct(prev => ({
+      ...prev,
+      overviewImage: [...prev.overviewImage, null],
+      overviewImageFile: [...prev.overviewImageFile, null]
+    }));
+  };
+
+  const handleRemoveOverviewImage = (index) => {
+    setProduct(prev => {
+      const newImages = [...prev.overviewImage];
+      const newFiles = [...prev.overviewImageFile];
+
+      // Store the removed overview image filename for backend cleanup
+      const removedImage = newImages[index];
+
+      newImages.splice(index, 1);
+      newFiles.splice(index, 1);
+
+      console.log('Removing overview image:', {
+        index,
+        removedImage,
+        currentImages: prev.overviewImage,
+        newImages: newImages
+      });
+
+      return {
+        ...prev,
+        overviewImage: newImages,
+        overviewImageFile: newFiles,
+        // Keep track of removed OVERVIEW images only
+        removedOverviewImages: [...(prev.removedOverviewImages || []), removedImage]
+      };
+    });
+  };
+  const handleRemoveImage = (variantIndex, imgIndex) => {
+    const updatedVariants = [...variant];
+    updatedVariants[variantIndex].images.splice(imgIndex, 1);
+    setVariant(updatedVariants);
+  };
+
+  const handleAddVariant1 = () => {
+    const newVariant = {
+      variant_attribute_name: "",
+      options: "",
+      item_code: "",
+      price: "",
+      special_price: "",
+      quantity: "",
+      stock_status: "In Stock",
+      images: [],
+      status: "Active"
+    };
+
+    setVariant(prev => [...prev, newVariant]);
+    setVariantImages(prev => [...prev, { images: [] }]);
+
+    setProduct(prev => ({
+      ...prev,
+      variants: [...prev.variants, newVariant]
+    }));
+  };
 
 
   const buildCategoryTree = (categories, parentId = "none") => {
@@ -1017,7 +1018,7 @@ setProduct(prev => ({
   //     );
   //     console.log(optionsArrays);
   //     const allCombinations = combinations(...optionsArrays);
-      
+
   //     const newVariants = allCombinations.map(combination => {
   //       const existingVariant = product.variants.find(variant =>
   //         combination.every(c =>
@@ -1054,44 +1055,44 @@ setProduct(prev => ({
   //     }));
   //   }
   // }, [product.variantAttributes, product.hasVariants]);
- 
+
   const handleCategoryChange = (category) => {
-  setSelectedCategory(category._id);
-  
-  // Find the parent category
-  const findParentCategory = (categories, childId) => {
-    for (const cat of categories) {
-      if (cat.children && cat.children.some(child => child._id === childId)) {
-        return cat._id;
+    setSelectedCategory(category._id);
+
+    // Find the parent category
+    const findParentCategory = (categories, childId) => {
+      for (const cat of categories) {
+        if (cat.children && cat.children.some(child => child._id === childId)) {
+          return cat._id;
+        }
+        if (cat.children) {
+          const found = findParentCategory(cat.children, childId);
+          if (found) return found;
+        }
       }
-      if (cat.children) {
-        const found = findParentCategory(cat.children, childId);
-        if (found) return found;
-      }
-    }
-    return null;
+      return null;
+    };
+
+    const parentCategoryId = findParentCategory(categories, category._id);
+    setSelectedParentCategory(parentCategoryId);
+
+    setProduct((prev) => ({
+      ...prev,
+      sub_category: category._id,
+      category: parentCategoryId, // Set the parent category
+    }));
   };
 
-  const parentCategoryId = findParentCategory(categories, category._id);
-  setSelectedParentCategory(parentCategoryId);
 
-  setProduct((prev) => ({
-    ...prev,
-    sub_category: category._id,
-    category: parentCategoryId, // Set the parent category
-  }));
-};
+  //   useEffect(() => {
+  //   if (product) {
+  //     setSelectedCategory(product.category); // This is the subcategory ID
+  //   }
+  // }, [product]);
 
 
-//   useEffect(() => {
-//   if (product) {
-//     setSelectedCategory(product.category); // This is the subcategory ID
-//   }
-// }, [product]);
 
 
-  
-  
   const renderCategoryTree = (categories, level = 0) => {
     return categories.map((category) => (
       <div key={category._id} style={{ paddingLeft: `${level * 20}px` }}>
@@ -1109,109 +1110,108 @@ setProduct(prev => ({
             </button>
           )}
           {category.children.length == 0 && (
-          <input
-             type="checkbox"
-            name="category"
-            value={category._id}
-            checked={selectedCategory === category._id}
-            onChange={() => handleCategoryChange(category)}
-            className="mr-2"
-          />
+            <input
+              type="checkbox"
+              name="category"
+              value={category._id}
+              checked={selectedCategory === category._id}
+              onChange={() => handleCategoryChange(category)}
+              className="mr-2"
+            />
           )}
           <span
-            className={`font-medium ${
-              selectedCategory === category._id ? "text-[#d72828]" : "text-gray-700"
-            }`}
+            className={`font-medium ${selectedCategory === category._id ? "text-[#d72828]" : "text-gray-700"
+              }`}
           >
             {category.category_name}
           </span>
         </div>
-        {expandedCategories[category._id] && 
+        {expandedCategories[category._id] &&
           renderCategoryTree(category.children, level + 1)}
       </div>
     ));
   };
 
   useEffect(() => {
-  if (
-    product.hasVariants &&
-    product.variantAttributes.length > 0 &&
-    (!product.variants || product.variants.length === 0)
-  ) {
-    const validAttributes = product.variantAttributes.filter(
-      (attr) => attr.name && attr.options.length > 0
-    );
-
-    if (validAttributes.length === 0) return;
-
-    const optionsArrays = validAttributes.map((attr) =>
-      attr.options.map((opt) => ({ [attr.name]: opt }))
-    );
-
-    const allCombinations = combinations(...optionsArrays);
-
-    const newVariants = allCombinations.map((combination) => {
-      const existingVariant = product.variants?.find((variant) =>
-        combination.every((c) =>
-          variant.attributes?.some(
-            (attr) =>
-              attr.name === Object.keys(c)[0] &&
-              attr.value === Object.values(c)[0]
-          )
-        )
+    if (
+      product.hasVariants &&
+      product.variantAttributes.length > 0 &&
+      (!product.variants || product.variants.length === 0)
+    ) {
+      const validAttributes = product.variantAttributes.filter(
+        (attr) => attr.name && attr.options.length > 0
       );
 
-      return (
-        existingVariant || {
-          attributes: combination.map((c) => ({
-            name: Object.keys(c)[0],
-            value: Object.values(c)[0],
-          })),
-          item_code: "",
-          price: "",
-          special_price: "",
-          quantity: "",
-          images: [],
-          stock_status: "",
-          status: "",
-        }
-      );
-    });
+      if (validAttributes.length === 0) return;
 
-    setProduct((prev) => ({
-      ...prev,
-      variants: newVariants.filter(
-        (v, index, self) =>
-          index ===
-          self.findIndex((t) =>
-            t.attributes.every((attr) =>
-              v.attributes.some(
-                (a) => a.name === attr.name && a.value === attr.value
-              )
+      const optionsArrays = validAttributes.map((attr) =>
+        attr.options.map((opt) => ({ [attr.name]: opt }))
+      );
+
+      const allCombinations = combinations(...optionsArrays);
+
+      const newVariants = allCombinations.map((combination) => {
+        const existingVariant = product.variants?.find((variant) =>
+          combination.every((c) =>
+            variant.attributes?.some(
+              (attr) =>
+                attr.name === Object.keys(c)[0] &&
+                attr.value === Object.values(c)[0]
             )
           )
-      ),
-    }));
-  }
-}, [product.variantAttributes, product.hasVariants]);
+        );
+
+        return (
+          existingVariant || {
+            attributes: combination.map((c) => ({
+              name: Object.keys(c)[0],
+              value: Object.values(c)[0],
+            })),
+            item_code: "",
+            price: "",
+            special_price: "",
+            quantity: "",
+            images: [],
+            stock_status: "",
+            status: "",
+          }
+        );
+      });
+
+      setProduct((prev) => ({
+        ...prev,
+        variants: newVariants.filter(
+          (v, index, self) =>
+            index ===
+            self.findIndex((t) =>
+              t.attributes.every((attr) =>
+                v.attributes.some(
+                  (a) => a.name === attr.name && a.value === attr.value
+                )
+              )
+            )
+        ),
+      }));
+    }
+  }, [product.variantAttributes, product.hasVariants]);
 
 
   const handleVariantFieldChange = async (variantIndex, attrIndex, field, value) => {
     let uploadedImagePaths = [];
-  
+
     if (field === 'images' && value.length > 0) {
       uploadedImagePaths = await uploadImages(value);
     }
-  
+
     const updatedVariants = product.variants.map((variant, i) => {
       if (i === variantIndex) {
         const updatedAttributes = variant.attributes.map((attr, j) => {
           if (j === attrIndex) {
-            return { 
-              ...attr, 
-              [field]: field === "images" 
-                ? [...(attr.images || []), ...uploadedImagePaths] 
-                : value 
+            return {
+              ...attr,
+              [field]: field === "images"
+                ? [...(attr.images || []), ...uploadedImagePaths]
+                : value
             };
           }
           return attr;
@@ -1220,7 +1220,7 @@ setProduct(prev => ({
       }
       return variant;
     });
-  
+
     setProduct(prev => ({ ...prev, variants: updatedVariants }));
   };
 
@@ -1229,72 +1229,72 @@ setProduct(prev => ({
     const randomString = Math.random().toString(36).substr(2, 9);
     return `${timestamp}-${randomString}-${originalFileName}`;
   };
-  
-//  const uploadImages = async (files) => {
-//   const uploadedFilePaths = [];
 
-//   for (let i = 0; i < files.length; i++) {
-//     const file = files[i];
-//     if (!file) continue; // ✅ Skip null/undefined files
+  //  const uploadImages = async (files) => {
+  //   const uploadedFilePaths = [];
 
-//     const formData = new FormData();
-//     const uniqueFileName = generateUniqueFileName(file.name);
-//     formData.append("image", file);
+  //   for (let i = 0; i < files.length; i++) {
+  //     const file = files[i];
+  //     if (!file) continue; // ✅ Skip null/undefined files
 
-//     try {
-//       const response = await fetch("/api/product/upload", {
-//         method: "POST",
-//         body: formData,
-//       });
+  //     const formData = new FormData();
+  //     const uniqueFileName = generateUniqueFileName(file.name);
+  //     formData.append("image", file);
 
-//       if (response.ok) {
-//         const { savedImages } = await response.json();
-//         uploadedFilePaths.push(savedImages); // push string or array based on your API
-//       } else {
-//         toast.error(response.statusText);
-//       }
-//     } catch (error) {
-//       toast.error(error.message);
-//     }
-//   }
+  //     try {
+  //       const response = await fetch("/api/product/upload", {
+  //         method: "POST",
+  //         body: formData,
+  //       });
 
-//   return uploadedFilePaths;
-// };
+  //       if (response.ok) {
+  //         const { savedImages } = await response.json();
+  //         uploadedFilePaths.push(savedImages); // push string or array based on your API
+  //       } else {
+  //         toast.error(response.statusText);
+  //       }
+  //     } catch (error) {
+  //       toast.error(error.message);
+  //     }
+  //   }
 
-const uploadImages = async (files) => {
-  const uploadedFilePaths = [];
+  //   return uploadedFilePaths;
+  // };
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    if (!file) continue;
+  const uploadImages = async (files) => {
+    const uploadedFilePaths = [];
 
-    const formData = new FormData();
-    const uniqueFileName = generateUniqueFileName(file.name);
-    formData.append("image", file);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file) continue;
 
-    try {
-      const response = await fetch("/api/product/upload", {
-        method: "POST",
-        body: formData,
-      });
+      const formData = new FormData();
+      const uniqueFileName = generateUniqueFileName(file.name);
+      formData.append("image", file);
 
-      if (response.ok) {
-        const { savedImages } = await response.json();
-        // Extract the original filename from the generated unique name
-        const parts = savedImages.split('-');
-        const originalFileName = parts.pop();
-        uploadedFilePaths.push(originalFileName); // Push only the original filename
-      } else {
-        toast.error(response.statusText);
+      try {
+        const response = await fetch("/api/product/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (response.ok) {
+          const { savedImages } = await response.json();
+          // Extract the original filename from the generated unique name
+          const parts = savedImages.split('-');
+          const originalFileName = parts.pop();
+          uploadedFilePaths.push(originalFileName); // Push only the original filename
+        } else {
+          toast.error(response.statusText);
+        }
+      } catch (error) {
+        toast.error(error.message);
       }
-    } catch (error) {
-      toast.error(error.message);
     }
-  }
 
-  return uploadedFilePaths;
-};
-  
+    return uploadedFilePaths;
+  };
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setProduct((prev) => {
@@ -1314,7 +1314,7 @@ const uploadImages = async (files) => {
   };
 
   const handleTagsChange = (selectedOptions) => {
-    
+
     setProduct((prev) => ({
       ...prev,
       tags: selectedOptions.map((option) => option.value),
@@ -1334,48 +1334,48 @@ const uploadImages = async (files) => {
     }));
   };
 
-  const fetchallproducts =async () =>{
+  const fetchallproducts = async () => {
     try {
-       const response = await fetch("/api/product/get");
-       const result = await response.json();
-       if (result.error) {
-         toast.error(result.error);
-       } else {
-         const data = result;
-         console.log(data);
-         const prodOptions = data.map((prod) => ({
-           value: prod._id,
-           label: prod.name,
-         }));
-         setAllProducts(prodOptions);
-       }
-     } catch (error) {
-       toast.error(error);
-     } finally {
-     }
-   }
-// const handleFilterChange = (selectedOptions) => {
-//   console.log(selectedOptions);
-//   // Extract only the 'value' from each selected option object
-//   const selectedValues = selectedOptions.map((option) => option.value);
- 
-//   setProduct((prev) => ({
-//     ...prev,
-//     // Store an array of strings, not objects
-//     filters: selectedValues,
-//   }));
-// };
- 
-const handleupdatefilterchange = (filters) => {
-  const selectedValues = filters.map((option) => option.value);
- 
-  setProduct((prev) => ({
-    ...prev,
-    // Store an array of strings, not objects
-    filters: selectedValues,
-  }));
-}
- 
+      const response = await fetch("/api/product/get?field=name");
+      const result = await response.json();
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        const data = result;
+        console.log(data);
+        const prodOptions = data.map((prod) => ({
+          value: prod._id,
+          label: prod.name,
+        }));
+        setAllProducts(prodOptions);
+      }
+    } catch (error) {
+      toast.error(error);
+    } finally {
+    }
+  }
+  // const handleFilterChange = (selectedOptions) => {
+  //   console.log(selectedOptions);
+  //   // Extract only the 'value' from each selected option object
+  //   const selectedValues = selectedOptions.map((option) => option.value);
+
+  //   setProduct((prev) => ({
+  //     ...prev,
+  //     // Store an array of strings, not objects
+  //     filters: selectedValues,
+  //   }));
+  // };
+
+  const handleupdatefilterchange = (filters) => {
+    const selectedValues = filters.map((option) => option.value);
+
+    setProduct((prev) => ({
+      ...prev,
+      // Store an array of strings, not objects
+      filters: selectedValues,
+    }));
+  }
+
   const handleFilterChange = (selectedOptions) => {
     console.log(selectedOptions);
     setProduct(prev => ({
@@ -1385,135 +1385,139 @@ const handleupdatefilterchange = (filters) => {
   };
 
   const handleHighlightChange = (index, value) => {
-  setProduct((prevProduct) => {
-    const updatedHighlights = [...prevProduct.product_highlights];
-    updatedHighlights[index] = value;
-    return {
-      ...prevProduct,
-      product_highlights: updatedHighlights,
-    };
-  });
-};
-  
+    setProduct((prevProduct) => {
+      const updatedHighlights = [...prevProduct.product_highlights];
+      updatedHighlights[index] = value;
+      return {
+        ...prevProduct,
+        product_highlights: updatedHighlights,
+      };
+    });
+  };
+
   const addHighlight = () => {
-  setProduct((prevProduct) => ({
-    ...prevProduct,
-    product_highlights: [...prevProduct.product_highlights, ""], // Add an empty string for a new highlight input
-  }));
-};
-  
+    setProduct((prevProduct) => ({
+      ...prevProduct,
+      product_highlights: [...prevProduct.product_highlights, ""], // Add an empty string for a new highlight input
+    }));
+  };
+
   const removeHighlight = (indexToRemove) => {
-  setProduct((prevProduct) => ({
-    ...prevProduct,
-    product_highlights: prevProduct.product_highlights.filter(
-      (_, index) => index !== indexToRemove
-    ),
-  }));
-};
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    const formData = new FormData();
-    
-    // Get existing product images (filter out blob URLs and nulls)
-    const existingProductImages = product.images.filter(
-      (img) => typeof img === "string" && !img.startsWith("blob:")
-    );
+    setProduct((prevProduct) => ({
+      ...prevProduct,
+      product_highlights: prevProduct.product_highlights.filter(
+        (_, index) => index !== indexToRemove
+      ),
+    }));
+  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const formData = new FormData();
 
-    // Get existing overview images (filter out blob URLs and nulls)
-    const existingOverviewImages = product.overviewImage.filter(
-      (img) => img && typeof img === "string" && !img.startsWith("blob:")
-    );
+      // Get existing product images (filter out blob URLs and nulls)
+      const existingProductImages = product.images.filter(
+        (img) => typeof img === "string" && !img.startsWith("blob:")
+      );
 
-    // Filter out empty warranty entries
-    const validWarranties = warranties.filter(
-      warranty => warranty.year !== "" && warranty.amount !== "" && warranty.year != null && warranty.amount != null
-    );
+      // Get existing overview images (filter out blob URLs and nulls)
+      const existingOverviewImages = product.overviewImage.filter(
+        (img) => img && typeof img === "string" && !img.startsWith("blob:")
+      );
 
-    // Clean product data
-    const { brand_code, removedOverviewImages, ...restProduct } = product;
-    const trimmedBrandCode = (brand_code ?? '').toString().trim();
+      // Filter out empty warranty entries
+      const validWarranties = warranties.filter(
+        warranty => warranty.year !== "" && warranty.amount !== "" && warranty.year != null && warranty.amount != null
+      );
 
-    const cleanedProduct = {
-      ...restProduct,
-      ...(trimmedBrandCode ? { brand_code: trimmedBrandCode } : {}),
-      slug: (product.slug || "").trim() || slugifyName(product.name),
-      extend_warranty: validWarranties.length > 0 ? validWarranties : [],
-      filters: (product.filters || []).map(f => f.value),
-      related_products: product.related_products || [],
-      add_ons: product.add_ons || [],
-      category: product.category || "",
-      product_highlights: product.product_highlights || [],
-      chk_display_store_stock:
-        Number(product.chk_display_store_stock) === 1 ? 1 : 0,
-      // Product images
-      images: existingProductImages,
-      // FIX: Send as overview_image (database field name) not overviewImage
-      overview_image: existingOverviewImages,
-      // Send removed overview images to backend
-      removedOverviewImages: removedOverviewImages || []
-    };
+      // Clean product data
+      const { brand_code, removedOverviewImages, ...restProduct } = product;
+      const trimmedBrandCode = (brand_code ?? '').toString().trim();
 
-    console.log("Overview images to save:", existingOverviewImages);
-    console.log("Overview images to remove:", removedOverviewImages);
+      const cleanedProduct = {
+        ...restProduct,
+        ...(trimmedBrandCode ? { brand_code: trimmedBrandCode } : {}),
+        slug: (product.slug || "").trim() || slugifyName(product.name),
+        extend_warranty: validWarranties.length > 0 ? validWarranties : [],
+        filters: (product.filters || []).map(f => f.value),
+        related_products: product.related_products || [],
+        add_ons: product.add_ons || [],
+        category: product.category || "",
+        product_highlights: product.product_highlights || [],
+        chk_display_store_stock:
+          Number(product.chk_display_store_stock) === 1 ? 1 : 0,
+        // Product images
+        images: existingProductImages,
+        // FIX: Send as overview_image (database field name) not overviewImage
+        overview_image: existingOverviewImages,
+        // Send removed overview images to backend
+        removedOverviewImages: removedOverviewImages || []
+      };
 
-    // Upload product images
-    (product.files || []).forEach(file => {
-      if (file) formData.append("images", file);
-    });
+      console.log("Overview images to save:", existingOverviewImages);
+      console.log("Overview images to remove:", removedOverviewImages);
 
-    // Upload NEW overview images
-    (product.overviewImageFile || []).forEach(file => {
-      if (file) formData.append("overviewImages", file);
-    });
-
-    // Variants with images
-    const variantsWithImages = (product.variants || []).map((variant, i) => {
-      const files = variantImages[i]?.images || [];
-      files.forEach((file, j) => {
-        if (file) {
-          formData.append(`variant_${i}_image_${j}`, file);
-        }
+      // Upload product images
+      (product.files || []).forEach(file => {
+        if (file) formData.append("images", file);
       });
-      return { ...variant, images: [] };
-    });
 
-    const finalProductData = {
-      ...cleanedProduct,
-      extend_warranty: validWarranties,
-    };
+      // Upload NEW overview images
+      (product.overviewImageFile || []).forEach(file => {
+        if (file) formData.append("overviewImages", file);
+      });
 
-    formData.append("product", JSON.stringify(finalProductData));
-    formData.append("variant", JSON.stringify(variantsWithImages));
-    formData.append("highlights", JSON.stringify(cleanedProduct.product_highlights));
+      // Variants with images
+      const variantsWithImages = (product.variants || []).map((variant, i) => {
+        const files = variantImages[i]?.images || [];
+        files.forEach((file, j) => {
+          if (file) {
+            formData.append(`variant_${i}_image_${j}`, file);
+          }
+        });
+        return { ...variant, images: [] };
+      });
 
-    const apiUrl = mode === "edit" ? `/api/product/update/${productId}` : "/api/product/add";
-    const method = mode === "edit" ? "PUT" : "POST";
+      const finalProductData = {
+        ...cleanedProduct,
+        extend_warranty: validWarranties,
+      };
 
-    const response = await fetch(apiUrl, { method, body: formData });
-    const responseData = await response.json();
+      formData.append("product", JSON.stringify(finalProductData));
+      formData.append("variant", JSON.stringify(variantsWithImages));
+      formData.append("highlights", JSON.stringify(cleanedProduct.product_highlights));
 
-    if (response.ok) {
-      toast.success(mode === "edit" ? "Product updated" : "Product added");
-      if (mode === "edit" && typeof onSuccess === "function") onSuccess();
-      else router.push("/admin/product");
-    } else {
-      toast.error(responseData.error || "Something went wrong");
+      const apiUrl = mode === "edit" ? `/api/product/update/${productId}` : "/api/product/add";
+      const method = mode === "edit" ? "PUT" : "POST";
+
+      const response = await fetch(apiUrl, { method, body: formData });
+      const responseData = await response.json();
+
+      if (response.ok) {
+        toast.success(mode === "edit" ? "Product updated" : "Product added");
+        if (mode === "edit" && typeof onSuccess === "function") onSuccess(responseData.product || { _id: productId, ...finalProductData });
+        else router.push("/admin/product");
+      } else {
+        toast.error(responseData.error || "Something went wrong");
+      }
+    } catch (error) {
+      toast.error(error.message || "An unexpected error occurred");
+    } finally {
+      setIsSubmitting(false);
     }
-  } catch (error) {
-    toast.error(error.message || "An unexpected error occurred");
-  }
-};
+  };
 
 
-// ✅ Add group label into every option
-const updatedFilter = Filter.map((group) => ({
-  ...group,
-  options: group.options.map((option) => ({
-    ...option,
-    groupLabel: group.label,
-  })),
-}));
+  // ✅ Add group label into every option
+  const updatedFilter = Filter.map((group) => ({
+    ...group,
+    options: group.options.map((option) => ({
+      ...option,
+      groupLabel: group.label,
+    })),
+  }));
 
 
   const handleAddVariantAttribute = () => {
@@ -1521,18 +1525,18 @@ const updatedFilter = Filter.map((group) => ({
       ...prev,
       variantAttributes: [
         ...prev.variantAttributes,
-        { 
-          name: ``, 
-          options: [] 
+        {
+          name: ``,
+          options: []
         }
       ]
     }));
   };
   const handleVariantAttributeChange = (index, field, value) => {
-    const updatedAttributes = product.variantAttributes.map((attr, i) => 
+    const updatedAttributes = product.variantAttributes.map((attr, i) =>
       i === index ? { ...attr, [field]: value } : attr
     );
-    
+
     setProduct(prev => ({
       ...prev,
       variantAttributes: updatedAttributes
@@ -1596,9 +1600,21 @@ const updatedFilter = Filter.map((group) => ({
       ) : (
         <button
           type="submit"
-          className="bg-green-500 text-white px-4 py-2 rounded"
+          disabled={isSubmitting}
+          className={`text-white px-5 py-2 rounded flex items-center gap-2 font-medium ${isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+            }`}
         >
-          Publish Product
+          {isSubmitting ? (
+            <>
+              <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+              </svg>
+              <span>{mode === "edit" ? "Updating..." : "Publishing..."}</span>
+            </>
+          ) : (
+            <span>{mode === "edit" ? "Update Product" : "Publish Product"}</span>
+          )}
         </button>
       )}
     </div>
@@ -1606,24 +1622,23 @@ const updatedFilter = Filter.map((group) => ({
 
   const ProgressStepper = () => (
     <div className="mb-8">
-        <div className="border-b border-gray-200">
-          <nav className="flex justify-between space-x-4">
-            {steps.map((tab, index) => (
-              <button
+      <div className="border-b border-gray-200">
+        <nav className="flex justify-between space-x-4">
+          {steps.map((tab, index) => (
+            <button
               type="button"
-                key={index}
-                // onClick={() => setCurrentStep(index- 1)}
-                className={`py-2 px-4 text-sm font-medium focus:outline-none ${
-                  currentStep-1 === index
-                    ? "border-b-2 border-[#d72828] text-[#d72828]"
-                    : "text-gray-600 hover:text-[#d72828]"
+              key={index}
+              // onClick={() => setCurrentStep(index- 1)}
+              className={`py-2 px-4 text-sm font-medium focus:outline-none ${currentStep - 1 === index
+                ? "border-b-2 border-[#d72828] text-[#d72828]"
+                : "text-gray-600 hover:text-[#d72828]"
                 }`}
-              >
-                {tab.title}
-              </button>
-            ))}
-          </nav>
-        </div>
+            >
+              {tab.title}
+            </button>
+          ))}
+        </nav>
+      </div>
       {/* <div className="flex items-center justify-between relative">
      
         <div className="absolute  left-0 right-0 h-1 bg-gray-200 transform -translate-y-1/2">
@@ -1680,36 +1695,36 @@ const updatedFilter = Filter.map((group) => ({
         }
         break;
       case 2:
-        if (!product.images.some(img => img) ) {
+        if (!product.images.some(img => img)) {
           return "Please fill in all required fields: Images.";
         }
         break;
       case 3:
-  if (product.hasVariants) {
-  const allFilled = product.variants.every((v, i) => {
-    const hasAll =
-      v.variant_attribute_name?.trim() &&
-      v.options?.trim() &&
-      v.item_code?.trim() &&
-      v.price !== '' && v.price !== null &&
-      v.special_price !== '' && v.special_price !== null &&
-      v.quantity !== '' && v.quantity !== null &&
-      v.stock_status?.trim() &&
-      v.status?.trim();
+        if (product.hasVariants) {
+          const allFilled = product.variants.every((v, i) => {
+            const hasAll =
+              v.variant_attribute_name?.trim() &&
+              v.options?.trim() &&
+              v.item_code?.trim() &&
+              v.price !== '' && v.price !== null &&
+              v.special_price !== '' && v.special_price !== null &&
+              v.quantity !== '' && v.quantity !== null &&
+              v.stock_status?.trim() &&
+              v.status?.trim();
 
-    if (!hasAll) {
-      console.log('Missing field in variant index:', i, v);
-    }
+            if (!hasAll) {
+              console.log('Missing field in variant index:', i, v);
+            }
 
-    return hasAll;
-  });
+            return hasAll;
+          });
 
-  if (!allFilled) {
-    return 'Please fill in all required variant fields.';
-  }
-}
+          if (!allFilled) {
+            return 'Please fill in all required variant fields.';
+          }
+        }
 
-  break;
+        break;
 
       case 4:
         if (!product.meta_title || !product.description || !product.search_keywords) {
@@ -1742,7 +1757,7 @@ const updatedFilter = Filter.map((group) => ({
           Generating product content from OpenAI. Please wait…
         </div>
       )}
-    
+
       <h2 className="text-2xl font-bold mb-4">{mode === "edit" ? " " : "Add Product"}</h2>
       <ProgressStepper />
       <ToastContainer />
@@ -1750,31 +1765,30 @@ const updatedFilter = Filter.map((group) => ({
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Step 1: Basic Information */}
         {currentStep === 1 && (
-           <div className="space-y-4">
-           {/* <h3 className="text-xl font-semibold mb-4">Product Information</h3> */}
-           <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
+            {/* <h3 className="text-xl font-semibold mb-4">Product Information</h3> */}
+            <div className="grid grid-cols-2 gap-4">
               <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Product Name*</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Product Name*</label>
                 <input
                   type="text"
                   name="name"
                   value={product.name || ''}
                   onChange={handleChange}
-                 className={`w-full border p-2 rounded ${
-                product.name.length < 5 && product.name.length > 0 ? "border-red-500" : ""
-              }`}
-              required
-              minLength={5}  // HTML5 validation (but may not show until form submission)
-            />
-             {/* Show error message if less than 20 chars */}
-                        {product.name.length > 0 && product.name.length < 5 && (
-                          <p className="text-red-500 text-xs mt-1">
-                            Minimum 5 characters required (currently: {product.name.length})
-                          </p>
-                        )}
+                  className={`w-full border p-2 rounded ${product.name.length < 5 && product.name.length > 0 ? "border-red-500" : ""
+                    }`}
+                  required
+                  minLength={5}  // HTML5 validation (but may not show until form submission)
+                />
+                {/* Show error message if less than 20 chars */}
+                {product.name.length > 0 && product.name.length < 5 && (
+                  <p className="text-red-500 text-xs mt-1">
+                    Minimum 5 characters required (currently: {product.name.length})
+                  </p>
+                )}
               </div>
               <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Item Code</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item Code</label>
                 <input type="text" name="item_code" value={product.item_code} onChange={handleChange} className="w-full border p-2 rounded" required />
               </div>
             </div>
@@ -1792,23 +1806,23 @@ const updatedFilter = Filter.map((group) => ({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-            <div className="rounded-md mb-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categories</label>
-              <div className="border rounded-md">
-              {renderCategoryTree(categories)}
+              <div className="rounded-md mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Categories</label>
+                <div className="border rounded-md">
+                  {renderCategoryTree(categories)}
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
-              <Select
-                options={brand}
-                value={brand.find(b => b.value === product.brand)}
-                onChange={handleBrandChange}
-                placeholder="Select brand..."
-               
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                <Select
+                  options={brand}
+                  value={brand.find(b => b.value === product.brand)}
+                  onChange={handleBrandChange}
+                  placeholder="Select brand..."
+
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -1823,160 +1837,160 @@ const updatedFilter = Filter.map((group) => ({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-              <input type="number" name="quantity" value={product.quantity} onChange={handleChange} className="w-full border p-2 rounded" required />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                <input type="number" name="quantity" value={product.quantity} onChange={handleChange} className="w-full border p-2 rounded" required />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stock Status</label>
+                <select
+                  name="stock_status"
+                  value={product.stock_status}
+                  onChange={handleChange}
+                  className="w-full border p-2 rounded"
+                >
+                  <option value="In Stock">In Stock</option>
+                  <option value="Out of Stock">Out of Stock</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Brand Code</label>
+                <input
+                  type="text"
+                  name="brand_code"
+                  value={product.brand_code || ""} // optional and controlled
+                  onChange={handleChange}
+                  className="w-full border p-2 rounded"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Stock Status</label>
-              <select
-                name="stock_status"
-                value={product.stock_status}
-                onChange={handleChange}
-                className="w-full border p-2 rounded"
-              >
-                <option value="In Stock">In Stock</option>
-                <option value="Out of Stock">Out of Stock</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Brand Code</label>
-              <input
-                type="text"
-                name="brand_code"
-                value={product.brand_code || ""} // optional and controlled
-                onChange={handleChange}
-                className="w-full border p-2 rounded"
-              />
-            </div>
-            </div>
-
-         </div>
+          </div>
         )}
 
         {/* Step 2: Pricing & Stock */}
         {currentStep === 2 && (
-              <div className="space-y-4">
-              {/* <h3 className="text-xl font-semibold mb-4">Pricing & Stock </h3> */}
+          <div className="space-y-4">
+            {/* <h3 className="text-xl font-semibold mb-4">Pricing & Stock </h3> */}
 
-              <div className="flex flex-col gap-4 p-4 bg-white rounded-lg shadow-md">
-                <div className="flex items-center">
-                  <label className="w-1/4 text-sm font-medium text-gray-700">Images (679×679)</label>
-                  
-                  <div className="w-3/4 pl-4">
-                    <div className="overflow-x-auto">
-                      <div className="min-w-full divide-y divide-gray-200">
-                        <div className="bg-gray-50">
-                          <div className="grid grid-cols-12 gap-4 py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <div className="col-span-5">Image upload</div>
-                            <div className="col-span-5">Image</div>
-                            <div className="col-span-2">Actions</div>
-                          </div>
+            <div className="flex flex-col gap-4 p-4 bg-white rounded-lg shadow-md">
+              <div className="flex items-center">
+                <label className="w-1/4 text-sm font-medium text-gray-700">Images (679×679)</label>
+
+                <div className="w-3/4 pl-4">
+                  <div className="overflow-x-auto">
+                    <div className="min-w-full divide-y divide-gray-200">
+                      <div className="bg-gray-50">
+                        <div className="grid grid-cols-12 gap-4 py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <div className="col-span-5">Image upload</div>
+                          <div className="col-span-5">Image</div>
+                          <div className="col-span-2">Actions</div>
                         </div>
-                        
-                        <div className="divide-y divide-gray-200">
-                         
-                          {(product.images || []).map((img, index) => (
-                            <div key={index} className="grid grid-cols-12 gap-4 items-center py-4 px-4">
-                              <div className="col-span-5">
-                                <input
-                                  type="file"
-                                  className="block w-full text-sm text-gray-500
+                      </div>
+
+                      <div className="divide-y divide-gray-200">
+
+                        {(product.images || []).map((img, index) => (
+                          <div key={index} className="grid grid-cols-12 gap-4 items-center py-4 px-4">
+                            <div className="col-span-5">
+                              <input
+                                type="file"
+                                className="block w-full text-sm text-gray-500
                                     file:mr-4 file:py-2 file:px-4
                                     file:rounded-full file:border-0
                                     file:text-sm file:font-semibold
                                     file:bg-red-50 file:text-[#d72828]
                                     hover:file:bg-red-100"
-                                  accept="image/*"
-                                  onChange={(e) => handleImageChange(index, e)}
-                                  required={index === 0}
-                                  key={`file-${index}-${product.images[index] ? 'filled' : 'empty'}`}
-                                />
-                              </div>
-                              
-                              <div className="col-span-5">
-                                  <img
-                                    className="w-20 h-20 object-cover rounded border border-gray-200"
-                                    alt={`Preview ${index + 1}`}
-                                    src={
-                                      product.images[index]?.startsWith('http') ||
-                                      product.images[index]?.startsWith('blob:') ||
-                                      product.images[index]?.startsWith('data:')
-                                        ? product.images[index]
-                                        : `/uploads/products/${product.images[index] || 'no-image.jpg'}`
-                                    }
-                                  />
-                                </div>
+                                accept="image/*"
+                                onChange={(e) => handleImageChange(index, e)}
+                                required={index === 0}
+                                key={`file-${index}-${product.images[index] ? 'filled' : 'empty'}`}
+                              />
+                            </div>
 
-                              
-                              <div className="col-span-2">
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <button
-  type="button"
-  onClick={() => AddproductImage(index)}
-  className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
->
-  <svg
-    className="h-5 w-5"
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="currentColor"
-  >
-    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM5 5h14v14H5V5zm9 9h-3v3h-2v-3H6v-2h3V9h2v3h3v2z"/>
-  </svg>
-</button>
+                            <div className="col-span-5">
+                              <img
+                                className="w-20 h-20 object-cover rounded border border-gray-200"
+                                alt={`Preview ${index + 1}`}
+                                src={
+                                  product.images[index]?.startsWith('http') ||
+                                    product.images[index]?.startsWith('blob:') ||
+                                    product.images[index]?.startsWith('data:')
+                                    ? product.images[index]
+                                    : `/uploads/products/${product.images[index] || 'no-image.jpg'}`
+                                }
+                              />
+                            </div>
 
-                                  </div>
-                                  <div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveImage1(index)}
-                                      className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+
+                            <div className="col-span-2">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={() => AddproductImage(index)}
+                                    className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                                  >
+                                    <svg
+                                      className="h-5 w-5"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 24 24"
+                                      fill="currentColor"
                                     >
-                                      <svg
-                                        className="h-5 w-5"
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 20 20"
-                                        fill="currentColor"
-                                      >
-                                        <path
-                                          fillRule="evenodd"
-                                          d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                                          clipRule="evenodd"
-                                        />
-                                      </svg>
-                                    </button>
-                                  </div>
-                                
+                                      <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM5 5h14v14H5V5zm9 9h-3v3h-2v-3H6v-2h3V9h2v3h3v2z" />
+                                    </svg>
+                                  </button>
+
                                 </div>
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveImage1(index)}
+                                    className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                  >
+                                    <svg
+                                      className="h-5 w-5"
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 20 20"
+                                      fill="currentColor"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  </button>
+                                </div>
+
                               </div>
                             </div>
-                          ))}
-                        </div>
-                        {/* <button type="button" onClick={AddproductImage} className="px-3 py-1.5 bg-[#d72828] text-white text-sm rounded hover:bg-[#d72828] transition-colors">Add Image</button> */}
+                          </div>
+                        ))}
                       </div>
+                      {/* <button type="button" onClick={AddproductImage} className="px-3 py-1.5 bg-[#d72828] text-white text-sm rounded hover:bg-[#d72828] transition-colors">Add Image</button> */}
                     </div>
                   </div>
                 </div>
               </div>
-        
-              <div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                {/* <textarea name="description" value={product.description || ''} onChange={handleChange} className="w-full border p-2 rounded" rows="4"></textarea> */}
-                <TinyEditor
-                  key={editorRevision}
-                  value={product.description || ""}
-                  onChange={handleChange}
-                />
-                
-                      {/* <h3 className="mt-4 font-semibold">Preview:</h3>
+              {/* <textarea name="description" value={product.description || ''} onChange={handleChange} className="w-full border p-2 rounded" rows="4"></textarea> */}
+              <TinyEditor
+                key={editorRevision}
+                value={product.description || ""}
+                onChange={handleChange}
+              />
+
+              {/* <h3 className="mt-4 font-semibold">Preview:</h3>
                       <div
                         className="border p-3 rounded bg-gray-50"
                         dangerouslySetInnerHTML={{ __html: product.description }}
-                      /> */} 
-              </div>
+                      /> */}
+            </div>
             <div className="space-y-6">
               {/* Overview Image */}
               <div className="flex flex-col md:flex-row gap-6 p-6 bg-white rounded-lg shadow-md">
@@ -1985,7 +1999,7 @@ const updatedFilter = Filter.map((group) => ({
                     Overview Images (416×416)
                   </label>
                 </div>
-                
+
                 <div className="w-full md:w-3/4">
                   <div className="overflow-x-auto">
                     <table className="min-w-full border rounded-lg overflow-hidden">
@@ -1996,82 +2010,82 @@ const updatedFilter = Filter.map((group) => ({
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase w-32">Actions</th>
                         </tr>
                       </thead>
-                   <tbody className="divide-y divide-gray-200">
-  {product.overviewImage.map((image, index) => (
-    <tr key={index} className="border-b">
-      <td className="px-4 py-3">
-        <input
-          type="file"
-          className="block w-full text-sm text-gray-500
+                      <tbody className="divide-y divide-gray-200">
+                        {product.overviewImage.map((image, index) => (
+                          <tr key={index} className="border-b">
+                            <td className="px-4 py-3">
+                              <input
+                                type="file"
+                                className="block w-full text-sm text-gray-500
             file:mr-4 file:py-2 file:px-4
             file:rounded file:border-0
             file:text-sm file:font-medium
             file:bg-red-50 file:text-[#d72828]
             hover:file:bg-red-100"
-          accept="image/*"
-          onChange={(e) => handleOverviewImageChange(index, e.target.files)}
-        />
-        {image && (
-          <div className="mt-2 flex items-center space-x-4">
-            <img
-              src={
-                typeof image === 'string' && 
-                (image.startsWith('http') ||
-                 image.startsWith('blob:') ||
-                 image.startsWith('data:'))
-                  ? image
-                  : `/uploads/products/${image}`
-              }
-              alt={`Preview ${index}`}
-              className="w-20 h-20 object-cover border rounded"
-            />
-            <span className="text-xs text-gray-500">Preview</span>
-          </div>
-        )}
-      </td>
+                                accept="image/*"
+                                onChange={(e) => handleOverviewImageChange(index, e.target.files)}
+                              />
+                              {image && (
+                                <div className="mt-2 flex items-center space-x-4">
+                                  <img
+                                    src={
+                                      typeof image === 'string' &&
+                                        (image.startsWith('http') ||
+                                          image.startsWith('blob:') ||
+                                          image.startsWith('data:'))
+                                        ? image
+                                        : `/uploads/products/${image}`
+                                    }
+                                    alt={`Preview ${index}`}
+                                    className="w-20 h-20 object-cover border rounded"
+                                  />
+                                  <span className="text-xs text-gray-500">Preview</span>
+                                </div>
+                              )}
+                            </td>
 
-      <td className="px-4 py-3">
-        <img
-          className="w-20 h-20 object-cover rounded border border-gray-200"
-          alt={`Preview ${index + 1}`}
-          src={
-            image && typeof image === 'string'
-              ? (image.startsWith('http') ||
-                 image.startsWith('blob:') ||
-                 image.startsWith('data:'))
-                  ? image
-                  : `/uploads/products/${image}`
-              : '/uploads/products/no-image.jpg'
-          }
-        />
-      </td>
+                            <td className="px-4 py-3">
+                              <img
+                                className="w-20 h-20 object-cover rounded border border-gray-200"
+                                alt={`Preview ${index + 1}`}
+                                src={
+                                  image && typeof image === 'string'
+                                    ? (image.startsWith('http') ||
+                                      image.startsWith('blob:') ||
+                                      image.startsWith('data:'))
+                                      ? image
+                                      : `/uploads/products/${image}`
+                                    : '/uploads/products/no-image.jpg'
+                                }
+                              />
+                            </td>
 
-      <td className="px-4 py-3">
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={handleAddOverviewImage}
-            className="inline-flex items-center p-2 rounded-full text-white bg-green-600 hover:bg-green-700"
-          >
-            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM5 5h14v14H5V5zm9 9h-3v3h-2v-3H6v-2h3V9h2v3h3v2z" />
-            </svg>
-          </button>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-3">
+                                <button
+                                  type="button"
+                                  onClick={handleAddOverviewImage}
+                                  className="inline-flex items-center p-2 rounded-full text-white bg-green-600 hover:bg-green-700"
+                                >
+                                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM5 5h14v14H5V5zm9 9h-3v3h-2v-3H6v-2h3V9h2v3h3v2z" />
+                                  </svg>
+                                </button>
 
-          <button
-            type="button"
-            onClick={() => handleRemoveOverviewImage(index)}
-            className="inline-flex items-center p-2 rounded-full text-white bg-red-600 hover:bg-red-700"
-          >
-            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
-      </td>
-    </tr>
-  ))}
-</tbody>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveOverviewImage(index)}
+                                  className="inline-flex items-center p-2 rounded-full text-white bg-red-600 hover:bg-red-700"
+                                >
+                                  <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
 
                     </table>
                   </div>
@@ -2081,79 +2095,79 @@ const updatedFilter = Filter.map((group) => ({
               {/* Product Description Editor */}
               <div className="flex flex-col">
                 <label className="block text-sm font-medium text-gray-700 mb-1 ">
-                Overview Description
+                  Overview Description
                 </label>
-                  <textarea name="overviewdescription" value={product.overviewdescription || ''}onChange={handleChange} className="w-full border p-2 pt-0 rounded" rows="4"></textarea>
+                <textarea name="overviewdescription" value={product.overviewdescription || ''} onChange={handleChange} className="w-full border p-2 pt-0 rounded" rows="4"></textarea>
               </div>
             </div>
-             
-            </div>
+
+          </div>
         )}
 
         {/* Step 3: Variants & Filters */}
         {currentStep === 3 && (
-  <div className="space-y-4">
-    <h3 className="text-xl font-semibold mb-4">Filters</h3>
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold mb-4">Filters</h3>
 
-    <div className="border p-4 rounded">
-      <label className="block text-sm font-medium text-gray-700 mb-1">Filter</label>
-      <Select
-  options={updatedFilter}
-  isMulti
-  hideSelectedOptions={false}
-  closeMenuOnSelect={false}
-  components={{ Option: CustomOption }}
+            <div className="border p-4 rounded">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Filter</label>
+              <Select
+                options={updatedFilter}
+                isMulti
+                hideSelectedOptions={false}
+                closeMenuOnSelect={false}
+                components={{ Option: CustomOption }}
 
-  // ✅ Search by option + group heading
-  filterOption={(option, inputValue) => {
-    const search = inputValue.toLowerCase();
+                // ✅ Search by option + group heading
+                filterOption={(option, inputValue) => {
+                  const search = inputValue.toLowerCase();
 
-    return (
-      option.label.toLowerCase().includes(search) ||
-      option.value.toLowerCase().includes(search) ||
-      option.data.groupLabel.toLowerCase().includes(search)
-    );
-  }}
+                  return (
+                    option.label.toLowerCase().includes(search) ||
+                    option.value.toLowerCase().includes(search) ||
+                    option.data.groupLabel.toLowerCase().includes(search)
+                  );
+                }}
 
-  value={
-    Array.isArray(product.filters)
-      ? product.filters.every((f) => typeof f === "string")
-        ? updatedFilter
-            .flatMap((g) => g.options)
-            .filter((o) => product.filters.includes(o.value))
-        : product.filters
-      : []
-  }
+                value={
+                  Array.isArray(product.filters)
+                    ? product.filters.every((f) => typeof f === "string")
+                      ? updatedFilter
+                        .flatMap((g) => g.options)
+                        .filter((o) => product.filters.includes(o.value))
+                      : product.filters
+                    : []
+                }
 
-  onChange={handleFilterChange}
-  placeholder="Select filters..."
+                onChange={handleFilterChange}
+                placeholder="Select filters..."
 
-  styles={{
-    groupHeading: (base) => ({
-      ...base,
-      backgroundColor: "#f3f4f6",
-      color: "#1f2937",
-      fontWeight: 600,
-      padding: "8px 12px",
-      borderBottom: "1px solid #e5e7eb",
-      borderRadius: "4px",
-      textTransform: "uppercase",
-      letterSpacing: "0.5px",
-    }),
+                styles={{
+                  groupHeading: (base) => ({
+                    ...base,
+                    backgroundColor: "#f3f4f6",
+                    color: "#1f2937",
+                    fontWeight: 600,
+                    padding: "8px 12px",
+                    borderBottom: "1px solid #e5e7eb",
+                    borderRadius: "4px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }),
 
-    option: (base, state) => ({
-      ...base,
-      backgroundColor: state.isSelected
-        ? "#e6f4ea"
-        : state.isFocused
-        ? "#f9fafb"
-        : "white",
-      color: "#111827",
-      fontWeight: state.isSelected ? 600 : 400,
-    }),
-  }}
-/>
-     {/* <Select
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isSelected
+                      ? "#e6f4ea"
+                      : state.isFocused
+                        ? "#f9fafb"
+                        : "white",
+                    color: "#111827",
+                    fontWeight: state.isSelected ? 600 : 400,
+                  }),
+                }}
+              />
+              {/* <Select
   options={Filter}
   isMulti
   hideSelectedOptions={false}  // ✅ keeps selected options visible in dropdown
@@ -2188,7 +2202,7 @@ const updatedFilter = Filter.map((group) => ({
     }),
   }}
 /> */}
-      {/* <Select
+              {/* <Select
   options={Filter}
   isMulti
   value={
@@ -2216,10 +2230,10 @@ const updatedFilter = Filter.map((group) => ({
 /> */}
 
 
-    </div>
+            </div>
 
-    {/* Extended Warranty Section */}
-    {/* <div className="border p-4 rounded">
+            {/* Extended Warranty Section */}
+            {/* <div className="border p-4 rounded">
   <label className="block text-sm font-medium text-gray-700 mb-2">Extended Warranty</label>
 
  {warranties.map((warranty, index) => (
@@ -2255,62 +2269,62 @@ const updatedFilter = Filter.map((group) => ({
 ))}
 
 </div> */}
-    <div className="border p-4 rounded">
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Extended Warranty Plans
-  </label>
-  <p className="text-xs text-gray-500 mb-3">
-    Search by product description — 1yr / 2yr / 3yr / 4yr plans
-  </p>
-  <WarrantySearchInput
-    value={product.warranty_ids}
-    onChange={(ids) =>
-      setProduct((prev) => ({ ...prev, warranty_ids: ids }))
-    }
-  />
-</div>
+            <div className="border p-4 rounded">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Extended Warranty Plans
+              </label>
+              <p className="text-xs text-gray-500 mb-3">
+                Search by product description — 1yr / 2yr / 3yr / 4yr plans
+              </p>
+              <WarrantySearchInput
+                value={product.warranty_ids}
+                onChange={(ids) =>
+                  setProduct((prev) => ({ ...prev, warranty_ids: ids }))
+                }
+              />
+            </div>
 
-<div className="grid grid-cols-2 gap-4 border p-4 rounded">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Model Number</label>
-        <input
-          type="text"
-          name="model_number"
-          value={product.model_number || ''}
-          onChange={handleChange}
-          className="w-full border p-2 rounded"
-          placeholder="Enter model number"
-        />
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Movement</label>
-        <input
-          type="text"
-          name="movement"
-          value={product.movement || ''}
-          onChange={handleChange}
-          className="w-full border p-2 rounded"
-          placeholder="Enter movement type"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Size</label>
-        <input
-          type="text"
-          name="size"
-          value={product.size || ''}
-          onChange={handleChange}
-          className="w-full border p-2 rounded"
-          placeholder="e.g., 42mm, 40mm, etc."
-        />
-      </div>
-    </div>
+            <div className="grid grid-cols-2 gap-4 border p-4 rounded">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Model Number</label>
+                <input
+                  type="text"
+                  name="model_number"
+                  value={product.model_number || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2 rounded"
+                  placeholder="Enter model number"
+                />
+              </div>
 
-  </div>
-)}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Movement</label>
+                <input
+                  type="text"
+                  name="movement"
+                  value={product.movement || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2 rounded"
+                  placeholder="Enter movement type"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Size</label>
+                <input
+                  type="text"
+                  name="size"
+                  value={product.size || ''}
+                  onChange={handleChange}
+                  className="w-full border p-2 rounded"
+                  placeholder="e.g., 42mm, 40mm, etc."
+                />
+              </div>
+            </div>
 
-   
+          </div>
+        )}
+
+
 
 
 
@@ -2318,7 +2332,7 @@ const updatedFilter = Filter.map((group) => ({
         {currentStep === 4 && (
           <div className="space-y-4">
             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-1">Meta Title</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Meta Title</label>
               <input
                 type="text"
                 name="meta_title"
@@ -2366,71 +2380,71 @@ const updatedFilter = Filter.map((group) => ({
             </div>
 
 
-            
 
 
-           <div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">
-    Product Highlights
-  </label>
-  <p className="text-xs text-gray-500 mb-2">
-    ➤ Add highlights by clicking the <span className="font-semibold">green + button</span>.  
-    <br />
-    ➤ Each highlight should be written in <span className="italic">key: value</span> format.  
-    <br />
-    Example: <span className="text-gray-600">Processor: Snapdragon 8 Gen 2</span>, <span className="text-gray-600">Battery: 5000 mAh</span>, <span className="text-gray-600">Display: 6.5 inch AMOLED</span>
-  </p>
 
-  {(product.product_highlights && product.product_highlights.length > 0 ? product.product_highlights : [""]).map((highlight, index) => (
-    <div key={index} className="flex space-x-2 mb-2">
-      <input
-        type="text"
-        value={highlight || ""}
-        onChange={(e) => handleHighlightChange(index, e.target.value)}
-        className="w-full border p-2 rounded"
-        placeholder={`Highlight #${index + 1}`}
-      />
-      <div className="grid grid-cols-2 gap-6">
-        <div>
-          <button
-            type="button"
-            onClick={addHighlight}
-            className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-          >
-            <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/>
-            </svg>
-          </button>
-        </div>
-        <div>
-          {product.product_highlights && product.product_highlights.length > 0 && (
-            <button
-              type="button"
-              onClick={() => removeHighlight(index)}
-              className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-            >
-              <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  ))}
-</div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Product Highlights
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                ➤ Add highlights by clicking the <span className="font-semibold">green + button</span>.
+                <br />
+                ➤ Each highlight should be written in <span className="italic">key: value</span> format.
+                <br />
+                Example: <span className="text-gray-600">Processor: Snapdragon 8 Gen 2</span>, <span className="text-gray-600">Battery: 5000 mAh</span>, <span className="text-gray-600">Display: 6.5 inch AMOLED</span>
+              </p>
+
+              {(product.product_highlights && product.product_highlights.length > 0 ? product.product_highlights : [""]).map((highlight, index) => (
+                <div key={index} className="flex space-x-2 mb-2">
+                  <input
+                    type="text"
+                    value={highlight || ""}
+                    onChange={(e) => handleHighlightChange(index, e.target.value)}
+                    className="w-full border p-2 rounded"
+                    placeholder={`Highlight #${index + 1}`}
+                  />
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <button
+                        type="button"
+                        onClick={addHighlight}
+                        className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                      >
+                        <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div>
+                      {product.product_highlights && product.product_highlights.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => removeHighlight(index)}
+                          className="inline-flex items-center p-2 border border-transparent rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                        >
+                          <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
 
 
-      
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Featured Products</label>
               <Select
                 isMulti  // Enable multi-select
                 options={allproducts}
                 onChange={handleFeaturedChange}
-                value={allproducts.filter(option => 
-  Array.isArray(product.featured_products) && product.featured_products.includes(option.value)
-)}
+                value={allproducts.filter(option =>
+                  Array.isArray(product.featured_products) && product.featured_products.includes(option.value)
+                )}
 
                 placeholder="Select products for featured..."
                 closeMenuOnSelect={false}
@@ -2440,33 +2454,33 @@ const updatedFilter = Filter.map((group) => ({
 
 
             <div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">Related Products</label>
-  <Select
-    isMulti
-    options={allproducts.filter(p => p.value !== product._id)} // exclude current product if editing
-    onChange={handleRelatedProductsChange}
-    value={allproducts.filter(option =>
-      Array.isArray(product.related_products) && product.related_products.includes(option.value)
-    )}
-    placeholder="Select related products..."
-    closeMenuOnSelect={false}
-  />
-</div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Related Products</label>
+              <Select
+                isMulti
+                options={allproducts.filter(p => p.value !== product._id)} // exclude current product if editing
+                onChange={handleRelatedProductsChange}
+                value={allproducts.filter(option =>
+                  Array.isArray(product.related_products) && product.related_products.includes(option.value)
+                )}
+                placeholder="Select related products..."
+                closeMenuOnSelect={false}
+              />
+            </div>
 
 
-<div>
-  <label className="block text-sm font-medium text-gray-700 mb-1">Add Ons Products</label>
-  <Select
-    isMulti
-    options={allproducts.filter(p => p.value !== product._id)} // exclude current product if editing
-    onChange={handleAddOnsProductsChange}
-    value={allproducts.filter(option =>
-      Array.isArray(product.add_ons) && product.add_ons.includes(option.value)
-    )}
-    placeholder="Select add ons products..."
-    closeMenuOnSelect={false}
-  />
-</div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Add Ons Products</label>
+              <Select
+                isMulti
+                options={allproducts.filter(p => p.value !== product._id)} // exclude current product if editing
+                onChange={handleAddOnsProductsChange}
+                value={allproducts.filter(option =>
+                  Array.isArray(product.add_ons) && product.add_ons.includes(option.value)
+                )}
+                placeholder="Select add ons products..."
+                closeMenuOnSelect={false}
+              />
+            </div>
 
 
 
@@ -2487,17 +2501,17 @@ const updatedFilter = Filter.map((group) => ({
               />
             </div> */}
             <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  name="status"
-                  value={product.status|| 'Active'}
-                  onChange={handleChange}
-                  className="w-full border p-2 rounded"
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                name="status"
+                value={product.status || 'Active'}
+                onChange={handleChange}
+                className="w-full border p-2 rounded"
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Display Store Stock Check
