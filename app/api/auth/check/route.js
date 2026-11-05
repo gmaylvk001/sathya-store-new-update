@@ -2,6 +2,8 @@
 import jwt from 'jsonwebtoken';
 import connectDB from '@/lib/db';
 import User from '@/models/User';
+import { getUserAccess } from '@/lib/permissions';
+
 export async function GET(req) {
   const token = req.headers.get('Authorization')?.split(' ')[1]; // Extract token from Authorization header
 
@@ -17,6 +19,21 @@ export async function GET(req) {
     if (!userRole) {
       return Response.json({ loggedIn: false }, { status: 200 });
     }
+
+    let access = {
+      unrestricted: true,
+      hasRole: false,
+      permissions: [],
+      modules: [],
+    };
+    if (userRole.user_type === 'admin') {
+      try {
+        access = await getUserAccess(decoded.userId);
+      } catch {
+        // keep unrestricted fallback if access lookup fails
+      }
+    }
+
     return Response.json({
       loggedIn: true,
       user: decoded, // optional
@@ -28,6 +45,11 @@ export async function GET(req) {
       email: userRole.email || decoded.email || "",
       store_id: userRole.store_id || "",
       admin_store_view: userRole.admin_store_view || "sathya",
+      // Used by AdminSider (Sathya mode) for role-based menu show/hide
+      unrestricted: Boolean(access.unrestricted),
+      hasRole: Boolean(access.hasRole),
+      permissions: access.permissions || [],
+      modules: access.modules || [],
     }, { status: 200 });
   } catch (error) {
     return Response.json({ loggedIn: false }, { status: 200 });

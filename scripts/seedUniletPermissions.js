@@ -1,5 +1,5 @@
 /**
- * Standalone Developer Script: admin permissions + "Admin" / "Unilet Admin" role seeder
+ * Standalone Developer Script: admin permissions + role seeder
  *
  * Reads every admin module from lib/adminModules.js (must match AdminSider / Exist modules)
  * and creates a permission for each in `ecom_permissions_infos` (Permissions page).
@@ -7,6 +7,7 @@
  * leaving out PERMISSION_ONLY_GROUPS (Product, Category) from every role:
  *   - Admin: every seeded permission. Adds missing ones; removes orphan / deleted-module perms.
  *   - Unilet Admin: only the modules in its `groups` (exact list).
+ *   - deals-role: exact module keys (Dashboard + Offer Module + Offer Timer).
  *
  * Also:
  *   - Marks permissions for removed admin modules as Inactive
@@ -28,6 +29,7 @@ const { ObjectId } = mongoose.Types;
 const PERMISSION_ONLY_GROUPS = ["Product", "Category"];
 
 // groups: top-level menu labels whose modules the role gets (null = every seeded module).
+// modules: optional exact permission module keys (overrides groups when set).
 // exact: true → role permissions = exactly this set (drops everything else).
 // exact: false → add missing seeded; still remove orphan / deleted-module / missing-doc IDs.
 const ROLES = [
@@ -49,6 +51,23 @@ const ROLES = [
       "Unilet Products",
       "New Unilet Product",
       "Stores",
+    ],
+    exact: true,
+  },
+  {
+    name: "deals-role",
+    slug: "deals-role",
+    description:
+      "Deals / offers admin: Dashboard, Offer Module (all), Design Offer Timer",
+    // Exact permission module keys (match lib/adminModules.js permission fields)
+    modules: [
+      "dashboard",
+      "offers",
+      "payment-offers",
+      "exchange-offers-condition",
+      "offer-product",
+      "highlighted-products",
+      "offer-timer",
     ],
     exact: true,
   },
@@ -303,12 +322,25 @@ function uniqueIds(ids) {
 
 async function seedRole(db, role, seeded, orphanIds) {
   const roles = db.collection(ROLES_COLLECTION);
-  const permissionIds = uniqueIds(
-    seeded
-      .filter((p) => !PERMISSION_ONLY_GROUPS.includes(p.group))
-      .filter((p) => !role.groups || role.groups.includes(p.group))
-      .map((p) => p.id)
-  );
+
+  let selected = seeded.filter((p) => !PERMISSION_ONLY_GROUPS.includes(p.group));
+  if (Array.isArray(role.modules) && role.modules.length > 0) {
+    const wantedModules = new Set(role.modules.map((m) => normalizeModuleKey(m)));
+    selected = selected.filter((p) => wantedModules.has(normalizeModuleKey(p.module)));
+  } else if (role.groups) {
+    selected = selected.filter((p) => role.groups.includes(p.group));
+  }
+
+  const permissionIds = uniqueIds(selected.map((p) => p.id));
+  if (Array.isArray(role.modules) && role.modules.length > 0) {
+    const found = new Set(selected.map((p) => normalizeModuleKey(p.module)));
+    for (const mod of role.modules) {
+      const key = normalizeModuleKey(mod);
+      if (!found.has(key)) {
+        console.warn(`⚠️  ${role.name}: permission module "${key}" not found in seed list`);
+      }
+    }
+  }
   const wanted = new Set(permissionIds.map((id) => String(id)));
   const orphanSet = orphanIds instanceof Set ? orphanIds : new Set();
   const existing = await roles.findOne({ $or: [{ slug: role.slug }, { name: role.name }] });
