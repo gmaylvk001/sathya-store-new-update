@@ -9,6 +9,7 @@ import AddToWishlistButton from "@/components/ProductCard";
 import { useRegion } from "@/context/RegionContext";
 import { useHeaderdetails } from "@/context/HeaderContext";
 import DealsOfferModal from "@/components/deals-offer/DealsOfferModal";
+import CategoryProductSlider from "@/components/deals-offer/CategoryProductSlider";
 import { getCardOfferCategoryHref, isExternalUrl } from "@/lib/cardOffers/cardOfferNavigationHelper";
 import { getDiscountInfo } from "@/lib/discountHelper";
 
@@ -312,9 +313,10 @@ export default function DealsOfferPage() {
 
         const activeReg = region || selectedRegion?.id || "kerala";
 
-        // Fetch offer timers, category products, and brands in parallel
-        const [timersRes, settingsRes, brandRes] = await Promise.allSettled([
+        // Fetch offer timers, deals category products, settings, and brands in parallel
+        const [timersRes, dealsCatRes, settingsRes, brandRes] = await Promise.allSettled([
           fetch("/api/offer-timer"),
+          fetch("/api/deals-offer/category-products"),
           fetch("/api/categoryproduct/settings"),
           fetch("/api/brand"),
         ]);
@@ -387,8 +389,36 @@ export default function DealsOfferPage() {
         }
         if (isMounted) setBrandMap(bMap);
 
-        // Process Category Products Data
-        if (settingsRes.status === "fulfilled" && settingsRes.value.ok) {
+        // Process Deals Category Products Data (12 random products per category)
+        let hasLoadedCategories = false;
+        if (dealsCatRes.status === "fulfilled" && dealsCatRes.value.ok) {
+          try {
+            const catData = await dealsCatRes.value.json();
+            if (catData?.success && Array.isArray(catData.sections) && catData.sections.length > 0) {
+              const activeSections = catData.sections.filter(
+                (s) => Array.isArray(s?.products) && s.products.length > 0
+              );
+              if (activeSections.length > 0) {
+                if (catData.brandMap && Object.keys(catData.brandMap).length > 0) {
+                  bMap = { ...bMap, ...catData.brandMap };
+                  if (isMounted) setBrandMap(bMap);
+                }
+                if (isMounted) {
+                  setSections(activeSections);
+                  if (typeof window !== "undefined") {
+                    window.__dealsOfferSections = activeSections;
+                  }
+                }
+                hasLoadedCategories = true;
+              }
+            }
+          } catch (e) {
+            console.warn("Could not parse deals category products:", e);
+          }
+        }
+
+        // Fallback to CategoryProduct settings if dedicated endpoint didn't provide sections
+        if (!hasLoadedCategories && settingsRes.status === "fulfilled" && settingsRes.value.ok) {
           const result = await settingsRes.value.json();
           if (result?.ok && Array.isArray(result?.data)) {
             const rawSections = result.data.filter(
@@ -665,62 +695,13 @@ export default function DealsOfferPage() {
         {!loading &&
           !error &&
           sections.map((section) => (
-            <section key={section.id} className="relative group/section">
-              {/* Section Header */}
-              <div className="flex items-center justify-between pb-2 mb-4 border-b border-gray-300">
-                <h2 className="text-lg sm:text-xl font-bold tracking-wide text-[#d72828] uppercase">
-                  {section.title}
-                </h2>
-                <Link
-                  href={section.viewAllHref}
-                  className="bg-[#d72828] hover:bg-red-700 active:bg-red-800 text-white font-bold text-xs sm:text-sm px-5 py-2 uppercase tracking-wider transition-all duration-200 shadow-sm hover:shadow"
-                >
-                  VIEW ALL
-                </Link>
-              </div>
-
-              {/* Slider Container with Red Round Navigation Buttons */}
-              <div className="relative">
-                {/* Left Arrow Button */}
-                <button
-                  type="button"
-                  aria-label={`Previous ${section.title}`}
-                  onClick={() => scrollContainer(section.id, "left")}
-                  className="absolute -left-3 sm:-left-5 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#d72828] text-white flex items-center justify-center shadow-lg hover:bg-red-700 active:scale-95 transition-all z-20 cursor-pointer border-2 border-white"
-                >
-                  <FiChevronLeft size={22} strokeWidth={2.5} />
-                </button>
-
-                {/* Right Arrow Button */}
-                <button
-                  type="button"
-                  aria-label={`Next ${section.title}`}
-                  onClick={() => scrollContainer(section.id, "right")}
-                  className="absolute -right-3 sm:-right-5 top-1/2 -translate-y-1/2 w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#d72828] text-white flex items-center justify-center shadow-lg hover:bg-red-700 active:scale-95 transition-all z-20 cursor-pointer border-2 border-white"
-                >
-                  <FiChevronRight size={22} strokeWidth={2.5} />
-                </button>
-
-                {/* Scrollable Products Carousel */}
-                <div
-                  ref={(el) => (scrollRefs.current[section.id] = el)}
-                  className="flex overflow-x-auto scrollbar-hide scroll-smooth gap-4 sm:gap-5 py-3 px-1"
-                  style={{
-                    WebkitOverflowScrolling: "touch",
-                    scrollbarWidth: "none",
-                    msOverflowStyle: "none",
-                  }}
-                >
-                  {section.products.map((product) => (
-                    <DealProductCard
-                      key={product._id}
-                      product={product}
-                      brandMap={brandMap}
-                    />
-                  ))}
-                </div>
-              </div>
-            </section>
+            <CategoryProductSlider
+              key={section.id}
+              title={section.title}
+              viewAllHref={section.viewAllHref}
+              products={section.products}
+              brandMap={brandMap}
+            />
           ))}
       </div>
 
