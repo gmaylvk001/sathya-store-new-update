@@ -1,14 +1,18 @@
 /**
  * Standalone Developer Script: admin permissions + "Admin" / "Unilet Admin" role seeder
  *
- * Reads every admin module from lib/adminModules.js and creates a permission for each in
- * `ecom_permissions_infos` (Permissions page). Then seeds the roles in `ecom_roles_infos` (Roles page),
+ * Reads every admin module from lib/adminModules.js (must match AdminSider / Exist modules)
+ * and creates a permission for each in `ecom_permissions_infos` (Permissions page).
+ * Then seeds roles in `ecom_roles_infos` (Roles page),
  * leaving out PERMISSION_ONLY_GROUPS (Product, Category) from every role:
- *   - Admin: every seeded permission. Only adds missing ones, never removes.
- *   - Unilet Admin: only the modules in its `groups`. Its permission list is set to exactly these,
- *     so anything else on that role is removed.
- * Safe to run again: existing permissions (same module, slug or name) are reused and roles are
- * created only once.
+ *   - Admin: every seeded permission. Adds missing ones; removes orphan / deleted-module perms.
+ *   - Unilet Admin: only the modules in its `groups` (exact list).
+ *
+ * Also:
+ *   - Marks permissions for removed admin modules as Inactive
+ *   - Strips missing / orphan permission IDs from ALL roles
+ *
+ * Safe to run again.
  *
  * Usage:
  *   node scripts/seedUniletPermissions.js
@@ -18,12 +22,14 @@
 const mongoose = require("mongoose");
 const fs = require("fs");
 const path = require("path");
+const { ObjectId } = mongoose.Types;
 
 // Top-level menu labels in lib/adminModules.js whose permissions are seeded but never given to any role.
 const PERMISSION_ONLY_GROUPS = ["Product", "Category"];
 
 // groups: top-level menu labels whose modules the role gets (null = every seeded module).
-// exact: true sets the role to exactly these permissions; false only adds missing ones.
+// exact: true → role permissions = exactly this set (drops everything else).
+// exact: false → add missing seeded; still remove orphan / deleted-module / missing-doc IDs.
 const ROLES = [
   {
     name: "Admin",
@@ -35,34 +41,66 @@ const ROLES = [
   {
     name: "Unilet Admin",
     slug: "unilet-admin",
-    description: "Unilet store admin: Sales, Unilet Products, New Unilet Product and Stores",
-    groups: ["Sales", "Unilet Products", "New Unilet Product", "Stores"],
+    description:
+      "Unilet store admin: Unilet Dashboard, Sales, Unilet Products, New Unilet Product and Stores",
+    groups: [
+      "Unilet Dashboard",
+      "Sales",
+      "Unilet Products",
+      "New Unilet Product",
+      "Stores",
+    ],
     exact: true,
   },
 ];
 
-// Same collections Mongoose uses for the ecom_permissions_info / ecom_roles_info models.
 const PERMISSIONS_COLLECTION = "ecom_permissions_infos";
 const ROLES_COLLECTION = "ecom_roles_infos";
 
-// lib/adminModules.js is an ES module with no imports, so load it as a data: URL module from this CommonJS script.
+function normalizeModuleKey(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  return raw.trim().replace(/^\/+/, "");
+}
+
+function toObjectId(id) {
+  if (!id) return null;
+  if (id instanceof ObjectId) return id;
+  if (ObjectId.isValid(String(id))) return new ObjectId(String(id));
+  return null;
+}
+
 async function loadAdminMenuItems() {
   const source = fs.readFileSync(path.resolve(__dirname, "..", "lib", "adminModules.js"), "utf8");
   const mod = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
   return mod.adminMenuItems;
 }
 
-// module = permission key from lib/adminModules.js (what hasPermission() checks); group = top-level menu label.
 async function getSeedPermissions() {
   const items = await loadAdminMenuItems();
   const list = [];
+  const seenModules = new Set();
 
   for (const item of items) {
     if (item.link) {
-      list.push({ name: item.label, module: item.permission || item.link, group: item.label });
+      const moduleKey = normalizeModuleKey(item.permission || item.link);
+      if (moduleKey && !seenModules.has(moduleKey)) {
+        seenModules.add(moduleKey);
+        list.push({
+          name: item.label,
+          module: moduleKey,
+          group: item.label,
+        });
+      }
     }
     for (const sub of item.submenu || []) {
-      list.push({ name: `${item.label} / ${sub.label}`, module: sub.permission || sub.link, group: item.label });
+      const moduleKey = normalizeModuleKey(sub.permission || sub.link);
+      if (!moduleKey || seenModules.has(moduleKey)) continue;
+      seenModules.add(moduleKey);
+      list.push({
+        name: `${item.label} / ${sub.label}`,
+        module: moduleKey,
+        group: item.label,
+      });
     }
   }
 
@@ -87,7 +125,6 @@ function getMongoUri() {
   throw new Error("❌ Active MONGODB_URI not found in .env or .env.local");
 }
 
-// Same slug rule as app/api/permissions/add/route.js
 function createSlug(name) {
   return name
     .toLowerCase()
@@ -98,7 +135,6 @@ function createSlug(name) {
     .replace(/^-+|-+$/g, "");
 }
 
-// Returns [{ id, group }] for every seeded module, reusing existing permissions.
 async function seedPermissions(db, seedList) {
   const permissions = db.collection(PERMISSIONS_COLLECTION);
   const seeded = [];
@@ -110,9 +146,28 @@ async function seedPermissions(db, seedList) {
     });
 
     if (existing) {
-      const note = existing.module === item.module ? "" : ` (module is "${existing.module || ""}")`;
-      console.log(`⏭️  Permission exists: ${existing.name}${note}`);
-      seeded.push({ id: existing._id, group: item.group });
+      const updates = {};
+      if (normalizeModuleKey(existing.module) !== item.module) {
+        updates.module = item.module;
+      }
+      if (existing.name !== item.name) {
+        updates.name = item.name;
+      }
+      if (existing.slug !== slug) {
+        updates.slug = slug;
+      }
+      // Reactivate if it was marked Inactive earlier as an orphan but is back in modules
+      if (String(existing.status || "").toLowerCase() !== "active") {
+        updates.status = "Active";
+      }
+      if (Object.keys(updates).length > 0) {
+        updates.updatedAt = new Date();
+        await permissions.updateOne({ _id: existing._id }, { $set: updates });
+        console.log(`🔧 Permission corrected: ${item.name} → module "${item.module}"`);
+      } else {
+        console.log(`⏭️  Permission exists: ${existing.name}`);
+      }
+      seeded.push({ id: existing._id, group: item.group, module: item.module });
       continue;
     }
 
@@ -128,10 +183,112 @@ async function seedPermissions(db, seedList) {
       __v: 0,
     });
     console.log(`✅ Permission created: ${item.name} → module "${item.module}"`);
-    seeded.push({ id: insertedId, group: item.group });
+    seeded.push({ id: insertedId, group: item.group, module: item.module });
   }
 
   return seeded;
+}
+
+/**
+ * Permissions whose module is no longer in adminModules (deleted admin pages / files).
+ * Mark Inactive — do not hard-delete (keeps history; roles are cleaned separately).
+ */
+async function deactivateOrphanPermissions(db, validModules) {
+  const permissions = db.collection(PERMISSIONS_COLLECTION);
+  const all = await permissions.find({}).toArray();
+  const orphans = all.filter((doc) => {
+    const key = normalizeModuleKey(doc.module);
+    return !key || !validModules.has(key);
+  });
+
+  if (orphans.length === 0) {
+    console.log("⏭️  No orphan permissions (deleted modules) found");
+    return new Set();
+  }
+
+  const orphanIds = new Set(orphans.map((o) => String(o._id)));
+  const now = new Date();
+  for (const orphan of orphans) {
+    if (String(orphan.status || "").toLowerCase() === "inactive") {
+      console.log(`⏭️  Orphan already inactive: ${orphan.name || orphan.module}`);
+      continue;
+    }
+    await permissions.updateOne(
+      { _id: orphan._id },
+      { $set: { status: "Inactive", updatedAt: now } }
+    );
+    console.log(
+      `🗑️  Orphan permission inactivated (module removed): ${orphan.name || "?"} → "${orphan.module || ""}"`
+    );
+  }
+
+  return orphanIds;
+}
+
+/**
+ * Strip from EVERY role:
+ * - permission IDs that no longer exist in DB
+ * - permission IDs for orphan / Inactive modules (deleted admin pages/files)
+ * - permission IDs not in the current adminModules seed set
+ */
+async function cleanAllRolesOfInvalidPermissions(db, orphanIds, validPermissionIds) {
+  const roles = db.collection(ROLES_COLLECTION);
+  const permissions = db.collection(PERMISSIONS_COLLECTION);
+  const allRoles = await roles.find({}).toArray();
+  const orphanSet = orphanIds instanceof Set ? orphanIds : new Set(orphanIds || []);
+  const validSet =
+    validPermissionIds instanceof Set
+      ? validPermissionIds
+      : new Set(validPermissionIds || []);
+
+  for (const role of allRoles) {
+    const current = Array.isArray(role.permissions) ? role.permissions : [];
+    if (current.length === 0) continue;
+
+    const kept = [];
+    let removed = 0;
+
+    for (const rawId of current) {
+      const key = String(rawId);
+
+      // Orphan module (deleted admin file / removed from adminModules)
+      if (orphanSet.has(key)) {
+        removed += 1;
+        continue;
+      }
+
+      // Still a current seeded module permission
+      if (validSet.has(key)) {
+        kept.push(rawId);
+        continue;
+      }
+
+      // Missing document or inactive → remove from role
+      const oid = toObjectId(rawId);
+      if (!oid) {
+        removed += 1;
+        continue;
+      }
+      const doc = await permissions.findOne({ _id: oid });
+      if (!doc || String(doc.status || "").toLowerCase() === "inactive") {
+        removed += 1;
+        continue;
+      }
+
+      // Active but not in current modules → treat as deleted module, remove from role
+      removed += 1;
+    }
+
+    if (removed === 0) continue;
+
+    await roles.updateOne(
+      { _id: role._id },
+      { $set: { permissions: kept, updatedAt: new Date() } }
+    );
+    console.log(
+      `🧹 Role cleaned: ${role.name} removed ${removed} invalid/orphan permission(s) → ${kept.length} left`
+    );
+  }
 }
 
 function uniqueIds(ids) {
@@ -144,7 +301,7 @@ function uniqueIds(ids) {
   });
 }
 
-async function seedRole(db, role, seeded) {
+async function seedRole(db, role, seeded, orphanIds) {
   const roles = db.collection(ROLES_COLLECTION);
   const permissionIds = uniqueIds(
     seeded
@@ -152,6 +309,8 @@ async function seedRole(db, role, seeded) {
       .filter((p) => !role.groups || role.groups.includes(p.group))
       .map((p) => p.id)
   );
+  const wanted = new Set(permissionIds.map((id) => String(id)));
+  const orphanSet = orphanIds instanceof Set ? orphanIds : new Set();
   const existing = await roles.findOne({ $or: [{ slug: role.slug }, { name: role.name }] });
 
   if (!existing) {
@@ -169,34 +328,53 @@ async function seedRole(db, role, seeded) {
     return;
   }
 
-  const current = (existing.permissions || []).map((id) => String(id));
-  const wanted = new Set(permissionIds.map((id) => String(id)));
+  const current = Array.isArray(existing.permissions) ? existing.permissions : [];
+  const currentKeys = current.map((id) => String(id));
 
+  let nextIds;
   if (role.exact) {
-    const removed = current.filter((id) => !wanted.has(id)).length;
-    const added = permissionIds.filter((id) => !current.includes(String(id))).length;
-    if (removed === 0 && added === 0) {
-      console.log(`⏭️  Role exists: ${existing.name} already has exactly ${permissionIds.length} permissions`);
-      return;
+    nextIds = permissionIds;
+  } else {
+    // Add missing seeded; drop orphans / missing docs / inactive / not-in-wanted deleted modules
+    const kept = [];
+    for (const rawId of current) {
+      const key = String(rawId);
+      if (orphanSet.has(key)) continue;
+      if (wanted.has(key)) {
+        kept.push(rawId);
+        continue;
+      }
+      // Not in wanted seed set — remove (deleted module / old permission)
+      // (Admin should not keep Product/Category or removed pages)
     }
-    await roles.updateOne(
-      { _id: existing._id },
-      { $set: { permissions: permissionIds, description: role.description, updatedAt: new Date() } }
+    const missing = permissionIds.filter((id) => !kept.some((k) => String(k) === String(id)));
+    nextIds = uniqueIds([...kept, ...missing]);
+  }
+
+  const nextKeys = nextIds.map((id) => String(id));
+  const added = nextKeys.filter((id) => !currentKeys.includes(id)).length;
+  const removed = currentKeys.filter((id) => !nextKeys.includes(id)).length;
+
+  if (added === 0 && removed === 0) {
+    console.log(
+      `⏭️  Role exists: ${existing.name} already has ${nextIds.length} permissions (clean)`
     );
-    console.log(`✅ Role updated: ${existing.name} → ${permissionIds.length} permissions (+${added}, -${removed})`);
     return;
   }
 
-  const missing = permissionIds.filter((id) => !current.includes(String(id)));
-  if (missing.length === 0) {
-    console.log(`⏭️  Role exists: ${existing.name} already has all seeded permissions`);
-    return;
-  }
   await roles.updateOne(
     { _id: existing._id },
-    { $addToSet: { permissions: { $each: missing } }, $set: { updatedAt: new Date() } }
+    {
+      $set: {
+        permissions: nextIds,
+        description: role.description,
+        updatedAt: new Date(),
+      },
+    }
   );
-  console.log(`✅ Role updated: ${existing.name} +${missing.length} permissions`);
+  console.log(
+    `✅ Role updated: ${existing.name} → ${nextIds.length} permissions (+${added}, -${removed})`
+  );
 }
 
 async function main() {
@@ -205,15 +383,32 @@ async function main() {
   console.log(`🔌 Connected: ${mongoose.connection.name}`);
 
   const seedList = await getSeedPermissions();
-  console.log(`📋 ${seedList.length} modules to seed (permission only, no role: ${PERMISSION_ONLY_GROUPS.join(", ")})`);
+  const validModules = new Set(seedList.map((i) => i.module));
+
+  console.log(
+    `📋 ${seedList.length} modules to seed (permission only, no role: ${PERMISSION_ONLY_GROUPS.join(", ")})`
+  );
+  console.log("—— Modules ——");
+  for (const item of seedList) {
+    console.log(`   • [${item.group}] ${item.name} → ${item.module}`);
+  }
 
   const db = mongoose.connection.db;
   const seeded = await seedPermissions(db, seedList);
+  const validPermissionIds = new Set(seeded.map((p) => String(p.id)));
+
+  console.log("—— Orphan / deleted-module permissions ——");
+  const orphanIds = await deactivateOrphanPermissions(db, validModules);
+
+  console.log("—— Clean all roles (missing + orphan perms) ——");
+  await cleanAllRolesOfInvalidPermissions(db, orphanIds, validPermissionIds);
+
+  console.log("—— Seed roles ——");
   for (const role of ROLES) {
-    await seedRole(db, role, seeded);
+    await seedRole(db, role, seeded, orphanIds);
   }
 
-  console.log("🎉 Permission seeding finished");
+  console.log("🎉 Permission + role seeding finished");
 }
 
 main()
