@@ -364,14 +364,19 @@ const Header = () => {
   useEffect(() => {
     let timerExpiryTimeout = null;
     let isMounted = true;
+    const abortController = new AbortController();
 
     const fetchBanners = async () => {
       const reg = region || selectedRegion?.id || "tamilnadu";
       let hasActiveOffer = false;
+      const fetchOpts = { cache: "no-store", signal: abortController.signal };
 
       // 1. Fetch active offer timer for region
       try {
-        const res = await fetch(`/api/offers/global-timer?region=${encodeURIComponent(reg)}`, { cache: 'no-store' });
+        const res = await fetch(
+          `/api/offers/global-timer?region=${encodeURIComponent(reg)}`,
+          fetchOpts
+        );
         if (res.ok) {
           const data = await res.json();
           if (isMounted && data?.success && data.timer) {
@@ -418,12 +423,18 @@ const Header = () => {
           }
         }
       } catch (e) {
-        console.error("Failed to fetch active offer timer:", e);
+        // Abort / transient network (HMR, tab focus) — keep last banner; avoid Next overlay noise
+        if (e?.name !== "AbortError") {
+          console.warn("[Header] offer timer banner refresh skipped (network)");
+        }
       }
 
       // 2. Fetch regular state-wise top banner for region (priority fallback)
       try {
-        const resTop = await fetch(`/api/topbanner?region=${encodeURIComponent(reg)}`, { cache: 'no-store' });
+        const resTop = await fetch(
+          `/api/topbanner?region=${encodeURIComponent(reg)}`,
+          fetchOpts
+        );
         if (resTop.ok) {
           const dataTop = await resTop.json();
           if (isMounted && dataTop?.success && dataTop.banners?.length > 0) {
@@ -440,19 +451,39 @@ const Header = () => {
           }
         }
       } catch (e) {
-        console.error("Failed to fetch regular top banner:", e);
+        if (e?.name !== "AbortError") {
+          console.warn("[Header] top banner refresh skipped (network)");
+        }
       }
     };
 
-    fetchBanners();
+    let focusDebounceTimer = null;
+    let bannersInFlight = false;
+
+    const safeFetchBanners = async () => {
+      if (!isMounted || bannersInFlight) return;
+      bannersInFlight = true;
+      try {
+        await fetchBanners();
+      } finally {
+        bannersInFlight = false;
+      }
+    };
+
+    safeFetchBanners();
 
     // Listen for cross-tab or form updates without page reload
     const handleStorageUpdate = (e) => {
       if (e.key === "sathya_offer_timer_sync" || e.key === "sathya_top_banner_sync") {
-        fetchBanners();
+        safeFetchBanners();
       }
     };
-    const handleCustomUpdate = () => fetchBanners();
+    const handleCustomUpdate = () => {
+      if (focusDebounceTimer) clearTimeout(focusDebounceTimer);
+      focusDebounceTimer = setTimeout(() => {
+        safeFetchBanners();
+      }, 300);
+    };
 
     window.addEventListener("storage", handleStorageUpdate);
     window.addEventListener("offerTimerUpdated", handleCustomUpdate);
@@ -460,7 +491,9 @@ const Header = () => {
 
     return () => {
       isMounted = false;
+      abortController.abort();
       if (timerExpiryTimeout) clearTimeout(timerExpiryTimeout);
+      if (focusDebounceTimer) clearTimeout(focusDebounceTimer);
       window.removeEventListener("storage", handleStorageUpdate);
       window.removeEventListener("offerTimerUpdated", handleCustomUpdate);
       window.removeEventListener("focus", handleCustomUpdate);
@@ -730,7 +763,9 @@ const Header = () => {
         saveCache(nestedKey, freshNested);
         setCategories(freshNested);
       } catch (err) {
-        console.error("Failed to fetch fresh categories:", err);
+        if (err?.name !== "AbortError") {
+          console.warn("[Header] categories refresh skipped (network)");
+        }
       }
     };
 
@@ -757,7 +792,9 @@ const Header = () => {
         // 2) Stale-While-Revalidate: ALWAYS fetch fresh categories in background so updates reflect immediately
         await fetchFreshCategories();
       } catch (err) {
-        console.error("Failed to fetch or build categories:", err);
+        if (err?.name !== "AbortError") {
+          console.warn("[Header] categories setup skipped (network)");
+        }
         if (mounted) setWords(ensureWordsNotEmpty([]));
       }
 
@@ -1607,7 +1644,9 @@ const Header = () => {
           .filter((offer) => offer && offer.fest_offer_status === "active");
         setOffers(activeOffers);
       } catch (err) {
-        console.error("Failed to fetch offers", err);
+        if (err?.name !== "AbortError") {
+          console.warn("[Header] offers refresh skipped (network)");
+        }
         setOffers([]);
       }
     };
