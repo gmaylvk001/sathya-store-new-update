@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from "uuid";
 import { MdSecurity, MdLoop, MdVerified, MdCardMembership, MdLocalShipping, MdLock } from "react-icons/md";
 import { useWishlist } from '@/context/WishlistContext';
 import ProductAddtoCart from "@/components/ProductAddtoCart";
+import CartItemRow, { getItemId } from "@/components/cart/CartItemRow";
 import { getDiscountInfo } from "@/lib/discountHelper";
 
 
@@ -1031,18 +1032,19 @@ export default function CartComponent() {
   };
 
 
-  const updateQuantity = async (productId, newQuantity, original_quantity = null) => {
+  const handleQuantityChange = async (productId, newQuantity, availableStock = null) => {
     if (newQuantity < 1) return;
-    if (updatingQuantityId === productId) return;
+    if (availableStock != null && newQuantity > availableStock) {
+      setErrorMessage("Requested quantity exceeds available stock.");
+      setShowErrorModal(true);
+      throw new Error("Requested quantity exceeds available stock.");
+    }
     setUpdatingQuantityId(productId);
     try {
-      if (original_quantity !== null && newQuantity > original_quantity) {
-        setErrorMessage("Requested quantity exceeds available stock.");
-        setShowErrorModal(true);
-        return;
-      }
       let response = '';
       const token = typeof window !== "undefined" ? localStorage.getItem('token') : null;
+      const payload = { productId, quantity: newQuantity };
+
       if (token) {
         response = await fetch('/api/cart', {
           method: 'PUT',
@@ -1050,7 +1052,7 @@ export default function CartComponent() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ productId, quantity: newQuantity })
+          body: JSON.stringify(payload)
         });
       } else {
         const guestCartId = typeof window !== "undefined" ? (localStorage.getItem("guestCartId") || uuidv4()) : null;
@@ -1060,12 +1062,13 @@ export default function CartComponent() {
             'Content-Type': 'application/json',
             ...(guestCartId && { 'guestCartId': guestCartId })
           },
-          body: JSON.stringify({ productId, quantity: newQuantity })
+          body: JSON.stringify(payload)
         });
       }
 
       if (!response.ok) {
-        throw new Error('Failed to update quantity');
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to update quantity');
       }
 
       let updatedCart = {};
@@ -1077,12 +1080,21 @@ export default function CartComponent() {
 
       if (!updatedCart || !updatedCart.cart) return;
 
-      // Merge existing details
+      // Merge existing details strictly using unique getItemId
       const itemsMerged = updatedCart.cart.items.map(item => {
-        const existingItem = cartData?.items?.find(i => i.productId === item.productId);
+        const existingItem = cartData?.items?.find(i => getItemId(i) === getItemId(item));
+        const stock = Number(
+          item.available_stock ??
+          existingItem?.available_stock ??
+          item.original_quantity ??
+          existingItem?.original_quantity ??
+          10
+        );
         return {
           ...existingItem,
           ...item,
+          available_stock: stock,
+          original_quantity: stock,
           discount: 0
         };
       });
@@ -1098,11 +1110,15 @@ export default function CartComponent() {
       saveCartState(finalCart);
     } catch (err) {
       console.error('Update quantity error:', err);
-      setError(err.message);
+      setErrorMessage(err.message || "Failed to update quantity");
+      setShowErrorModal(true);
+      throw err;
     } finally {
       setUpdatingQuantityId(null);
     }
   };
+
+  const updateQuantity = handleQuantityChange;
 
 
   const confirmRemoveItem = (productId) => {
@@ -1820,234 +1836,18 @@ return (
 
           {/* Cart Item Cards List */}
           <div className="bg-white rounded-xl border border-gray-200/80 divide-y divide-gray-100 shadow-2xs overflow-hidden">
-            {cartData.items.map((item, index) => {
-              const originalPrice = item.actual_price > 0 ? item.actual_price : item.price;
-              const specialPrice = item.price;
-              const { discountPercent, showDiscount } = getDiscountInfo(originalPrice, specialPrice);
-              const itemVariations = getItemVariations(item);
-              const itemWarranty = getItemWarranty(item);
-
-              const prodIdStr =
-                (typeof item.productId === "object" && item.productId?._id
-                  ? item.productId._id.toString()
-                  : typeof item.productId === "string" && item.productId
-                  ? item.productId
-                  : null) ||
-                (typeof item.comboId === "string" ? item.comboId : item.comboId?.toString()) ||
-                (typeof item._id === "string" ? item._id : item._id?.toString()) ||
-                item.item_code ||
-                `cart-item-${index}`;
-
-              const itemKey = item._id ? String(item._id) : `${prodIdStr}-${index}`;
-              const productUrl = item.isCombo
-                ? (item.slug ? `/combo-offers/${item.slug}` : `/combo-offers`)
-                : `/product/${item.slug || prodIdStr}`;
-
+            {cartData.items.map((item) => {
+              const uniqueKey = item.id || item.cart_item_id || getItemId(item);
               return (
-                <div key={itemKey} className="p-4 sm:p-6 flex flex-col gap-4 group transition-colors hover:bg-gray-50/40">
-                  <div className="flex gap-4 sm:gap-6 items-start">
-                    {/* Left Product Image */}
-                    <div className="w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0 bg-white border border-gray-200/70 rounded-lg p-2 flex items-center justify-center relative overflow-hidden group-hover:border-red-200 transition-colors">
-                      <Link href={productUrl} className="w-full h-full block relative">
-                        <img
-                          src={
-                            item.image
-                              ? (item.image.startsWith("http") || item.image.startsWith("/")
-                                  ? item.image
-                                  : `/uploads/products/${item.image}`)
-                              : "/uploads/sathyalogo.webp"
-                          }
-                          alt={item.name}
-                          className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
-                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "/uploads/sathyalogo.webp"; }}
-                        />
-                      </Link>
-                    </div>
-
-                    {/* Middle Info Details */}
-                    <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                      <Link href={productUrl} className="group-hover/title:text-[#d72828]">
-                        <h3 className="text-sm sm:text-base font-semibold text-gray-900 line-clamp-2 leading-snug hover:text-[#d72828] transition-colors">
-                          {item.name}
-                        </h3>
-                      </Link>
-
-                      {/* Dynamic Variations (Color, Storage, Size, etc.) */}
-                      {itemVariations.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                          {itemVariations.map((v, vIdx) => (
-                            <span
-                              key={vIdx}
-                              className="inline-flex items-center gap-1 bg-gray-100/90 border border-gray-200/90 text-gray-800 text-[11px] sm:text-xs font-medium px-2 py-0.5 rounded-md"
-                            >
-                              <span className="text-gray-500 font-normal">{v.key}:</span>
-                              <span className="font-semibold text-gray-900">{v.value}</span>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Extended Warranty Badge / Protection Sub-row */}
-                      {itemWarranty && (
-                        <div className="inline-flex items-center gap-2 bg-amber-50/90 border border-amber-200 text-amber-900 rounded-lg px-2.5 py-1 text-xs mt-0.5 w-fit shadow-2xs">
-                          <div className="flex items-center gap-1.5 font-medium">
-                            <svg className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" />
-                            </svg>
-                            <span className="font-semibold text-amber-950">{itemWarranty.title}</span>
-                          </div>
-                          {itemWarranty.price > 0 && (
-                            <span className="bg-amber-100/90 text-amber-900 font-bold px-1.5 py-0.5 rounded text-[11px] border border-amber-200">
-                              +₹{Number(itemWarranty.price).toLocaleString("en-IN")}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {Number(item.exchangeOffer?.price) > 0 && (
-                        <div className="inline-flex items-center gap-2 bg-emerald-50/90 border border-emerald-200 text-emerald-900 rounded-lg px-2.5 py-1 text-xs mt-0.5 w-fit shadow-2xs">
-                          <span className="font-semibold text-emerald-950">Exchange Value</span>
-                          <span className="bg-emerald-100/90 text-emerald-900 font-bold px-1.5 py-0.5 rounded text-[11px] border border-emerald-200">
-                            −₹{Number(item.exchangeOffer.price).toLocaleString("en-IN")}
-                          </span>
-                        </div>
-                      )}
-
-                      {item.item_code && (
-                        <p className="text-xs text-gray-400 font-normal">SKU: {item.item_code}</p>
-                      )}
-
-                      {/* Rating & Stock Badge */}
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="bg-emerald-700 text-white text-[11px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5">
-                          3.8 ★
-                        </span>
-                        <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                          In Stock
-                        </span>
-                      </div>
-
-                      {/* Qty & Price Row */}
-                      <div className="flex items-center gap-4 mt-2 flex-wrap">
-                        {/* Qty Stepper */}
-                        {(() => {
-                          const isUpdating =
-                            updatingQuantityId === prodIdStr ||
-                            updatingQuantityId === item.productId;
-                          const maxStock =
-                            item.original_quantity != null && Number(item.original_quantity) > 0
-                              ? Number(item.original_quantity)
-                              : 10;
-                          const maxAllowed = Math.min(10, maxStock);
-                          const isMin = item.quantity <= 1;
-                          const isMax = item.quantity >= maxAllowed;
-
-                          return (
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold text-gray-500">Qty:</span>
-                              <div className="inline-flex items-center bg-gray-50/80 border border-gray-300/80 rounded-lg p-0.5 shadow-2xs">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateQuantity(
-                                      prodIdStr,
-                                      item.quantity - 1,
-                                      item.original_quantity
-                                    )
-                                  }
-                                  disabled={isMin || isUpdating}
-                                  aria-label="Decrease quantity"
-                                  title={isMin ? "Minimum quantity is 1" : "Decrease quantity"}
-                                  className={`w-7 h-7 flex items-center justify-center rounded-md font-bold transition-all select-none ${
-                                    isMin || isUpdating
-                                      ? "text-gray-300 cursor-not-allowed"
-                                      : "text-gray-700 hover:bg-white hover:text-[#d72828] hover:shadow-2xs active:scale-95 cursor-pointer"
-                                  }`}
-                                >
-                                  <span className="leading-none text-base">−</span>
-                                </button>
-                                <span className="w-8 text-center text-xs sm:text-sm font-extrabold text-gray-900 select-none flex items-center justify-center">
-                                  {isUpdating ? (
-                                    <span className="inline-block w-3 h-3 border-2 border-[#d72828] border-t-transparent rounded-full animate-spin" />
-                                  ) : (
-                                    item.quantity
-                                  )}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateQuantity(
-                                      prodIdStr,
-                                      item.quantity + 1,
-                                      item.original_quantity
-                                    )
-                                  }
-                                  disabled={isMax || isUpdating}
-                                  aria-label="Increase quantity"
-                                  title={isMax ? `Maximum quantity is ${maxAllowed}` : "Increase quantity"}
-                                  className={`w-7 h-7 flex items-center justify-center rounded-md font-bold transition-all select-none ${
-                                    isMax || isUpdating
-                                      ? "text-gray-300 cursor-not-allowed"
-                                      : "text-gray-700 hover:bg-white hover:text-[#d72828] hover:shadow-2xs active:scale-95 cursor-pointer"
-                                  }`}
-                                >
-                                  <span className="leading-none text-base">+</span>
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Price */}
-                        <div className="flex items-baseline gap-2">
-                          {showDiscount && (
-                            <span className="text-emerald-600 font-bold text-xs sm:text-sm bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                              ↓{discountPercent}% OFF
-                            </span>
-                          )}
-                          {showDiscount && (
-                            <s className="text-gray-400 text-xs sm:text-sm line-through">
-                              ₹{Number(originalPrice).toLocaleString("en-IN")}
-                            </s>
-                          )}
-                          <span className="text-lg sm:text-xl font-extrabold text-gray-900">
-                            ₹{Number(specialPrice).toLocaleString("en-IN")}
-                          </span>
-                        </div>
-                      </div>
-
-                      <p className="text-xs text-gray-500 font-medium mt-0.5 flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        Standard Delivery in 2 - 4 Days
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Bottom Action Bar */}
-                  <div className="border-t border-gray-100 pt-3 flex items-center gap-4 sm:gap-6 text-xs font-bold text-gray-700">
-                    <button
-                      onClick={() => moveToWishlist(prodIdStr)}
-                      className="hover:text-[#d72828] text-gray-600 transition-colors cursor-pointer uppercase tracking-wider flex items-center gap-1.5"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-                      <span>Move to Wishlist</span>
-                    </button>
-                    <button
-                      onClick={() => confirmRemoveItem(prodIdStr)}
-                      className="hover:text-red-600 text-gray-500 transition-colors cursor-pointer uppercase tracking-wider flex items-center gap-1"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
-                      <span>Remove</span>
-                    </button>
-                    <button
-                      onClick={() => proceedToCheckout()}
-                      className="hover:text-[#b91c1c] transition-colors cursor-pointer uppercase tracking-wider text-[#d72828] ml-auto font-extrabold flex items-center gap-1"
-                    >
-                      <span>⚡ Buy this item now</span>
-                    </button>
-                  </div>
-                </div>
+                <CartItemRow
+                  key={uniqueKey}
+                  item={item}
+                  onQuantityChange={handleQuantityChange}
+                  onMoveToWishlist={moveToWishlist}
+                  onRemoveItem={confirmRemoveItem}
+                  onProceedToCheckout={proceedToCheckout}
+                  isItemUpdating={updatingQuantityId === uniqueKey || updatingQuantityId === getItemId(item)}
+                />
               );
             })}
           </div>

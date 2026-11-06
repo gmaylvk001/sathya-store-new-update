@@ -411,11 +411,25 @@ export async function POST(req) {
 
     await cart.save();
 
+    const returnItems = cart.items.map((i) => {
+      const pId = i.productId?._id ? i.productId._id.toString() : i.productId?.toString();
+      const cId = i._id ? i._id.toString() : pId;
+      const stock = Number(i.productId?.quantity ?? (pId === product._id.toString() ? product.quantity : null) ?? 10);
+      return {
+        ...(i.toObject ? i.toObject() : i),
+        id: cId,
+        cart_item_id: cId,
+        productId: pId,
+        available_stock: stock,
+        original_quantity: stock,
+      };
+    });
+
     return NextResponse.json(
       {
         message: "Product added",
         guestCartId: userId ? null : guestId,
-        cart: { id: cart._id, ...totals, items: cart.items },
+        cart: { id: cart._id, ...totals, items: returnItems },
       },
       { status: 200 }
     );
@@ -495,7 +509,17 @@ export async function GET(req) {
           ? prodDoc._id.toString()
           : item.productId?.toString() || (item.comboId ? item.comboId.toString() : null);
         const itemCode = prodDoc?.item_code || item.item_code || "";
-        const original_quantity = await getQuantity(itemCode);
+        let available_stock = 10;
+        if (prodDoc?.quantity != null && !isNaN(Number(prodDoc.quantity))) {
+          available_stock = Number(prodDoc.quantity);
+        } else if (itemCode) {
+          const qty = await getQuantity(itemCode);
+          if (qty != null && !isNaN(Number(qty))) available_stock = Number(qty);
+        } else if (item.original_quantity != null) {
+          available_stock = Number(item.original_quantity);
+        }
+        if (isNaN(available_stock) || available_stock < 0) available_stock = 10;
+        const original_quantity = available_stock;
 
         const prodImg = Array.isArray(prodDoc?.images) && prodDoc.images.length > 0
           ? prodDoc.images[0]
@@ -609,7 +633,11 @@ export async function GET(req) {
           };
         }
 
+        const cartItemId = item._id ? item._id.toString() : prodId;
         return {
+          id: cartItemId,
+          cart_item_id: cartItemId,
+          available_stock,
           original_quantity,
           item_code: itemCode,
           productId: prodId,
@@ -841,7 +869,16 @@ export async function PUT(req) {
         ? item.productId.images[0]
         : item.image || "";
       const code = item.productId?.item_code || item.item_code;
+      const cartItemId = item._id ? item._id.toString() : prodIdStr;
+      const stock = Number(
+        item.productId?.quantity ??
+        item.original_quantity ??
+        item.available_stock ??
+        10
+      );
       return {
+        id: cartItemId,
+        cart_item_id: cartItemId,
         productId: prodIdStr,
         name: item.name,
         price: item.price,
@@ -856,7 +893,8 @@ export async function PUT(req) {
         selectedVariant: item.selectedVariant || null,
         color: item.color || null,
         slug: item.slug || item.productId?.slug || "",
-        original_quantity: item.original_quantity ?? null,
+        available_stock: stock,
+        original_quantity: stock,
         exchangeOffer: normalizeExchangeOffer(item.exchangeOffer),
       };
     });
