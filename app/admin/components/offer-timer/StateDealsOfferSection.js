@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { FaEdit } from "react-icons/fa";
 import { Icon } from "@iconify/react";
 import { OFFER_TIMER_STATES } from "@/lib/offerTimer";
+import { loadDealsRoleAccess } from "@/lib/dealsRoleState";
 
 // Safe response parser that protects against "SyntaxError: Unexpected token '<', '<!DOCTYPE '... is not valid JSON"
 async function safeJsonParse(response) {
@@ -49,6 +50,9 @@ export default function StateDealsOfferSection() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [accessReady, setAccessReady] = useState(false);
+  const [isDealsRole, setIsDealsRole] = useState(false);
+  const [dealsState, setDealsState] = useState("");
 
   // Fetch available State Deals (isolated refresh)
   const fetchDeals = async () => {
@@ -87,6 +91,19 @@ export default function StateDealsOfferSection() {
     fetchTimers();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    loadDealsRoleAccess().then((access) => {
+      if (cancelled) return;
+      setIsDealsRole(access.isDealsRole);
+      setDealsState(access.dealsState);
+      setAccessReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Show temporary success message
   const triggerSuccess = (msg) => {
     setSuccessMessage(msg);
@@ -100,7 +117,7 @@ export default function StateDealsOfferSection() {
     setSelectedTimerId("");
     setSelectedTimerTitle("");
     setSelectedTimerRef("");
-    setSelectedState("");
+    setSelectedState(isDealsRole ? dealsState : "");
     setFormError("");
     setIsModalOpen(true);
   };
@@ -270,16 +287,19 @@ export default function StateDealsOfferSection() {
       setFormError("Please select an Offer Timer.");
       return;
     }
-    if (!selectedState) {
-      setFormError("Please select a State.");
+    const stateToSave = isDealsRole ? dealsState : selectedState;
+    if (!stateToSave) {
+      setFormError(
+        isDealsRole ? "Your account email does not include a state." : "Please select a State."
+      );
       return;
     }
 
     // Client-side duplicate check
     const excludeId = modalMode === "edit" && editingDeal ? editingDeal._id : null;
-    if (isDuplicateMapping(selectedTimerId, selectedState, excludeId)) {
+    if (isDuplicateMapping(selectedTimerId, stateToSave, excludeId)) {
       setFormError(
-        `A deal mapping for Offer Timer ID ${selectedTimerId} and State "${selectedState}" already exists.`
+        `A deal mapping for Offer Timer ID ${selectedTimerId} and State "${stateToSave}" already exists.`
       );
       return;
     }
@@ -290,7 +310,7 @@ export default function StateDealsOfferSection() {
         offerTimerId: Number(selectedTimerId),
         offerTimerTitle: selectedTimerTitle || `Offer Timer ${selectedTimerId}`,
         offerTimerRef: selectedTimerRef || null,
-        state: selectedState.trim().toLowerCase(),
+        state: stateToSave.trim().toLowerCase(),
       };
 
       let response;
@@ -353,10 +373,16 @@ export default function StateDealsOfferSection() {
   };
 
   // Filtered deals based on search
+  const stateScopedDeals = useMemo(() => {
+    if (!isDealsRole) return deals;
+    if (!dealsState) return [];
+    return deals.filter((deal) => String(deal.state || "").toLowerCase() === dealsState);
+  }, [deals, isDealsRole, dealsState]);
+
   const filteredDeals = useMemo(() => {
-    if (!searchQuery.trim()) return deals;
+    if (!searchQuery.trim()) return stateScopedDeals;
     const q = searchQuery.toLowerCase().trim();
-    return deals.filter((d) => {
+    return stateScopedDeals.filter((d) => {
       const idMatch = d.dealId && String(d.dealId).toLowerCase().includes(q);
       const timerIdMatch =
         d.offerTimerId && String(d.offerTimerId).toLowerCase().includes(q);
@@ -365,7 +391,7 @@ export default function StateDealsOfferSection() {
       const stateMatch = d.state && d.state.toLowerCase().includes(q);
       return idMatch || timerIdMatch || titleMatch || stateMatch;
     });
-  }, [deals, searchQuery]);
+  }, [stateScopedDeals, searchQuery]);
 
   return (
     <div className="container mx-auto">
@@ -429,7 +455,7 @@ export default function StateDealsOfferSection() {
         )}
 
         {/* Loading State */}
-        {isLoading ? (
+        {isLoading || !accessReady ? (
           <div className="py-12 flex flex-col items-center justify-center text-gray-500">
             <Icon icon="svg-spinners:180-ring-with-bg" className="w-8 h-8 text-blue-500 mb-2" />
             <p className="text-sm">Loading State Deals...</p>
@@ -545,17 +571,29 @@ export default function StateDealsOfferSection() {
                     State
                   </label>
                   <select
-                    value={selectedState}
-                    onChange={handleStateChange}
+                    value={isDealsRole ? dealsState : selectedState}
+                    onChange={(e) => {
+                      if (isDealsRole) return;
+                      handleStateChange(e);
+                    }}
                     className="w-full border border-[#cccccc] rounded px-3 py-2 text-sm text-[#333333] bg-white focus:outline-none focus:border-[#66afe9] focus:ring-1 focus:ring-[#66afe9]"
                     required
                   >
-                    <option value="">-- Select State --</option>
-                    <option value="tamilnadu">Tamilnadu</option>
-                    <option value="andhra">Andhra</option>
-                    <option value="kerala">Kerala</option>
-                    <option value="karnataka">Karnataka</option>
-                    <option value="telangana">Telangana</option>
+                    {!isDealsRole && <option value="">-- Select State --</option>}
+                    {(isDealsRole
+                      ? OFFER_TIMER_STATES.filter((state) => state.value === dealsState)
+                      : [
+                          { value: "tamilnadu", label: "Tamilnadu" },
+                          { value: "andhra", label: "Andhra" },
+                          { value: "kerala", label: "Kerala" },
+                          { value: "karnataka", label: "Karnataka" },
+                          { value: "telangana", label: "Telangana" },
+                        ]
+                    ).map((state) => (
+                      <option key={state.value} value={state.value}>
+                        {state.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

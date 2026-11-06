@@ -6,6 +6,7 @@ import { FaEdit } from "react-icons/fa";
 import { Icon } from "@iconify/react";
 import Image from "next/image";
 import { formatOfferStates, formatTimerDateTime } from "@/lib/offerTimer";
+import { loadDealsRoleAccess, offerTimerContainsState } from "@/lib/dealsRoleState";
 
 export default function OfferTimerList() {
   const router = useRouter();
@@ -17,6 +18,9 @@ export default function OfferTimerList() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [accessReady, setAccessReady] = useState(false);
+  const [isDealsRole, setIsDealsRole] = useState(false);
+  const [dealsState, setDealsState] = useState("");
 
   const fetchTimers = async () => {
     try {
@@ -32,6 +36,19 @@ export default function OfferTimerList() {
 
   useEffect(() => {
     fetchTimers();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadDealsRoleAccess().then((access) => {
+      if (cancelled) return;
+      setIsDealsRole(access.isDealsRole);
+      setDealsState(access.dealsState);
+      setAccessReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const closeDeleteModal = () => {
@@ -94,7 +111,12 @@ export default function OfferTimerList() {
     }
   };
 
-  const filtered = timers.filter((timer) =>
+  const visibleTimers = timers.filter((timer) => {
+    if (!isDealsRole) return true;
+    return Boolean(dealsState) && offerTimerContainsState(timer, dealsState);
+  });
+
+  const filtered = visibleTimers.filter((timer) =>
     [timer.offerTitle, timer.offerHeading, formatOfferStates(timer.offerViewStates)]
       .some((value) => value && String(value).toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -105,7 +127,7 @@ export default function OfferTimerList() {
         <h2 className="text-3xl font-light text-gray-700">Offers Timers</h2>
       </div>
 
-      {isLoading ? (
+      {isLoading || !accessReady ? (
         <p>Loading Offer Timers...</p>
       ) : (
         <div className="bg-white shadow-sm border rounded-lg p-5">

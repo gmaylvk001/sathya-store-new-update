@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { OFFER_TIMER_STATES, toDateTimeLocal } from "@/lib/offerTimer";
+import { loadDealsRoleAccess, offerTimerContainsState } from "@/lib/dealsRoleState";
 
 const ALL_STATE_VALUES = OFFER_TIMER_STATES.map((s) => s.value);
 
@@ -30,6 +31,27 @@ export default function OfferTimerForm({ timerId = null }) {
   const [isLoading, setIsLoading] = useState(isEditMode);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+  const [accessReady, setAccessReady] = useState(false);
+  const [isDealsRole, setIsDealsRole] = useState(false);
+  const [dealsState, setDealsState] = useState("");
+  const [preservedStates, setPreservedStates] = useState([]);
+  const [stateBlocked, setStateBlocked] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadDealsRoleAccess().then((access) => {
+      if (cancelled) return;
+      setIsDealsRole(access.isDealsRole);
+      setDealsState(access.dealsState);
+      if (access.isDealsRole && access.dealsState && !timerId) {
+        setFormData((prev) => ({ ...prev, offerViewStates: [access.dealsState] }));
+      }
+      setAccessReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [timerId]);
 
   useEffect(() => {
     if (!timerId) return;
@@ -45,13 +67,26 @@ export default function OfferTimerForm({ timerId = null }) {
         const timer = result.data;
         const states = timer.offerViewStates || [];
         const isAll = states.includes("all") || timer.state === "all" || states.length === 0;
+        const access = await loadDealsRoleAccess();
+        if (access.isDealsRole) {
+          if (!access.dealsState || !offerTimerContainsState(timer, access.dealsState)) {
+            setStateBlocked(true);
+            setError("This offer timer is not available for your state.");
+            return;
+          }
+          setPreservedStates(isAll ? ["all"] : states.filter((item) => item !== "all" && item !== access.dealsState));
+        }
 
         setDisplayId(String(timer.timerId ?? timerId));
         setFormData({
           offerTitle: timer.offerTitle || "",
           startDate: toDateTimeLocal(timer.startDate),
           endDate: toDateTimeLocal(timer.endDate),
-          offerViewStates: isAll ? ["all"] : states.filter((item) => item !== "all"),
+          offerViewStates: access.isDealsRole
+            ? [access.dealsState]
+            : isAll
+              ? ["all"]
+              : states.filter((item) => item !== "all"),
           timerDisplayStatus: timer.timerDisplayStatus || "Yes",
           offerHeading: timer.offerHeading || "",
           offerDescription: timer.offerDescription || "",
@@ -206,7 +241,17 @@ export default function OfferTimerForm({ timerId = null }) {
       data.append("offerHeading", formData.offerHeading.trim());
       data.append("offerDescription", formData.offerDescription.trim());
 
-      const statesToSend = formData.offerViewStates.length ? formData.offerViewStates : ["all"];
+      let statesToSend = formData.offerViewStates.length ? formData.offerViewStates : ["all"];
+      if (isDealsRole) {
+        if (!dealsState) {
+          setError("Your account email does not include a state.");
+          setIsSaving(false);
+          return;
+        }
+        statesToSend = preservedStates.includes("all")
+          ? ["all"]
+          : [...new Set([...preservedStates, dealsState])];
+      }
       statesToSend.forEach((state) => data.append("offerViewStates", state));
 
       if (topBannerFile) {
@@ -248,10 +293,25 @@ export default function OfferTimerForm({ timerId = null }) {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || !accessReady) {
     return (
       <div className="container mx-auto p-6">
         <p className="text-gray-600">Loading offer timer...</p>
+      </div>
+    );
+  }
+
+  if (stateBlocked) {
+    return (
+      <div className="container mx-auto p-6">
+        <p className="text-red-600">{error}</p>
+        <button
+          type="button"
+          onClick={() => router.push("/admin/offer-timer")}
+          className="mt-3 text-sm font-medium text-[#ED1C24] hover:underline"
+        >
+          Back to Offer Timers
+        </button>
       </div>
     );
   }
@@ -328,32 +388,42 @@ export default function OfferTimerForm({ timerId = null }) {
           <div className="flex items-start">
             <label className="w-1/4 text-sm font-semibold text-gray-700 pt-1">States</label>
             <div className="w-3/4 flex flex-wrap items-center gap-6">
-              {/* All Checkbox */}
-              <label className="inline-flex items-center gap-2 text-sm text-gray-800 cursor-pointer select-none font-medium">
-                <input
-                  type="checkbox"
-                  checked={isAllSelected}
-                  onChange={handleAllToggle}
-                  className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                />
-                All
-              </label>
+              {!isDealsRole && (
+                <label className="inline-flex items-center gap-2 text-sm text-gray-800 cursor-pointer select-none font-medium">
+                  <input
+                    type="checkbox"
+                    checked={isAllSelected}
+                    onChange={handleAllToggle}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                  All
+                </label>
+              )}
 
-              {/* 5 Individual State Checkboxes */}
-              {OFFER_TIMER_STATES.map((state) => {
-                const isChecked = !isAllSelected && formData.offerViewStates.includes(state.value);
+              {(isDealsRole
+                ? OFFER_TIMER_STATES.filter((state) => state.value === dealsState)
+                : OFFER_TIMER_STATES
+              ).map((state) => {
+                const isChecked = isDealsRole
+                  ? true
+                  : !isAllSelected && formData.offerViewStates.includes(state.value);
                 return (
                   <label
                     key={state.value}
                     className={`inline-flex items-center gap-2 text-sm select-none ${
-                      isAllSelected ? "text-gray-400 cursor-not-allowed" : "text-gray-800 cursor-pointer"
+                      isDealsRole || isAllSelected
+                        ? "text-gray-800 cursor-not-allowed"
+                        : "text-gray-800 cursor-pointer"
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={isChecked}
-                      disabled={isAllSelected}
-                      onChange={() => handleIndividualStateToggle(state.value)}
+                      disabled={isDealsRole || isAllSelected}
+                      onChange={() => {
+                        if (isDealsRole) return;
+                        handleIndividualStateToggle(state.value);
+                      }}
                       className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer disabled:cursor-not-allowed"
                     />
                     {state.label}
