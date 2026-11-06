@@ -4,6 +4,12 @@ import HomeTopBanner from "@/models/homeTopBanner";
 import HomePage from "@/models/homePage";
 import { saveCategoryTopBannerImage } from "@/lib/categoryTopbannerUpload";
 
+function withBannerId(item, row) {
+  const id = item?._id ? String(item._id) : "";
+  if (/^[a-f\d]{24}$/i.test(id)) row._id = id;
+  return row;
+}
+
 /**
  * GET /api/home-topbanner
  * ?pageId= | all list for admin
@@ -117,31 +123,35 @@ export async function POST(req) {
           mobileImage = await saveCategoryTopBannerImage(mobFile);
         }
 
-        banners.push({
-          desktopImage,
-          mobileImage,
-          url: item.url || "",
-          state: item.state || "all",
-          isActive: item.isActive !== false,
-          startDate: item.startDate ? new Date(item.startDate) : null,
-          endDate: item.endDate ? new Date(item.endDate) : null,
-          order: typeof item.order === "number" ? item.order : i,
-        });
+        banners.push(
+          withBannerId(item, {
+            desktopImage,
+            mobileImage,
+            url: item.url || "",
+            state: item.state || "all",
+            isActive: item.isActive !== false,
+            startDate: item.startDate ? new Date(item.startDate) : null,
+            endDate: item.endDate ? new Date(item.endDate) : null,
+            order: typeof item.order === "number" ? item.order : i,
+          })
+        );
       }
     } else {
       const body = await req.json();
       pageId = body.pageId;
       status = body.status || "active";
-      banners = (body.banners || []).map((b, i) => ({
-        desktopImage: b.desktopImage || "",
-        mobileImage: b.mobileImage || "",
-        url: b.url || "",
-        state: b.state || "all",
-        isActive: b.isActive !== false,
-        startDate: b.startDate ? new Date(b.startDate) : null,
-        endDate: b.endDate ? new Date(b.endDate) : null,
-        order: typeof b.order === "number" ? b.order : i,
-      }));
+      banners = (body.banners || []).map((b, i) =>
+        withBannerId(b, {
+          desktopImage: b.desktopImage || "",
+          mobileImage: b.mobileImage || "",
+          url: b.url || "",
+          state: b.state || "all",
+          isActive: b.isActive !== false,
+          startDate: b.startDate ? new Date(b.startDate) : null,
+          endDate: b.endDate ? new Date(b.endDate) : null,
+          order: typeof b.order === "number" ? b.order : i,
+        })
+      );
     }
 
     if (!pageId) {

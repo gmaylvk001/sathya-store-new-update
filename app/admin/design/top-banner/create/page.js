@@ -1,18 +1,16 @@
 "use client";
 
 /**
- * Create the Home Settings Top Banner carousel, then open the same form.
+ * Create the Home Settings Top Banner carousel, then open its edit table.
  * If one already exists, open its edit page instead.
  */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminLoader from "@/app/admin/components/AdminLoader";
 import { COMPONENT_TYPES } from "@/lib/categoryPageComponents/registry";
-import TopBannerEditor from "../TopBannerEditor";
 
 export default function DesignTopBannerCreatePage() {
   const router = useRouter();
-  const [pageId, setPageId] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -45,12 +43,12 @@ export default function DesignTopBannerCreatePage() {
         }
 
         const instanceId = createdData.instance?.instanceId;
-        if (createdData.alreadyExists && instanceId) {
+        if (instanceId) {
           router.replace(`/admin/design/top-banner/edit/${instanceId}`);
           return;
         }
 
-        if (!cancelled) setPageId(String(data.page._id));
+        throw new Error("Could not open Top Banner");
       } catch (e) {
         if (!cancelled) setError(e.message);
       }
@@ -70,7 +68,5 @@ export default function DesignTopBannerCreatePage() {
     );
   }
 
-  if (!pageId) return <AdminLoader />;
-
-  return <TopBannerEditor pageId={pageId} />;
+  return <AdminLoader />;
 }
