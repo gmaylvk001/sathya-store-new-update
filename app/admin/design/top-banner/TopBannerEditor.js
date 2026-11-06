@@ -19,6 +19,24 @@ const STATE_LABELS = {
   telangana: "Telangana",
 };
 
+const STATE_OPTIONS = [
+  { value: "all", label: "All Regions (Default)" },
+  { value: "karnataka", label: "Karnataka (Unilet)" },
+  { value: "tamilnadu", label: "Tamil Nadu" },
+  { value: "andhra", label: "Andhra Pradesh" },
+  { value: "kerala", label: "Kerala" },
+  { value: "telangana", label: "Telangana" },
+];
+
+const DEALS_STATES = ["kerala", "karnataka", "andhra", "telangana", "tamilnadu"];
+
+function stateFromDealsEmail(email) {
+  const local = String(email || "").split("@")[0].trim().toLowerCase();
+  if (!local.endsWith("deals")) return "";
+  const prefix = local.slice(0, -"deals".length);
+  return DEALS_STATES.includes(prefix) ? prefix : "";
+}
+
 const emptyDraft = () => ({
   _id: "",
   desktopImage: "",
@@ -99,6 +117,10 @@ export default function TopBannerEditor({ pageId }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [popup, setPopup] = useState(null);
+  const [stateFilter, setStateFilter] = useState("");
+  const [accessReady, setAccessReady] = useState(false);
+  const [isDealsRole, setIsDealsRole] = useState(false);
+  const [dealsState, setDealsState] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -119,6 +141,37 @@ export default function TopBannerEditor({ pageId }) {
   useEffect(() => {
     if (pageId) load();
   }, [pageId, load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : "";
+    if (!token) {
+      setAccessReady(true);
+      return undefined;
+    }
+
+    fetch("/api/auth/check", { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const deals = String(data?.roleSlug || "").toLowerCase() === "deals-role";
+        setIsDealsRole(deals);
+        setDealsState(deals ? stateFromDealsEmail(data?.email) : "");
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsDealsRole(false);
+          setDealsState("");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAccessReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const persist = async (nextBanners) => {
     const fd = new FormData();
@@ -156,7 +209,17 @@ export default function TopBannerEditor({ pageId }) {
   const savePopup = async (event) => {
     event.preventDefault();
     if (!popup) return;
-    const draft = popup.draft;
+    const draft = { ...popup.draft };
+    if (isDealsRole) {
+      if (!dealsState) {
+        setPopup((prev) => ({
+          ...prev,
+          error: "Your account email does not include a state.",
+        }));
+        return;
+      }
+      draft.state = dealsState;
+    }
     if (!draft.desktopFile && !draft.desktopImage) {
       setPopup((prev) => ({ ...prev, error: "Desktop image is required." }));
       return;
@@ -171,6 +234,20 @@ export default function TopBannerEditor({ pageId }) {
       setPopup(null);
     } catch (e) {
       setPopup((prev) => ({ ...prev, error: e.message }));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleActive = async (index) => {
+    setSaving(true);
+    setError("");
+    try {
+      const next = banners.map(toDraft);
+      next[index] = { ...next[index], isActive: next[index].isActive === false };
+      await persist(next);
+    } catch (e) {
+      setError(e.message);
     } finally {
       setSaving(false);
     }
@@ -196,9 +273,18 @@ export default function TopBannerEditor({ pageId }) {
     setPopup((prev) => (prev ? { ...prev, draft: { ...prev.draft, ...patch }, error: "" } : prev));
   };
 
-  if (loading) return <AdminLoader />;
+  if (loading || !accessReady) return <AdminLoader />;
 
   const draft = popup?.draft;
+  const stateOptions = isDealsRole
+    ? STATE_OPTIONS.filter((option) => option.value === dealsState)
+    : STATE_OPTIONS;
+  const visibleRows = banners
+    .map((banner, index) => ({ banner, index }))
+    .filter(({ banner }) => {
+      if (isDealsRole) return Boolean(dealsState) && (banner.state || "") === dealsState;
+      return !stateFilter || (banner.state || "all") === stateFilter;
+    });
 
   return (
     <div className="w-full py-4">
@@ -221,12 +307,41 @@ export default function TopBannerEditor({ pageId }) {
           </div>
           <button
             type="button"
-            onClick={() => setPopup({ index: null, draft: emptyDraft(), error: "" })}
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#ED1C24] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#C4161D]"
+            onClick={() =>
+              setPopup({
+                index: null,
+                draft: { ...emptyDraft(), state: isDealsRole ? dealsState || "" : "all" },
+                error: "",
+              })
+            }
+            disabled={isDealsRole && !dealsState}
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-[#ED1C24] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#C4161D] disabled:opacity-50"
           >
             <Icon icon="mdi:plus" /> Add New
           </button>
         </div>
+
+        {!isDealsRole && (
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <label className="text-sm font-medium text-gray-700" htmlFor="top-banner-state-filter">
+              Filter by state
+            </label>
+            <select
+              id="top-banner-state-filter"
+              value={stateFilter}
+              onChange={(e) => setStateFilter(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm sm:w-64"
+            >
+              <option value="">All States</option>
+              <option value="all">All Regions</option>
+              <option value="karnataka">Karnataka</option>
+              <option value="tamilnadu">Tamil Nadu</option>
+              <option value="andhra">Andhra Pradesh</option>
+              <option value="kerala">Kerala</option>
+              <option value="telangana">Telangana</option>
+            </select>
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -235,37 +350,80 @@ export default function TopBannerEditor({ pageId }) {
         )}
 
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <table className="w-full min-w-[1160px] table-fixed text-sm">
+            <colgroup>
+              <col className="w-16" />
+              <col className="w-[280px]" />
+              <col className="w-36" />
+              <col className="w-44" />
+              <col className="w-44" />
+              <col className="w-36" />
+              <col className="w-28" />
+            </colgroup>
             <thead>
               <tr className="border-b text-left text-gray-500">
-                <th className="px-3 py-2 font-semibold">Id</th>
+                <th className="px-3 py-2 font-semibold">SNO</th>
+                <th className="px-3 py-2 font-semibold">Desktop Image</th>
                 <th className="px-3 py-2 font-semibold">State</th>
                 <th className="px-3 py-2 font-semibold">Start date</th>
                 <th className="px-3 py-2 font-semibold">End date</th>
+                <th className="px-3 py-2 font-semibold">Status</th>
                 <th className="px-3 py-2 font-semibold text-right">Action</th>
               </tr>
             </thead>
             <tbody>
-              {banners.length === 0 ? (
+              {visibleRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-10 text-center text-gray-500">
-                    No banners yet. Click Add New to create one.
+                  <td colSpan={7} className="px-3 py-10 text-center text-gray-500">
+                    {isDealsRole && !dealsState
+                      ? "Your account email does not include a state."
+                      : banners.length === 0
+                        ? "No banners yet. Click Add New to create one."
+                        : "No banners for this state."}
                   </td>
                 </tr>
               ) : (
-                banners.map((banner, index) => (
+                visibleRows.map(({ banner, index }, rowIndex) => (
                   <tr key={banner._id || index} className="border-b last:border-0">
-                    <td className="px-3 py-3 font-mono text-xs text-gray-700 break-all">
-                      {banner._id ? String(banner._id) : "—"}
+                    <td className="px-3 py-3 text-gray-700">{rowIndex + 1}</td>
+                    <td className="px-3 py-3">
+                      {banner.desktopImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={banner.desktopImage}
+                          alt=""
+                          className="block h-auto w-full max-w-[71%] rounded border bg-gray-100 object-contain"
+                        />
+                      ) : (
+                        <span className="inline-flex h-16 w-full items-center justify-center rounded border bg-gray-50 text-[11px] text-gray-400">
+                          No image
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-gray-800">
                       {STATE_LABELS[banner.state] || banner.state || "All Regions"}
                     </td>
-                    <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-700">
                       {formatTableDate(banner.startDate)}
                     </td>
-                    <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap text-gray-700">
                       {formatTableDate(banner.endDate)}
+                    </td>
+                    <td className="px-3 py-3">
+                      <label className="relative inline-flex cursor-pointer items-center">
+                        <input
+                          type="checkbox"
+                          checked={banner.isActive !== false}
+                          onChange={() => toggleActive(index)}
+                          disabled={saving}
+                          className="peer sr-only"
+                          aria-label={banner.isActive !== false ? "Active" : "Inactive"}
+                        />
+                        <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:bg-[#ED1C24] peer-checked:after:translate-x-full peer-disabled:opacity-50" />
+                      </label>
+                      <span className="mt-1 block text-[11px] text-gray-500">
+                        {banner.isActive !== false ? "Active" : "Inactive"}
+                      </span>
                     </td>
                     <td className="px-3 py-3 text-right whitespace-nowrap">
                       <button
@@ -409,16 +567,18 @@ export default function TopBannerEditor({ pageId }) {
                   Target Region / State
                 </label>
                 <select
-                  value={draft.state || "all"}
-                  onChange={(e) => updateDraft({ state: e.target.value })}
+                  value={isDealsRole ? dealsState : draft.state || "all"}
+                  onChange={(e) => {
+                    if (isDealsRole) return;
+                    updateDraft({ state: e.target.value });
+                  }}
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                 >
-                  <option value="all">All Regions (Default)</option>
-                  <option value="karnataka">Karnataka (Unilet)</option>
-                  <option value="tamilnadu">Tamil Nadu</option>
-                  <option value="andhra">Andhra Pradesh</option>
-                  <option value="kerala">Kerala</option>
-                  <option value="telangana">Telangana</option>
+                  {stateOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>

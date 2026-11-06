@@ -48,6 +48,7 @@ export async function GET(req) {
       // Used by AdminSider (Sathya mode) for role-based menu show/hide
       unrestricted: Boolean(access.unrestricted),
       hasRole: Boolean(access.hasRole),
+      roleSlug: access.roleSlug || "",
       permissions: access.permissions || [],
       modules: access.modules || [],
     }, { status: 200 });
