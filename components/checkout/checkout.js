@@ -1320,7 +1320,10 @@ export default function CheckoutPage() {
         const res = await fetch('/api/store_listings/get');
         const json = await res.json();
         const rawList = Array.isArray(json) ? json : (json?.data || []);
-        const cleanList = rawList.map((s) => {
+        // Checkout pickup: only approved stores (approved = 1)
+        const cleanList = rawList
+          .filter((s) => Number(s?.approved) === 1)
+          .map((s) => {
           const cleanVal = (v) => {
             if (typeof v !== 'string') return v;
             const t = v.trim();
@@ -1391,6 +1394,7 @@ export default function CheckoutPage() {
   const currentSt = currentShipping?.state || formData.state || '';
 
   const pickupStores = stores.filter((store) => {
+    if (Number(store?.approved) !== 1) return false;
     const owner = String(store.store_owner || '').trim().toLowerCase();
     return isHeaderKarnataka ? owner === 'unilet' : owner === 'sathya';
   });
