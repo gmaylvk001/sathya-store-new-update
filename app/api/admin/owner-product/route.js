@@ -52,10 +52,60 @@ export async function GET(req) {
       return NextResponse.json({ success: true, data: doc || null, region });
     }
 
-    // List all Unilet products
-    let listQuery = { owner_id: "unilet" };
+    // List Unilet products
+    const listQuery = { owner_id: "unilet" };
     if (reqRegion && reqRegion !== "all") {
       listQuery.region = normalizeRegion(reqRegion);
+    }
+
+    // Paginated list for Unilet Products admin page (?page=&limit=)
+    // Without page/limit, keep full list for other callers (e.g. Product List flags).
+    const pageRaw = searchParams.get("page");
+    const limitRaw = searchParams.get("limit");
+    const wantsPagination = pageRaw != null || limitRaw != null;
+
+    if (wantsPagination) {
+      const page = Math.max(1, parseInt(pageRaw || "1", 10) || 1);
+      const limit = Math.max(1, Math.min(100, parseInt(limitRaw || "25", 10) || 25));
+      const skip = (page - 1) * limit;
+      const LIST_POPULATE = "name slug price special_price quantity item_code";
+
+      if (searchQuery) {
+        const escaped = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(escaped, "i");
+        const matchingProducts = await Product.find({
+          $or: [{ name: regex }, { item_code: regex }],
+        })
+          .select("_id")
+          .lean()
+          .limit(500);
+        const productIds = matchingProducts.map((p) => p._id);
+        listQuery.$or = [
+          { product_item_code: regex },
+          { vendor_item_code: regex },
+          { vendor_product_name: regex },
+          ...(productIds.length ? [{ product_id: { $in: productIds } }] : []),
+        ];
+      }
+
+      const [list, count] = await Promise.all([
+        OwnerProduct.find(listQuery)
+          .populate("product_id", LIST_POPULATE)
+          .sort({ updatedAt: -1 })
+          .skip(skip)
+          .limit(limit)
+          .lean(),
+        OwnerProduct.countDocuments(listQuery),
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        count,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(count / limit)),
+        data: list,
+      });
     }
 
     let list = await OwnerProduct.find(listQuery)

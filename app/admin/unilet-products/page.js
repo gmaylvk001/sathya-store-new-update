@@ -8,6 +8,9 @@ import AdminLoader from '@/app/admin/components/AdminLoader';
 export default function UniletProductsPage() {
   const [products, setProducts] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageSize] = useState(25);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
@@ -67,22 +70,27 @@ export default function UniletProductsPage() {
     }, 4000);
   };
 
-  // Fetch Unilet products from API
-  const fetchUniletProducts = async (searchTerm = '') => {
+  // Fetch Unilet products from API (paginated — Unilet Products module only)
+  const fetchUniletProducts = async (searchTerm = activeSearch, page = currentPage) => {
     try {
       setIsLoading(true);
-      const url = searchTerm
-        ? `/api/admin/owner-product?search=${encodeURIComponent(searchTerm)}`
-        : `/api/admin/owner-product`;
-      const res = await fetch(url);
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(pageSize),
+      });
+      if (searchTerm) params.set('search', searchTerm);
+      const res = await fetch(`/api/admin/owner-product?${params.toString()}`);
       const result = await res.json();
 
       if (result.success && Array.isArray(result.data)) {
         setProducts(result.data);
         setTotalCount(result.count ?? result.data.length);
+        setTotalPages(result.totalPages || 1);
+        setCurrentPage(result.page || page);
       } else {
         setProducts([]);
         setTotalCount(0);
+        setTotalPages(1);
       }
       setSelectedIds([]);
     } catch (err) {
@@ -94,20 +102,28 @@ export default function UniletProductsPage() {
   };
 
   useEffect(() => {
-    fetchUniletProducts();
+    fetchUniletProducts('', 1);
   }, []);
 
   const handleSearch = (e) => {
     if (e) e.preventDefault();
     const query = searchQuery.trim();
     setActiveSearch(query);
-    fetchUniletProducts(query);
+    setCurrentPage(1);
+    fetchUniletProducts(query, 1);
   };
 
   const handleClear = () => {
     setSearchQuery('');
     setActiveSearch('');
-    fetchUniletProducts('');
+    setCurrentPage(1);
+    fetchUniletProducts('', 1);
+  };
+
+  const handlePageChange = (page) => {
+    const next = Math.max(1, Math.min(totalPages, page));
+    setCurrentPage(next);
+    fetchUniletProducts(activeSearch, next);
   };
 
   // Open Edit Modal for a specific row
@@ -216,7 +232,9 @@ export default function UniletProductsPage() {
       const data = await res.json();
       if (data.success) {
         showToast('Unilet product removed successfully');
-        fetchUniletProducts(activeSearch);
+        const nextPage = products.length <= 1 && currentPage > 1 ? currentPage - 1 : currentPage;
+        setCurrentPage(nextPage);
+        fetchUniletProducts(activeSearch, nextPage);
       } else {
         showToast(data.message || 'Failed to delete record', 'error');
       }
@@ -683,7 +701,7 @@ export default function UniletProductsPage() {
 
                       {/* ID */}
                       <td className="py-3 px-3 text-center text-gray-500 font-medium text-xs">
-                        {index + 1}
+                        {(currentPage - 1) * pageSize + index + 1}
                       </td>
 
                       {/* Product ID */}
@@ -775,6 +793,44 @@ export default function UniletProductsPage() {
             </tbody>
           </table>
         </div>
+
+        {!isLoading && totalCount > 0 && (
+          <div className="flex flex-col gap-3 border-t border-gray-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-xs text-gray-600">
+              Showing{' '}
+              <span className="font-semibold text-gray-800">
+                {(currentPage - 1) * pageSize + 1}
+              </span>
+              {' '}to{' '}
+              <span className="font-semibold text-gray-800">
+                {Math.min(currentPage * pageSize, totalCount)}
+              </span>
+              {' '}of{' '}
+              <span className="font-semibold text-gray-800">{totalCount}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage <= 1 || isLoading}
+                className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-gray-600">
+                Page {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage >= totalPages || isLoading}
+                className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* EDIT INVENTORY MODAL */}
