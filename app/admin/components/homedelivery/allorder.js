@@ -39,6 +39,7 @@ const OrdersTable = () => {
   const storesForOrder = (order, storeList = stores) => {
     const uniletOrder = String(order?.order_owner || "").trim().toLowerCase() === "unilet";
     return storeList.filter((store) => {
+      if (Number(store?.approved) !== 1) return false;
       const owner = String(store?.store_owner || "").trim().toLowerCase();
       return uniletOrder ? owner === "unilet" : owner !== "unilet";
     });

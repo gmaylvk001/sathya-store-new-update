@@ -40,6 +40,7 @@ const OrderDetails = () => {
   const [submittingRefund, setSubmittingRefund] = useState(false);
   const isUniletOrder = String(order?.order_owner || "").trim().toLowerCase() === "unilet";
   const assignableStores = stores.filter((store) => {
+    if (Number(store?.approved) !== 1) return false;
     const owner = String(store?.store_owner || "").trim().toLowerCase();
     return isUniletOrder ? owner === "unilet" : owner !== "unilet";
   });
@@ -359,6 +360,7 @@ const OrderDetails = () => {
     const currentCode = String(order.pickup_type || "").trim();
     const matched = currentCode
       ? stores.find((store) => {
+          if (Number(store?.approved) !== 1) return false;
           const owner = String(store?.store_owner || "").trim().toLowerCase();
           const sameOwner = uniletOrder ? owner === "unilet" : owner !== "unilet";
           return sameOwner && storeBranchCode(store) === currentCode;
